@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { Driver, Vehicle, VehicleType } from "../constants/types";
-import { getSeatsForType } from "../constants/vehicles";
+import { getSeatsForType, getSeatsForModel } from "../constants/vehicles";
 
 export const DriversAPI = {
   async getMe(): Promise<Driver | null> {
@@ -29,7 +29,8 @@ export const DriversAPI = {
   async addVehicle(vehicle: { type: VehicleType; make: string; model: string; year: number; plate: string }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Not authenticated" };
-    const seats = getSeatsForType(vehicle.type);
+    const modelSeats = getSeatsForModel(vehicle.make, vehicle.model);
+    const seats = modelSeats || getSeatsForType(vehicle.type);
     const { data, error } = await supabase
       .from("vehicles").insert({ ...vehicle, driver_id: user.id, seats }).select().single();
     return { data, error: error?.message };

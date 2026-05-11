@@ -5,7 +5,7 @@ import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { VehicleType } from "../../constants/types";
-import { getSeatsForType } from "../../constants/vehicles";
+import { getSeatsForType, getSeatsForModel } from "../../constants/vehicles";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 
 // Seat count by vehicle type keywords
@@ -112,7 +112,8 @@ export default function VehicleSetupScreen() {
     search ? list.filter(i => i.toLowerCase().includes(search.toLowerCase())) : list;
 
   const detectedType  = make && model ? detectType(make, model) : "sedan";
-  const seats         = getSeatsForType(detectedType);
+  const modelSeats    = make && model ? getSeatsForModel(make, model) : 0;
+  const seats         = modelSeats || getSeatsForType(detectedType);
 
   const handleSave = async () => {
     if (!plate.trim()) { setError("Please enter your plate number"); return; }
