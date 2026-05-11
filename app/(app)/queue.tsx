@@ -158,7 +158,8 @@ export default function QueueScreen() {
 
   const renderEntry = (entry: QueueEntry, idx: number) => {
     const vehicle  = entry.vehicle;
-    const seats    = vehicle?.seats || 4;
+    const totalSeats = vehicle?.seats || 4;
+    const seats      = Math.max(totalSeats - 1, 1); // exclude driver
     const boarded  = entry.seats_boarded || 0;
     const isMe     = entry.driver_id === myId;
     const states   = (entry.seat_states as string[]) || [];

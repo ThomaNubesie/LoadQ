@@ -15,7 +15,8 @@ export default function MyLoadingScreen() {
   const router     = useRouter();
   const { t }  = useStrings();
   const [entry,   setEntry]   = useState<QueueEntry|null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading,  setLoading]  = useState(true);
+  const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -29,6 +30,22 @@ export default function MyLoadingScreen() {
     load();
   }, []);
 
+  // Countdown timer
+  useEffect(() => {
+    if (!entry?.load_deadline) return;
+    const tick = () => {
+      const diff = new Date(entry.load_deadline!).getTime() - Date.now();
+      if (diff <= 0) { setTimeLeft("Expired"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [entry?.load_deadline]);
+
   const handleSeatTap = async (idx: number) => {
     if (!entry) return;
     const states = [...((entry.seat_states as SeatStatus[]) || Array(entry.vehicle?.seats || 4).fill("empty"))];
@@ -39,7 +56,8 @@ export default function MyLoadingScreen() {
     setEntry({ ...entry, seat_states: states, seats_boarded: boarded });
   };
 
-  const seats   = entry?.vehicle?.seats || 4;
+  const totalSeats     = entry?.vehicle?.seats || 4;
+  const seats          = Math.max(totalSeats - 1, 1); // exclude driver
   const states  = (entry?.seat_states as SeatStatus[]) || Array(seats).fill("empty");
   const boarded = states.filter(s => s === "boarded" || s === "locked").length;
   const locked  = entry?.seats_locked || 0;
@@ -69,8 +87,15 @@ export default function MyLoadingScreen() {
               <Text style={s.carSub}>{entry.vehicle?.plate} · Slot #{entry.position}</Text>
             </View>
 
+            {timeLeft ? (
+              <View style={s.timerRow}>
+                <Text style={s.timerLabel}>⏱ Session expires in</Text>
+                <Text style={[s.timerVal, timeLeft === "Expired" && { color:Colors.red }]}>{timeLeft}</Text>
+              </View>
+            ) : null}
             <View style={s.countRow}>
               <Text style={s.countMain}>{boarded} / {seats}</Text>
+          <Text style={s.countLabel}>passenger seats (driver excluded)</Text>
               <Text style={s.countLabel}>{t.boarded}</Text>
             </View>
 
@@ -145,6 +170,9 @@ const s = StyleSheet.create({
   legend:      { flexDirection:"row", gap:16, justifyContent:"center", marginBottom:20 },
   legendItem:  { flexDirection:"row", alignItems:"center", gap:6 },
   legendText:  { color:Colors.t3, fontSize:11 },
+  timerRow:    { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.card, borderRadius:8, padding:10, marginBottom:12, borderWidth:0.5, borderColor:Colors.border },
+  timerLabel:  { color:Colors.t2, fontSize:12 },
+  timerVal:    { color:Colors.accent, fontSize:14, fontWeight:"700" },
   lockedBar:   { backgroundColor:Colors.accent+"12", borderRadius:8, padding:10, marginBottom:8, borderWidth:0.5, borderColor:Colors.accent+"30" },
   lockedText:  { color:Colors.accent, fontSize:12, textAlign:"center" },
   pendingBar:  { backgroundColor:Colors.yellow+"12", borderRadius:8, padding:10, borderWidth:0.5, borderColor:Colors.yellow+"30" },

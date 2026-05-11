@@ -18,9 +18,19 @@ export const QueueAPI = {
       .from("queue_entries").select("position").eq("zone_id", zoneId)
       .order("position", { ascending: false }).limit(1);
     const position = entries?.[0]?.position ? entries[0].position + 1 : 1;
+    const loadDeadline = new Date();
+    loadDeadline.setHours(loadDeadline.getHours() + 2);
+
     const { data, error } = await supabase
       .from("queue_entries")
-      .insert({ zone_id: zoneId, driver_id: user.id, vehicle_id: vehicleId, position, status: "waiting" })
+      .insert({
+        zone_id:       zoneId,
+        driver_id:     user.id,
+        vehicle_id:    vehicleId,
+        position,
+        status:        "waiting",
+        load_deadline: loadDeadline.toISOString(),
+      })
       .select().single();
     return { data, error: error?.message };
   },
