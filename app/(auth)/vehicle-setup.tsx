@@ -10,11 +10,45 @@ import { getVehicleImageUrl } from "../../utils/vehicleImage";
 
 // Seat count by vehicle type keywords
 function detectType(make: string, model: string): VehicleType {
-  const m = (make + " " + model).toLowerCase();
-  if (m.includes("hiace") || m.includes("urvan") || m.includes("sprinter") || m.includes("transit") || m.includes("express") || m.includes("savana")) return "minibus";
-  if (m.includes("coaster") || m.includes("econoline") || m.includes("e-series")) return "van";
-  if (m.includes("suburban") || m.includes("tahoe") || m.includes("expedition") || m.includes("sequoia") || m.includes("land cruiser") || m.includes("pilot") || m.includes("odyssey") || m.includes("sienna") || m.includes("armada") || m.includes("yukon")) return "suv";
-  if (m.includes("explorer") || m.includes("4runner") || m.includes("pathfinder") || m.includes("prado") || m.includes("pajero") || m.includes("fortuner") || m.includes("rav4") || m.includes("cr-v") || m.includes("escape") || m.includes("equinox") || m.includes("cherokee")) return "suv";
+  const mk = make.toLowerCase();
+  const m  = (make + " " + model).toLowerCase();
+
+  // Minibus / large vans
+  if (m.includes("hiace") || m.includes("urvan") || m.includes("sprinter") ||
+      m.includes("transit") || m.includes("express") || m.includes("savana") ||
+      m.includes("nv350") || m.includes("nv2500") || m.includes("master")) return "minibus";
+
+  // Vans
+  if (m.includes("coaster") || m.includes("econoline") || m.includes("e-series") ||
+      m.includes("nv200") || m.includes("metris") || m.includes("promaster")) return "van";
+
+  // SUVs — by model name
+  if (m.includes("q7") || m.includes("q8") || m.includes("q5") ||           // Audi
+      m.includes("x5") || m.includes("x6") || m.includes("x7") ||           // BMW
+      m.includes("gle") || m.includes("gls") || m.includes("gla") ||        // Mercedes
+      m.includes("suburban") || m.includes("tahoe") || m.includes("yukon") ||
+      m.includes("expedition") || m.includes("navigator") ||
+      m.includes("sequoia") || m.includes("4runner") || m.includes("land cruiser") ||
+      m.includes("highlander") || m.includes("prado") || m.includes("fortuner") ||
+      m.includes("pilot") || m.includes("passport") || m.includes("ridgeline") ||
+      m.includes("pathfinder") || m.includes("armada") || m.includes("murano") ||
+      m.includes("explorer") || m.includes("edge") || m.includes("bronco") ||
+      m.includes("cherokee") || m.includes("grand cherokee") || m.includes("wrangler") ||
+      m.includes("durango") || m.includes("traverse") || m.includes("equinox") ||
+      m.includes("blazer") || m.includes("escalade") || m.includes("xt6") ||
+      m.includes("telluride") || m.includes("sorento") || m.includes("carnival") ||
+      m.includes("santa fe") || m.includes("palisade") || m.includes("tucson") ||
+      m.includes("pajero") || m.includes("outlander") || m.includes("montero") ||
+      m.includes("cx-9") || m.includes("cx-5") || m.includes("cx-7") ||
+      m.includes("forester") || m.includes("outback") || m.includes("ascent") ||
+      m.includes("model x") || m.includes("cybertruck") ||
+      m.includes("rav4") || m.includes("cr-v") || m.includes("escape") ||
+      m.includes("sienna") || m.includes("odyssey") || m.includes("pacifica")) return "suv";
+
+  // SUVs — by make (all models from these brands default to suv)
+  if (mk.includes("jeep") || mk.includes("land rover") || mk.includes("range rover") ||
+      mk.includes("hummer") || mk.includes("rivian")) return "suv";
+
   return "sedan";
 }
 
