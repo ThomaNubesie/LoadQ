@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -14,6 +14,7 @@ const DEMO_ZONE_ID = "00000000-0000-0000-0000-000000000001";
 
 export default function QueueScreen() {
   const router = useRouter();
+  const { zoneName } = useLocalSearchParams<{ zoneName?: string }>();
   const { t }  = useStrings();
   const [entries,    setEntries]    = useState<QueueEntry[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -114,7 +115,7 @@ export default function QueueScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <View>
-          <Text style={s.headerTitle}>Gare Routière Nord</Text>
+          <Text style={s.headerTitle}>{zoneName || "Queue"}</Text>
           <View style={s.liveRow}>
             <View style={s.liveDot} />
             <Text style={s.liveText}>{t.zoneActive} · {entries.length} drivers</Text>

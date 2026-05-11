@@ -8,7 +8,7 @@ export default function Index() {
   const router = useRouter();
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace("/(app)/queue");
+      if (session) router.replace("/(app)/zone-select");
       else router.replace("/(auth)/language");
     });
   }, []);

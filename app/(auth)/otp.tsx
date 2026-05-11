@@ -53,7 +53,7 @@ export default function OTPScreen() {
       router.replace("/(auth)/profile-setup");
     } else {
       const hasSub = await DriversAPI.hasActiveSubscription();
-      router.replace(hasSub ? "/(app)/queue" : "/(auth)/subscribe");
+      router.replace(hasSub ? "/(app)/zone-select" : "/(auth)/subscribe");
     }
   };
 

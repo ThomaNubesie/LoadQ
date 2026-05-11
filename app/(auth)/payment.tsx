@@ -32,7 +32,7 @@ export default function PaymentScreen() {
       subscription_ends_at: subEnd.toISOString(),
     });
     setLoading(false);
-    router.replace("/(app)/queue");
+    router.replace("/(app)/zone-select");
   };
 
   const trialEndDate = new Date();
