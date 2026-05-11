@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { AuthAPI } from "../../services/auth";
+import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
@@ -9,7 +9,7 @@ import { Colors } from "../../constants/colors";
 export default function OTPScreen() {
   const router = useRouter();
   const { t }  = useStrings();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, isEmail } = useLocalSearchParams<{ phone: string; isEmail?: string }>();
   const [otp,     setOtp]     = useState(["","","","","",""]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
@@ -33,17 +33,24 @@ export default function OTPScreen() {
     if (code.length !== 6) return;
     setLoading(true);
     setError("");
-    const { user, error: err } = await AuthAPI.verifyOTP(phone, code);
-    if (err || !user) { setError(err || "Invalid code"); setLoading(false); return; }
+
+    let verifyError = null;
+    if (isEmail === "true") {
+      const { error } = await supabase.auth.verifyOtp({ email: phone, token: code, type: "email" });
+      verifyError = error;
+    } else {
+      const { error } = await supabase.auth.verifyOtp({ phone, token: code, type: "sms" });
+      verifyError = error;
+    }
+
+    if (verifyError) { setError(verifyError.message); setLoading(false); return; }
 
     const driver = await DriversAPI.getMe();
     setLoading(false);
 
-    // New user — no name set yet, go through full registration
     if (!driver || !driver.full_name) {
       router.replace("/(auth)/profile-setup");
     } else {
-      // Existing user — check subscription
       const hasSub = await DriversAPI.hasActiveSubscription();
       router.replace(hasSub ? "/(app)/queue" : "/(auth)/subscribe");
     }
@@ -57,7 +64,7 @@ export default function OTPScreen() {
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         <Text style={s.title}>{t.verifyCode}</Text>
-        <Text style={s.sub}>{t.codeSentTo}{" "}<Text style={{ color: Colors.accent }}>{phone}</Text></Text>
+        <Text style={s.sub}>{t.codeSentTo}{" "}<Text style={{ color:Colors.accent }}>{phone}</Text></Text>
 
         <View style={s.otpRow}>
           {otp.map((digit, i) => (
