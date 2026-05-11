@@ -1,7 +1,6 @@
 {
   "cli": {
-    "version": ">= 18.11.0",
-    "appVersionSource": "remote"
+    "version": ">= 16.0.0"
   },
   "build": {
     "development": {
@@ -11,13 +10,18 @@
     "preview": {
       "distribution": "internal",
       "node": "20.19.4",
-      "npm": "10.8.2",
-      "config": {
-        "enableDependencyCaching": false
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
-      "autoIncrement": true
+      "distribution": "store",
+      "android": {
+        "buildType": "aab"
+      }
     }
   },
   "submit": {
