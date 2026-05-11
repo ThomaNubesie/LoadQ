@@ -52,9 +52,13 @@ export const QueueAPI = {
   },
 
   subscribeToZone(zoneId: string, callback: (payload: any) => void) {
-    return supabase
-      .channel("zone-" + zoneId)
+    const channelName = "zone-" + zoneId + "-" + Date.now();
+    const channel = supabase
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "queue_entries", filter: "zone_id=eq." + zoneId }, callback)
       .subscribe();
+    return {
+      unsubscribe: () => supabase.removeChannel(channel),
+    };
   },
 };
