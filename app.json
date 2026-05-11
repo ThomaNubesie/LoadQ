@@ -47,6 +47,10 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ]
   }
 }
