@@ -1,13 +1,14 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function AlertsScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(app)/zone-select"); };
+  const goBack = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/zone-select"); };
   const { t }  = useStrings();
 
   return (

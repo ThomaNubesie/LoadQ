@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { AuthAPI } from "../../services/auth";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings, setLang } from "../../hooks/useStrings";
@@ -13,6 +14,8 @@ import { VEHICLE_TYPES } from "../../constants/vehicles";
 
 export default function ProfileScreen() {
   const router      = useRouter();
+  const navigation = useNavigation();
+  const goBack = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/zone-select"); };
   const { t, lang } = useStrings();
   const [driver,   setDriver]   = useState<Driver|null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);

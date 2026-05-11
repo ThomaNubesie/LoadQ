@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function SubscribeScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/email-setup"); };
+  const goBack = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/email-setup"); };
   const { t }  = useStrings();
   const [plan, setPlan] = useState<"annual"|"monthly">("annual");
 

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { QueueAPI } from "../../services/queue";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -14,7 +15,7 @@ const DEMO_ZONE_ID = "00000000-0000-0000-0000-000000000001";
 export default function MyLoadingScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(app)/zone-select"); };
+  const goBack = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/zone-select"); };
   const { t }  = useStrings();
   const [entry,   setEntry]   = useState<QueueEntry|null>(null);
   const [loading, setLoading] = useState(true);

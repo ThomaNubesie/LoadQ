@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
@@ -11,7 +12,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export default function EmailSetupScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/vehicle-setup"); };
+  const goBack = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/vehicle-setup"); };
   const { t }  = useStrings();
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);

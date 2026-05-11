@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -10,7 +11,7 @@ import { Colors } from "../../constants/colors";
 export default function ProfileSetupScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/sign-in"); };
+  const goBack = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/sign-in"); };
   const { t }  = useStrings();
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
