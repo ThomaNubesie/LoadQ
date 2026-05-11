@@ -30,6 +30,9 @@ export default function QueueScreen() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropRegion,   setDropRegion]   = useState<RegionCode>("ottawa");
   const [userCoords,   setUserCoords]   = useState<{lat:number,lon:number}|null>(null);
+  const [joining,      setJoining]      = useState(false);
+  const [joinError,    setJoinError]    = useState("");
+  const [myEntry,      setMyEntry]      = useState<QueueEntry|null>(null);
 
   // Resolve active zone from params or GPS
   const resolveZone = (lat: number, lon: number) => {
@@ -79,15 +82,57 @@ export default function QueueScreen() {
 
   useEffect(() => { load(); }, []);
 
+  const handleJoinQueue = async () => {
+    if (!activeZone || !myVehicle) return;
+    setJoinError("");
+
+    // Check if already in queue
+    if (myEntry) { setJoinError("You are already in this queue"); return; }
+
+    // Check geo-fence
+    if (userCoords) {
+      const dist = getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude);
+      const allowedRadius = activeZone.radius_meters / 1000;
+      if (dist > allowedRadius) {
+        setJoinError("You must be within " + activeZone.radius_meters + "m of this zone to join. Drive to " + activeZone.name + " first.");
+        return;
+      }
+    } else {
+      setJoinError("Location required to join. Please enable GPS.");
+      return;
+    }
+
+    setJoining(true);
+    const { error } = await QueueAPI.joinQueue(activeZone.id, myVehicle.id);
+    setJoining(false);
+    if (error) { setJoinError(error); return; }
+    QueueAPI.getZoneQueue(activeZone.id).then(q => {
+      setEntries(q);
+      const me = q.find(e => e.driver_id === myId);
+      setMyEntry(me || null);
+    });
+  };
+
   // Load queue when activeZone changes
   useEffect(() => {
     if (!activeZone) return;
-    QueueAPI.getZoneQueue(activeZone.id).then(setEntries);
+    QueueAPI.getZoneQueue(activeZone.id).then(q => {
+      setEntries(q);
+    });
     const sub = QueueAPI.subscribeToZone(activeZone.id, () => {
-      QueueAPI.getZoneQueue(activeZone.id).then(setEntries);
+      QueueAPI.getZoneQueue(activeZone.id).then(q => {
+        setEntries(q);
+      });
     });
     return () => { sub.unsubscribe(); };
   }, [activeZone?.id]);
+
+  // Track my entry
+  useEffect(() => {
+    if (myId && entries.length > 0) {
+      setMyEntry(entries.find(e => e.driver_id === myId) || null);
+    }
+  }, [entries, myId]);
 
   const statusColor = (status: string) => {
     if (status === "loading")     return Colors.accent;
@@ -191,10 +236,26 @@ export default function QueueScreen() {
             <Text style={s.vehicleBannerSub}>{myVehicle.plate} · {myVehicle.seats} seats</Text>
           </View>
           {isMyRegion && (
-            <TouchableOpacity style={s.joinBtn} onPress={() => router.replace("/(app)/my-loading")} activeOpacity={0.85}>
-              <Text style={s.joinBtnText}>My loading →</Text>
-            </TouchableOpacity>
+            myEntry ? (
+              <TouchableOpacity style={s.joinBtn} onPress={() => router.replace("/(app)/my-loading")} activeOpacity={0.85}>
+                <Text style={s.joinBtnText}>#{myEntry.position} · Loading →</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={[s.joinBtn, s.joinBtnPrimary]} onPress={handleJoinQueue} disabled={joining} activeOpacity={0.85}>
+                <Text style={[s.joinBtnText, { color: Colors.accentText }]}>{joining ? "Joining..." : "Join queue"}</Text>
+              </TouchableOpacity>
+            )
           )}
+        </View>
+      )}
+
+      {/* Join error */}
+      {!!joinError && (
+        <View style={s.geoError}>
+          <Text style={s.geoErrorText}>📍 {joinError}</Text>
+          <TouchableOpacity onPress={() => setJoinError("")}>
+            <Text style={{ color:Colors.t3, fontSize:16 }}>✕</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -361,4 +422,7 @@ const s = StyleSheet.create({
   zoneRowDist:        { fontSize:11, color:Colors.accent, marginTop:3 },
   activeTag:          { fontSize:10, color:Colors.accent, fontWeight:"700" },
   watchOnlyTag:       { fontSize:10, color:Colors.yellow },
+  joinBtnPrimary:     { backgroundColor:Colors.accent, borderColor:Colors.accent },
+  geoError:           { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.red+"15", borderLeftWidth:3, borderLeftColor:Colors.red, marginHorizontal:16, marginBottom:8, padding:12, borderRadius:8 },
+  geoErrorText:       { flex:1, color:Colors.red, fontSize:12, lineHeight:18 },
 });
