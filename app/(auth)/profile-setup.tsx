@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
+import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
@@ -26,7 +27,12 @@ export default function ProfileSetupScreen() {
   const handleNext = async () => {
     if (!firstName.trim() || !lastName.trim()) { setError("Please enter your full name"); return; }
     setLoading(true);
-    await DriversAPI.createOrUpdate({ full_name: `${firstName.trim()} ${lastName.trim()}` });
+    // Get auth user to ensure driver row has correct phone/email
+    const { data: { user } } = await supabase.auth.getUser();
+    await DriversAPI.createOrUpdate({
+      full_name: `${firstName.trim()} ${lastName.trim()}`,
+      phone: user?.phone || user?.email || "",
+    });
     setLoading(false);
     router.push("/(auth)/vehicle-setup");
   };

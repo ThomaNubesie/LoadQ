@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Image, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
@@ -9,52 +10,38 @@ import { VehicleType } from "../../constants/types";
 import { getSeatsForType, getSeatsForModel } from "../../constants/vehicles";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 
-// Seat count by vehicle type keywords
-function detectType(make: string, model: string): VehicleType {
-  const mk = make.toLowerCase();
-  const m  = (make + " " + model).toLowerCase();
-
-  // Minibus / large vans
-  if (m.includes("hiace") || m.includes("urvan") || m.includes("sprinter") ||
-      m.includes("transit") || m.includes("express") || m.includes("savana") ||
-      m.includes("nv350") || m.includes("nv2500") || m.includes("master")) return "minibus";
-
-  // Vans
-  if (m.includes("coaster") || m.includes("econoline") || m.includes("e-series") ||
-      m.includes("nv200") || m.includes("metris") || m.includes("promaster")) return "van";
-
-  // SUVs — by model name
-  if (m.includes("q7") || m.includes("q8") || m.includes("q5") ||           // Audi
-      m.includes("x5") || m.includes("x6") || m.includes("x7") ||           // BMW
-      m.includes("gle") || m.includes("gls") || m.includes("gla") ||        // Mercedes
-      m.includes("suburban") || m.includes("tahoe") || m.includes("yukon") ||
-      m.includes("expedition") || m.includes("navigator") ||
-      m.includes("sequoia") || m.includes("4runner") || m.includes("land cruiser") ||
-      m.includes("highlander") || m.includes("prado") || m.includes("fortuner") ||
-      m.includes("pilot") || m.includes("passport") || m.includes("ridgeline") ||
-      m.includes("pathfinder") || m.includes("armada") || m.includes("murano") ||
-      m.includes("explorer") || m.includes("edge") || m.includes("bronco") ||
-      m.includes("cherokee") || m.includes("grand cherokee") || m.includes("wrangler") ||
-      m.includes("durango") || m.includes("traverse") || m.includes("equinox") ||
-      m.includes("blazer") || m.includes("escalade") || m.includes("xt6") ||
-      m.includes("telluride") || m.includes("sorento") || m.includes("carnival") ||
-      m.includes("santa fe") || m.includes("palisade") || m.includes("tucson") ||
-      m.includes("pajero") || m.includes("outlander") || m.includes("montero") ||
-      m.includes("cx-9") || m.includes("cx-5") || m.includes("cx-7") ||
-      m.includes("forester") || m.includes("outback") || m.includes("ascent") ||
-      m.includes("model x") || m.includes("cybertruck") ||
-      m.includes("rav4") || m.includes("cr-v") || m.includes("escape") ||
-      m.includes("sienna") || m.includes("odyssey") || m.includes("pacifica")) return "suv";
-
-  // SUVs — by make (all models from these brands default to suv)
-  if (mk.includes("jeep") || mk.includes("land rover") || mk.includes("range rover") ||
-      mk.includes("hummer") || mk.includes("rivian")) return "suv";
-
-  return "sedan";
-}
-
+// Years: newest first, sorted correctly
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 30 }, (_, i) => String(CURRENT_YEAR - i));
+
+function detectType(make: string, model: string): VehicleType {
+  const m = (make + " " + model).toLowerCase();
+  if (m.includes("hiace") || m.includes("urvan") || m.includes("sprinter") ||
+      m.includes("transit") || m.includes("express") || m.includes("savana") ||
+      m.includes("nv350") || m.includes("master")) return "minibus";
+  if (m.includes("coaster") || m.includes("econoline") || m.includes("e-series") ||
+      m.includes("promaster") || m.includes("metris")) return "van";
+  if (m.includes("q7") || m.includes("q8") || m.includes("x5") || m.includes("x7") ||
+      m.includes("gls") || m.includes("suburban") || m.includes("tahoe") ||
+      m.includes("yukon") || m.includes("expedition") || m.includes("sequoia") ||
+      m.includes("highlander") || m.includes("4runner") || m.includes("land cruiser") ||
+      m.includes("pilot") || m.includes("odyssey") || m.includes("sienna") ||
+      m.includes("armada") || m.includes("pathfinder") || m.includes("explorer") ||
+      m.includes("durango") || m.includes("traverse") || m.includes("escalade") ||
+      m.includes("telluride") || m.includes("palisade") || m.includes("santa fe") ||
+      m.includes("grand cherokee") || m.includes("wagoneer") || m.includes("navigator") ||
+      m.includes("cx-9") || m.includes("ascent") || m.includes("atlas") ||
+      m.includes("pacifica") || m.includes("carnival") || m.includes("sorento") ||
+      m.includes("rav4") || m.includes("cr-v") || m.includes("escape") ||
+      m.includes("equinox") || m.includes("blazer") || m.includes("cherokee") ||
+      m.includes("wrangler") || m.includes("bronco") || m.includes("model x") ||
+      m.includes("xc90") || m.includes("qx80") || m.includes("qx60") ||
+      m.includes("lx") || m.includes("gx") || m.includes("mdx") ||
+      m.includes("enclave") || m.includes("acadia") || m.includes("xt6") ||
+      m.includes("outlander") || m.includes("pajero") || m.includes("prado") ||
+      m.includes("fortuner") || m.includes("discovery")) return "suv";
+  return "sedan";
+}
 
 export default function VehicleSetupScreen() {
   const router = useRouter();
@@ -72,12 +59,11 @@ export default function VehicleSetupScreen() {
   const [error,   setError]   = useState("");
   const [saving,  setSaving]  = useState(false);
 
-  // Fetch makes when year selected
   useEffect(() => {
     if (!year) return;
     setLoading(true);
     setMakes([]);
-    fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/car?format=json`)
+    fetch("https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/car?format=json")
       .then(r => r.json())
       .then(data => {
         const list = (data.Results || []).map((r: any) => r.MakeName).sort();
@@ -85,13 +71,11 @@ export default function VehicleSetupScreen() {
         setLoading(false);
       })
       .catch(() => {
-        // Fallback makes list
-        setMakes(["Acura","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Ford","GMC","Honda","Hyundai","Infiniti","Jeep","Kia","Lexus","Lincoln","Mazda","Mercedes-Benz","Mitsubishi","Nissan","Ram","Subaru","Tesla","Toyota","Volkswagen","Volvo"]);
+        setMakes(["Acura","Audi","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Ford","GMC","Honda","Hyundai","Infiniti","Jeep","Kia","Land Rover","Lexus","Lincoln","Mazda","Mercedes-Benz","Mitsubishi","Nissan","Ram","Subaru","Tesla","Toyota","Volkswagen","Volvo"]);
         setLoading(false);
       });
   }, [year]);
 
-  // Fetch models when make selected
   useEffect(() => {
     if (!year || !make) return;
     setLoading(true);
@@ -112,13 +96,25 @@ export default function VehicleSetupScreen() {
   const filtered = (list: string[]) =>
     search ? list.filter(i => i.toLowerCase().includes(search.toLowerCase())) : list;
 
-  const detectedType  = make && model ? detectType(make, model) : "sedan";
-  const modelSeats    = make && model ? getSeatsForModel(make, model) : 0;
-  const seats         = modelSeats || getSeatsForType(detectedType);
+  const detectedType = make && model ? detectType(make, model) : "sedan";
+  const modelSeats   = make && model ? getSeatsForModel(make, model) : 0;
+  const seats        = modelSeats || getSeatsForType(detectedType);
 
   const handleSave = async () => {
     if (!plate.trim()) { setError("Please enter your plate number"); return; }
     setSaving(true);
+
+    // Make sure driver row exists first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError("Not authenticated"); setSaving(false); return; }
+
+    // Upsert driver record to ensure it exists before adding vehicle
+    await supabase.from("drivers").upsert({
+      id:    user.id,
+      phone: user.phone || "",
+      full_name: "",
+    }, { onConflict: "id", ignoreDuplicates: true });
+
     const { error: err } = await DriversAPI.addVehicle({
       type:  detectedType,
       make:  make.trim(),
@@ -141,7 +137,7 @@ export default function VehicleSetupScreen() {
         placeholderTextColor={Colors.t3}
       />
       {loading ? (
-        <ActivityIndicator color={Colors.accent} style={{ marginTop: 20 }} />
+        <ActivityIndicator color={Colors.accent} style={{ marginTop:20, marginBottom:20 }} />
       ) : (
         <View>
           {filtered(items).map(item => (
@@ -152,7 +148,7 @@ export default function VehicleSetupScreen() {
               activeOpacity={0.7}
             >
               <Text style={s.listItemText}>{item}</Text>
-              <Text style={{ color: Colors.t3, fontSize: 16 }}>›</Text>
+              <Text style={{ color:Colors.t3, fontSize:16 }}>›</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -164,8 +160,8 @@ export default function VehicleSetupScreen() {
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => {
-          if (step === "year") router.back();
-          else if (step === "make") setStep("year");
+          if (step === "year")  router.back();
+          else if (step === "make")  setStep("year");
           else if (step === "model") setStep("make");
           else setStep("model");
         }} style={s.backBtn}>
@@ -175,23 +171,22 @@ export default function VehicleSetupScreen() {
         <Text style={s.logo}>LOADQ</Text>
         <View style={s.stepRow}>
           <Text style={s.stepText}>2 {t.stepOf} 3</Text>
-          <View style={s.stepBar}><View style={[s.stepFill, { width: "66%" }]} /></View>
+          <View style={s.stepBar}><View style={[s.stepFill, { width:"66%" }]} /></View>
         </View>
-
         <Text style={s.title}>{t.setupVehicle}</Text>
 
         {/* Breadcrumb */}
         <View style={s.breadcrumb}>
-          <Text style={[s.crumb, year && s.crumbDone]}>{year || "Year"}</Text>
-          {year && <><Text style={s.crumbSep}>›</Text><Text style={[s.crumb, make && s.crumbDone]}>{make || "Make"}</Text></>}
-          {make && <><Text style={s.crumbSep}>›</Text><Text style={[s.crumb, model && s.crumbDone]}>{model || "Model"}</Text></>}
+          <Text style={[s.crumb, year ? s.crumbDone : s.crumbActive]}>{year || "Year"}</Text>
+          {year && <><Text style={s.crumbSep}>›</Text><Text style={[s.crumb, make ? s.crumbDone : s.crumbActive]}>{make || "Make"}</Text></>}
+          {make && <><Text style={s.crumbSep}>›</Text><Text style={[s.crumb, model ? s.crumbDone : s.crumbActive]}>{model || "Model"}</Text></>}
         </View>
 
-        {/* Year selection */}
+        {/* Year */}
         {step === "year" && (
           <>
             <Text style={s.stepTitle}>Select year</Text>
-            <View style={{ flexDirection:"row", flexWrap:"wrap" }}>
+            <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
               {YEARS.map(item => (
                 <TouchableOpacity
                   key={item}
@@ -199,14 +194,14 @@ export default function VehicleSetupScreen() {
                   onPress={() => { setYear(item); setStep("make"); setMake(""); setModel(""); }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[s.yearBtnText, year === item && { color: Colors.accent }]}>{item}</Text>
+                  <Text style={[s.yearBtnText, year === item && { color:Colors.accent }]}>{item}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </>
         )}
 
-        {/* Make selection */}
+        {/* Make */}
         {step === "make" && (
           <>
             <Text style={s.stepTitle}>Select make</Text>
@@ -214,7 +209,7 @@ export default function VehicleSetupScreen() {
           </>
         )}
 
-        {/* Model selection */}
+        {/* Model */}
         {step === "model" && (
           <>
             <Text style={s.stepTitle}>Select model</Text>
@@ -222,7 +217,7 @@ export default function VehicleSetupScreen() {
           </>
         )}
 
-        {/* Plate + confirm */}
+        {/* Plate */}
         {step === "plate" && (
           <>
             <View style={s.summaryCard}>
@@ -266,8 +261,8 @@ export default function VehicleSetupScreen() {
 
 const s = StyleSheet.create({
   container:      { flex:1, backgroundColor:Colors.bg },
-  inner:          { padding:24, paddingBottom:60, paddingTop:80 },
-  backBtn:        { position:"absolute", top:52, left:24, zIndex:10 },
+  inner:          { padding:24, paddingBottom:60, paddingTop:72 },
+  backBtn:        { position:"absolute", top:24, left:24, zIndex:10 },
   backText:       { color:Colors.t2, fontSize:14 },
   logo:           { fontSize:24, fontWeight:"900", color:Colors.accent, letterSpacing:3, marginBottom:16 },
   stepRow:        { marginBottom:16 },
@@ -278,13 +273,14 @@ const s = StyleSheet.create({
   breadcrumb:     { flexDirection:"row", alignItems:"center", gap:6, marginBottom:20, flexWrap:"wrap" },
   crumb:          { fontSize:13, color:Colors.t3, fontWeight:"500" },
   crumbDone:      { color:Colors.accent },
+  crumbActive:    { color:Colors.t1 },
   crumbSep:       { color:Colors.t3, fontSize:13 },
   stepTitle:      { fontSize:16, fontWeight:"600", color:Colors.t1, marginBottom:12 },
-  listBox:        { backgroundColor:Colors.card, borderRadius:14, borderWidth:1, borderColor:Colors.border, overflow:"hidden" },
+  listBox:        { backgroundColor:Colors.card, borderRadius:14, borderWidth:1, borderColor:Colors.border, overflow:"hidden", marginBottom:16 },
   search:         { padding:14, color:Colors.t1, fontSize:14, borderBottomWidth:0.5, borderBottomColor:Colors.border },
   listItem:       { flexDirection:"row", alignItems:"center", justifyContent:"space-between", padding:14, borderBottomWidth:0.5, borderBottomColor:Colors.border },
   listItemText:   { color:Colors.t1, fontSize:14 },
-  yearBtn:        { flex:1, margin:4, backgroundColor:Colors.card, borderRadius:10, padding:12, alignItems:"center", borderWidth:1, borderColor:Colors.border },
+  yearBtn:        { width:"23%", backgroundColor:Colors.card, borderRadius:10, padding:12, alignItems:"center", borderWidth:1, borderColor:Colors.border },
   yearBtnActive:  { borderColor:Colors.accent, backgroundColor:Colors.accent+"15" },
   yearBtnText:    { color:Colors.t2, fontSize:13, fontWeight:"500" },
   summaryCard:    { backgroundColor:Colors.card, borderRadius:14, padding:16, borderWidth:1, borderColor:Colors.accent+"40", marginBottom:24 },
