@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { AuthAPI } from "../../services/auth";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings, setLang } from "../../hooks/useStrings";
@@ -40,7 +40,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => goBack()}>
           <Text style={s.back}>←</Text>
         </TouchableOpacity>
         <Text style={s.title}>{t.profile}</Text>

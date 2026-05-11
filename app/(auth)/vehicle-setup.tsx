@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -44,7 +44,9 @@ function detectType(make: string, model: string): VehicleType {
 }
 
 export default function VehicleSetupScreen() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
+  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/profile-setup"); };
   const { t }  = useStrings();
 
   const [step,    setStep]    = useState<"year"|"make"|"model"|"plate">("year");
@@ -160,7 +162,7 @@ export default function VehicleSetupScreen() {
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => {
-          if (step === "year")  router.back();
+          if (step === "year")  goBack();
           else if (step === "make")  setStep("year");
           else if (step === "model") setStep("make");
           else setStep("model");

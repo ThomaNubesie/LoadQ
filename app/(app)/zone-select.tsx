@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import * as Location from "expo-location";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
@@ -10,7 +10,9 @@ import {
 } from "../../constants/zones";
 
 export default function ZoneSelectScreen() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
+  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/queue"); };
   const { t }  = useStrings();
 
   const [userLat,    setUserLat]    = useState<number|null>(null);
@@ -61,7 +63,7 @@ export default function ZoneSelectScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding:4 }}>
+        <TouchableOpacity onPress={() => goBack()} style={{ padding:4 }}>
           <Text style={{ color:Colors.t2, fontSize:16 }}>←</Text>
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>

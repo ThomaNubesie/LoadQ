@@ -8,7 +8,9 @@ import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function OTPScreen() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
+  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/sign-in"); };
   const { t }  = useStrings();
   const { phone, isEmail } = useLocalSearchParams<{ phone: string; isEmail?: string }>();
   const [otp,     setOtp]     = useState(["","","","","",""]);
@@ -60,7 +62,7 @@ export default function OTPScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.inner}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack()} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
@@ -97,7 +99,7 @@ export default function OTPScreen() {
           <Text style={s.btnText}>{t.verifyCode} →</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.back()} style={s.wrongNum}>
+        <TouchableOpacity onPress={() => goBack()} style={s.wrongNum}>
           <Text style={s.wrongNumText}>← {t.wrongNumber}</Text>
         </TouchableOpacity>
       </View>

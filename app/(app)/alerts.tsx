@@ -1,17 +1,19 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function AlertsScreen() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
+  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/zone-select"); };
   const { t }  = useStrings();
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => goBack()}>
           <Text style={s.back}>←</Text>
         </TouchableOpacity>
         <Text style={s.title}>{t.notifications}</Text>

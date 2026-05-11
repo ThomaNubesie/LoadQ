@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function SubscribeScreen() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
+  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/email-setup"); };
   const { t }  = useStrings();
   const [plan, setPlan] = useState<"annual"|"monthly">("annual");
 
@@ -18,7 +20,7 @@ export default function SubscribeScreen() {
   return (
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.inner}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack()} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
         </TouchableOpacity>
 

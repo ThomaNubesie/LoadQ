@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -12,7 +12,9 @@ import SeatSvg from "../../components/SeatSvg";
 const DEMO_ZONE_ID = "00000000-0000-0000-0000-000000000001";
 
 export default function MyLoadingScreen() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
+  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/zone-select"); };
   const { t }  = useStrings();
   const [entry,   setEntry]   = useState<QueueEntry|null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,7 @@ export default function MyLoadingScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => goBack()}>
           <Text style={s.back}>←</Text>
         </TouchableOpacity>
         <Text style={s.title}>{t.myLoading}</Text>

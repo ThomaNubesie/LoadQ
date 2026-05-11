@@ -7,7 +7,9 @@ import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function PaymentScreen() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
+  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/subscribe"); };
   const { t }  = useStrings();
   const { plan } = useLocalSearchParams<{ plan: "monthly"|"annual" }>();
   const [loading, setLoading] = useState(false);
@@ -40,7 +42,7 @@ export default function PaymentScreen() {
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
         {/* Back button */}
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack()} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
         </TouchableOpacity>
 
