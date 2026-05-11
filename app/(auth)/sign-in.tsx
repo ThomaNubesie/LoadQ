@@ -2,7 +2,6 @@ import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
-import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -10,8 +9,6 @@ import { Colors } from "../../constants/colors";
 
 export default function SignInScreen() {
   const router  = useRouter();
-  const navigation = useNavigation();
-  const goBack = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/language"); };
   const { t }   = useStrings();
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,7 +40,7 @@ export default function SignInScreen() {
   return (
     <SafeAreaView style={s.container}>
       <KeyboardAvoidingView style={s.inner} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <TouchableOpacity onPress={() => goBack()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(auth)/language")} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
