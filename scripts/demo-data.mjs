@@ -71,11 +71,23 @@ export function getSupabaseAdmin() {
   if (!url) throw new Error("EXPO_PUBLIC_SUPABASE_URL missing in .env");
   if (!key) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY missing in .env\n" +
-      "Get it from: Supabase Dashboard → Project Settings → API → service_role key\n" +
-      "Add to .env (NOT prefixed with EXPO_PUBLIC_):\n" +
-      "  SUPABASE_SERVICE_ROLE_KEY=eyJ..."
+      "SUPABASE_SERVICE_ROLE_KEY missing in .env.local\n" +
+      "Get it from: Supabase Dashboard → Project Settings → API Keys → secret key\n" +
+      "Add to .env.local (gitignored):\n" +
+      "  SUPABASE_SERVICE_ROLE_KEY=sb_secret_..."
     );
   }
   return { url, key };
+}
+
+// Node <22 lacks a global WebSocket — Supabase realtime crashes at init.
+// We don't need realtime for these scripts, so plug in the `ws` package.
+export async function buildAdminClient() {
+  const { createClient } = await import("@supabase/supabase-js");
+  const ws = (await import("ws")).default;
+  const { url, key } = getSupabaseAdmin();
+  return createClient(url, key, {
+    auth:     { persistSession: false },
+    realtime: { transport: ws },
+  });
 }

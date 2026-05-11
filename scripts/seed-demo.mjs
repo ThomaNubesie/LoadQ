@@ -9,15 +9,13 @@
 import { config as dotenv } from "dotenv";
 dotenv({ path: ".env" });
 dotenv({ path: ".env.local", override: true });
-import { createClient } from "@supabase/supabase-js";
 import {
   DEMO_EMAIL_PREFIX, DEMO_EMAIL_DOMAIN,
   FIRST_NAMES, LAST_NAMES, ZONE_ALLOCATION, VEHICLE_POOL,
-  randomFrom, randomPlate, randomPhone, getSupabaseAdmin,
+  randomFrom, randomPlate, randomPhone, buildAdminClient,
 } from "./demo-data.mjs";
 
-const { url, key } = getSupabaseAdmin();
-const admin = createClient(url, key, { auth: { persistSession: false } });
+const admin = await buildAdminClient();
 
 // Build flat driver list with zone targets baked in
 function plan() {

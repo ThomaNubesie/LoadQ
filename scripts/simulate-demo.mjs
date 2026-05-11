@@ -16,12 +16,10 @@
 import { config as dotenv } from "dotenv";
 dotenv({ path: ".env" });
 dotenv({ path: ".env.local", override: true });
-import { createClient } from "@supabase/supabase-js";
-import { DEMO_EMAIL_PREFIX, getSupabaseAdmin } from "./demo-data.mjs";
+import { DEMO_EMAIL_PREFIX, buildAdminClient } from "./demo-data.mjs";
 
 const TICK_MS = Number(process.env.TICK_MS || 6000);
-const { url, key } = getSupabaseAdmin();
-const admin = createClient(url, key, { auth: { persistSession: false } });
+const admin = await buildAdminClient();
 
 function log(msg) {
   const ts = new Date().toISOString().slice(11, 19);

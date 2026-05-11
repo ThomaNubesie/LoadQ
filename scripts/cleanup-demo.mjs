@@ -7,11 +7,9 @@
 import { config as dotenv } from "dotenv";
 dotenv({ path: ".env" });
 dotenv({ path: ".env.local", override: true });
-import { createClient } from "@supabase/supabase-js";
-import { DEMO_EMAIL_PREFIX, getSupabaseAdmin } from "./demo-data.mjs";
+import { DEMO_EMAIL_PREFIX, buildAdminClient } from "./demo-data.mjs";
 
-const { url, key } = getSupabaseAdmin();
-const admin = createClient(url, key, { auth: { persistSession: false } });
+const admin = await buildAdminClient();
 
 async function main() {
   const { data: list, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
