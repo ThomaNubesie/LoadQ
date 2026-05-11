@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
+import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
@@ -11,6 +12,20 @@ export default function SignInScreen() {
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
+
+  const handleTestLogin = async () => {
+    setLoading(true);
+    const { error: err } = await supabase.auth.signInAnonymously();
+    if (err) { setError(err.message); setLoading(false); return; }
+    const driver = await DriversAPI.getMe();
+    setLoading(false);
+    if (!driver || !driver.full_name) {
+      router.replace("/(auth)/profile-setup");
+    } else {
+      const hasSub = await DriversAPI.hasActiveSubscription();
+      router.replace(hasSub ? "/(app)/queue" : "/(auth)/subscribe");
+    }
+  };
 
   const handleSend = async () => {
     if (!email.includes("@")) { setError("Please enter a valid email"); return; }
@@ -29,7 +44,6 @@ export default function SignInScreen() {
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         <Text style={s.title}>{t.signIn}</Text>
-        <Text style={s.sub}>Enter your email to receive a sign-in code</Text>
 
         <Text style={s.label}>EMAIL ADDRESS</Text>
         <TextInput
@@ -40,7 +54,6 @@ export default function SignInScreen() {
           placeholderTextColor={Colors.t3}
           keyboardType="email-address"
           autoCapitalize="none"
-          autoComplete="email"
         />
 
         {!!error && <Text style={s.error}>{error}</Text>}
@@ -53,6 +66,12 @@ export default function SignInScreen() {
         >
           <Text style={s.btnText}>{loading ? t.loading : t.sendCode + " →"}</Text>
         </TouchableOpacity>
+
+        <View style={s.divider}><Text style={s.dividerText}>or</Text></View>
+
+        <TouchableOpacity style={s.testBtn} onPress={handleTestLogin} disabled={loading} activeOpacity={0.85}>
+          <Text style={s.testBtnText}>🧪 Test login (skip email)</Text>
+        </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -64,12 +83,15 @@ const s = StyleSheet.create({
   backBtn:   { position:"absolute", top:60, left:24 },
   backText:  { color:Colors.t2, fontSize:14 },
   logo:      { fontSize:28, fontWeight:"900", color:Colors.accent, letterSpacing:3, marginBottom:28 },
-  title:     { fontSize:26, fontWeight:"700", color:Colors.t1, marginBottom:8 },
-  sub:       { fontSize:14, color:Colors.t2, marginBottom:32, lineHeight:22 },
+  title:     { fontSize:26, fontWeight:"700", color:Colors.t1, marginBottom:24 },
   label:     { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:6 },
   input:     { backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, padding:14, color:Colors.t1, fontSize:15, marginBottom:16 },
   error:     { color:Colors.red, fontSize:13, marginBottom:12 },
-  btn:       { backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center" },
+  btn:       { backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center", marginBottom:16 },
   btnOff:    { opacity:0.4 },
   btnText:   { fontSize:16, fontWeight:"700", color:Colors.accentText },
+  divider:   { alignItems:"center", marginVertical:16 },
+  dividerText:{ color:Colors.t3, fontSize:13 },
+  testBtn:   { backgroundColor:Colors.card, borderRadius:14, padding:14, alignItems:"center", borderWidth:1, borderColor:Colors.border },
+  testBtnText:{ color:Colors.t2, fontSize:14 },
 });
