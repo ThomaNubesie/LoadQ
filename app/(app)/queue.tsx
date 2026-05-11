@@ -6,9 +6,11 @@ import { QueueAPI } from "../../services/queue";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
-import { QueueEntry } from "../../constants/types";
+import { QueueEntry, Vehicle } from "../../constants/types";
 import { VEHICLE_TYPES } from "../../constants/vehicles";
 import SeatSvg from "../../components/SeatSvg";
+import { getVehicleImageUrl } from "../../utils/vehicleImage";
+import { Image } from "react-native";
 
 const DEMO_ZONE_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -20,6 +22,7 @@ export default function QueueScreen() {
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [myId,       setMyId]       = useState<string|null>(null);
+  const [myVehicle,  setMyVehicle]  = useState<Vehicle|null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -29,6 +32,8 @@ export default function QueueScreen() {
     ]);
     setEntries(q);
     setMyId(driver?.id || null);
+    const vehicles = await DriversAPI.getVehicles();
+    setMyVehicle(vehicles.find(v => v.is_active) || vehicles[0] || null);
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -126,6 +131,18 @@ export default function QueueScreen() {
         </TouchableOpacity>
       </View>
 
+      {myVehicle && (
+        <View style={s.vehicleBanner}>
+          <Image source={{ uri: getVehicleImageUrl(myVehicle.make, myVehicle.model, myVehicle.year) }} style={s.vehicleBannerImg} resizeMode="contain" />
+          <View style={s.vehicleBannerInfo}>
+            <Text style={s.vehicleBannerName}>{myVehicle.year} {myVehicle.make} {myVehicle.model}</Text>
+            <Text style={s.vehicleBannerSub}>{myVehicle.plate} · {myVehicle.seats} seats</Text>
+          </View>
+          <TouchableOpacity style={s.changeZoneBtn} onPress={() => router.push("/(app)/zone-select")}>
+            <Text style={s.changeZoneText}>Change zone</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <ScrollView
         style={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}

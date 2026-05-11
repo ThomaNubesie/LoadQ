@@ -61,6 +61,9 @@ export default function ZoneSelectScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={{ padding:4 }}>
+          <Text style={{ color:Colors.t2, fontSize:16 }}>←</Text>
+        </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         {loading ? (
           <ActivityIndicator color={Colors.accent} size="small" />
