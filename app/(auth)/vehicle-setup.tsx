@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, ActivityIndicator, FlatList, Image } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -142,12 +143,10 @@ export default function VehicleSetupScreen() {
       {loading ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 20 }} />
       ) : (
-        <FlatList
-          data={filtered(items)}
-          keyExtractor={i => i}
-          style={{ maxHeight: 320 }}
-          renderItem={({ item }) => (
+        <View>
+          {filtered(items).map(item => (
             <TouchableOpacity
+              key={item}
               style={s.listItem}
               onPress={() => { onSelect(item); setSearch(""); }}
               activeOpacity={0.7}
@@ -155,8 +154,8 @@ export default function VehicleSetupScreen() {
               <Text style={s.listItemText}>{item}</Text>
               <Text style={{ color: Colors.t3, fontSize: 16 }}>›</Text>
             </TouchableOpacity>
-          )}
-        />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -192,21 +191,18 @@ export default function VehicleSetupScreen() {
         {step === "year" && (
           <>
             <Text style={s.stepTitle}>Select year</Text>
-            <FlatList
-              data={YEARS}
-              keyExtractor={i => i}
-              numColumns={4}
-              style={{ maxHeight: 320 }}
-              renderItem={({ item }) => (
+            <View style={{ flexDirection:"row", flexWrap:"wrap" }}>
+              {YEARS.map(item => (
                 <TouchableOpacity
+                  key={item}
                   style={[s.yearBtn, year === item && s.yearBtnActive]}
                   onPress={() => { setYear(item); setStep("make"); setMake(""); setModel(""); }}
                   activeOpacity={0.7}
                 >
                   <Text style={[s.yearBtnText, year === item && { color: Colors.accent }]}>{item}</Text>
                 </TouchableOpacity>
-              )}
-            />
+              ))}
+            </View>
           </>
         )}
 
