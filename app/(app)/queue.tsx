@@ -3,12 +3,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
+import * as Location from "expo-location";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { QueueEntry, Vehicle } from "../../constants/types";
 import { VEHICLE_TYPES } from "../../constants/vehicles";
 import SeatSvg from "../../components/SeatSvg";
+import { ZONE_LOCATIONS, REGIONS, detectUserRegion, getDistanceKm, ZoneLocation, RegionCode } from "../../constants/zones";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { Image } from "react-native";
 
@@ -23,9 +25,26 @@ export default function QueueScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [myId,       setMyId]       = useState<string|null>(null);
   const [myVehicle,  setMyVehicle]  = useState<Vehicle|null>(null);
+  const [userRegion, setUserRegion] = useState<RegionCode|null>(null);
+  const [nearZones,  setNearZones]  = useState<ZoneLocation[]>([]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    // Detect user location
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const region = detectUserRegion(loc.coords.latitude, loc.coords.longitude);
+        setUserRegion(region);
+        const nearby = ZONE_LOCATIONS
+          .filter(z => region ? z.region === region : true)
+          .map(z => ({ ...z, dist: getDistanceKm(loc.coords.latitude, loc.coords.longitude, z.latitude, z.longitude) }))
+          .sort((a: any, b: any) => a.dist - b.dist)
+          .slice(0, 4);
+        setNearZones(nearby);
+      }
+    } catch {}
     const [q, driver] = await Promise.all([
       QueueAPI.getZoneQueue(DEMO_ZONE_ID),
       DriversAPI.getMe(),
@@ -130,6 +149,35 @@ export default function QueueScreen() {
           <Text style={{ fontSize:18 }}>👤</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Loading zones */}
+      {nearZones.length > 0 && (
+        <View style={s.zonesSection}>
+          <View style={s.zonesSectionHeader}>
+            <Text style={s.zonesSectionTitle}>LOADING ZONES NEARBY</Text>
+            <TouchableOpacity onPress={() => router.push("/(app)/zone-select")}>
+              <Text style={s.zonesSeeAll}>See all →</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap:10, paddingHorizontal:16 }}>
+            {nearZones.map((zone: any) => (
+              <TouchableOpacity
+                key={zone.id}
+                style={s.zoneChip}
+                onPress={() => router.push({ pathname:"/(app)/queue", params:{ zoneId:zone.id, zoneName:zone.name } })}
+                activeOpacity={0.8}
+              >
+                <Text style={s.zoneChipName}>{zone.name}</Text>
+                <Text style={s.zoneChipDist}>{zone.dist < 1 ? `${Math.round(zone.dist*1000)}m` : `${zone.dist.toFixed(1)}km`}</Text>
+                <View style={s.zoneChipLive}><Text style={s.zoneChipLiveText}>● Live</Text></View>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={[s.zoneChip, s.zoneChipMore]} onPress={() => router.push("/(app)/zone-select")} activeOpacity={0.8}>
+              <Text style={s.zoneChipMoreText}>All zones →</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
 
       {myVehicle && (
         <View style={s.vehicleBanner}>
