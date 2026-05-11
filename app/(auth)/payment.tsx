@@ -9,7 +9,7 @@ import { Colors } from "../../constants/colors";
 export default function PaymentScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/subscribe"); };
+  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/subscribe"); };
   const { t }  = useStrings();
   const { plan } = useLocalSearchParams<{ plan: "monthly"|"annual" }>();
   const [loading, setLoading] = useState(false);

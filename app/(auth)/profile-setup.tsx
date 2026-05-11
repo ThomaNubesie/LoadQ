@@ -10,7 +10,7 @@ import { Colors } from "../../constants/colors";
 export default function ProfileSetupScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/sign-in"); };
+  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/sign-in"); };
   const { t }  = useStrings();
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");

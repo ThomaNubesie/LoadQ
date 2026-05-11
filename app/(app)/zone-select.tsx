@@ -12,7 +12,7 @@ import {
 export default function ZoneSelectScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/queue"); };
+  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(app)/queue"); };
   const { t }  = useStrings();
 
   const [userLat,    setUserLat]    = useState<number|null>(null);

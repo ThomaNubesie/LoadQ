@@ -46,7 +46,7 @@ function detectType(make: string, model: string): VehicleType {
 export default function VehicleSetupScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/profile-setup"); };
+  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/profile-setup"); };
   const { t }  = useStrings();
 
   const [step,    setStep]    = useState<"year"|"make"|"model"|"plate">("year");

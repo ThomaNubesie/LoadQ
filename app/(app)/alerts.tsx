@@ -7,7 +7,7 @@ import { Colors } from "../../constants/colors";
 export default function AlertsScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(app)/zone-select"); };
+  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(app)/zone-select"); };
   const { t }  = useStrings();
 
   return (

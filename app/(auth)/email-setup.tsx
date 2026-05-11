@@ -11,7 +11,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export default function EmailSetupScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/vehicle-setup"); };
+  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/vehicle-setup"); };
   const { t }  = useStrings();
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);

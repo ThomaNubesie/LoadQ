@@ -8,7 +8,7 @@ import { Colors } from "../../constants/colors";
 export default function SubscribeScreen() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const goBack     = () => { if (navigation.canGoBack()) goBack(); else router.replace("/(auth)/email-setup"); };
+  const goBack = () => { if (navigation.canGoBack()) router.back(); else router.replace("/(auth)/email-setup"); };
   const { t }  = useStrings();
   const [plan, setPlan] = useState<"annual"|"monthly">("annual");
 
