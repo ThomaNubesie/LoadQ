@@ -36,27 +36,25 @@ export default function OTPScreen() {
     const { user, error: err } = await AuthAPI.verifyOTP(phone, code);
     if (err || !user) { setError(err || "Invalid code"); setLoading(false); return; }
 
-    // Check if driver already exists
     const driver = await DriversAPI.getMe();
     setLoading(false);
 
+    // New user — no name set yet, go through full registration
     if (!driver || !driver.full_name) {
-      // New user — go through registration
       router.replace("/(auth)/profile-setup");
     } else {
       // Existing user — check subscription
       const hasSub = await DriversAPI.hasActiveSubscription();
-      if (hasSub) {
-        router.replace("/(app)/queue");
-      } else {
-        router.replace("/(auth)/subscribe");
-      }
+      router.replace(hasSub ? "/(app)/queue" : "/(auth)/subscribe");
     }
   };
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.inner}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Text style={s.backText}>← {t.back}</Text>
+        </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         <Text style={s.title}>{t.verifyCode}</Text>
         <Text style={s.sub}>{t.codeSentTo}{" "}<Text style={{ color: Colors.accent }}>{phone}</Text></Text>
@@ -83,7 +81,7 @@ export default function OTPScreen() {
         {loading  && <Text style={s.loading}>{t.loading}</Text>}
 
         <TouchableOpacity
-          style={[s.btn, (otp.some(d => !d) || loading) && s.btnDisabled]}
+          style={[s.btn, (otp.some(d => !d) || loading) && s.btnOff]}
           onPress={() => handleVerify(otp.join(""))}
           disabled={otp.some(d => !d) || loading}
           activeOpacity={0.85}
@@ -91,8 +89,8 @@ export default function OTPScreen() {
           <Text style={s.btnText}>{t.verifyCode} →</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.back()} style={s.back}>
-          <Text style={s.backText}>← {t.wrongNumber}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={s.wrongNum}>
+          <Text style={s.wrongNumText}>← {t.wrongNumber}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -100,20 +98,22 @@ export default function OTPScreen() {
 }
 
 const s = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: Colors.bg },
-  inner:        { flex: 1, padding: 24, justifyContent: "center" },
-  logo:         { fontSize: 24, fontWeight: "900", color: Colors.accent, letterSpacing: 3, marginBottom: 24 },
-  title:        { fontSize: 24, fontWeight: "700", color: Colors.t1, marginBottom: 8 },
-  sub:          { fontSize: 14, color: Colors.t2, marginBottom: 36, lineHeight: 22 },
-  otpRow:       { flexDirection: "row", gap: 10, marginBottom: 20 },
-  otpBox:       { width: 46, height: 56, borderRadius: 12, borderWidth: 2, borderColor: Colors.border, backgroundColor: Colors.card, fontSize: 22, fontWeight: "800", color: Colors.t1, textAlign: "center" },
-  otpBoxFilled: { borderColor: Colors.accent },
-  otpBoxError:  { borderColor: Colors.red },
-  error:        { color: Colors.red, fontSize: 13, marginBottom: 16 },
-  loading:      { color: Colors.t2, fontSize: 13, marginBottom: 16 },
-  btn:          { backgroundColor: Colors.accent, borderRadius: 14, padding: 16, alignItems: "center", marginBottom: 16 },
-  btnDisabled:  { opacity: 0.4 },
-  btnText:      { fontSize: 16, fontWeight: "700", color: Colors.accentText },
-  back:         { alignItems: "center", padding: 8 },
-  backText:     { color: Colors.t3, fontSize: 13 },
+  container:    { flex:1, backgroundColor:Colors.bg },
+  inner:        { flex:1, padding:24, justifyContent:"center" },
+  backBtn:      { position:"absolute", top:60, left:24 },
+  backText:     { color:Colors.t2, fontSize:14 },
+  logo:         { fontSize:24, fontWeight:"900", color:Colors.accent, letterSpacing:3, marginBottom:24 },
+  title:        { fontSize:24, fontWeight:"700", color:Colors.t1, marginBottom:8 },
+  sub:          { fontSize:14, color:Colors.t2, marginBottom:36, lineHeight:22 },
+  otpRow:       { flexDirection:"row", gap:10, marginBottom:20 },
+  otpBox:       { width:46, height:56, borderRadius:12, borderWidth:2, borderColor:Colors.border, backgroundColor:Colors.card, fontSize:22, fontWeight:"800", color:Colors.t1, textAlign:"center" },
+  otpBoxFilled: { borderColor:Colors.accent },
+  otpBoxError:  { borderColor:Colors.red },
+  error:        { color:Colors.red, fontSize:13, marginBottom:16 },
+  loading:      { color:Colors.t2, fontSize:13, marginBottom:16 },
+  btn:          { backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center", marginBottom:16 },
+  btnOff:       { opacity:0.4 },
+  btnText:      { fontSize:16, fontWeight:"700", color:Colors.accentText },
+  wrongNum:     { alignItems:"center", padding:8 },
+  wrongNumText: { color:Colors.t3, fontSize:13 },
 });
