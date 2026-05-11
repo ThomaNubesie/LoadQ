@@ -23,7 +23,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "@stripe/stripe-react-native",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.ca.loadq.app",
+          "enableGooglePay": false
+        }
+      ],
       [
         "expo-location",
         {
