@@ -52,13 +52,14 @@ export const QueueAPI = {
   },
 
   subscribeToZone(zoneId: string, callback: (payload: any) => void) {
-    const channelName = "zone-" + zoneId + "-" + Date.now();
+    const name = `zone-${zoneId}`;
+    // Remove existing channel first to avoid duplicate error
+    const existing = supabase.getChannels().find(ch => ch.topic === `realtime:${name}`);
+    if (existing) supabase.removeChannel(existing);
     const channel = supabase
-      .channel(channelName)
-      .on("postgres_changes", { event: "*", schema: "public", table: "queue_entries", filter: "zone_id=eq." + zoneId }, callback)
+      .channel(name)
+      .on("postgres_changes", { event: "*", schema: "public", table: "queue_entries", filter: `zone_id=eq.${zoneId}` }, callback)
       .subscribe();
-    return {
-      unsubscribe: () => supabase.removeChannel(channel),
-    };
+    return { unsubscribe: () => supabase.removeChannel(channel) };
   },
 };
