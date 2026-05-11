@@ -29,11 +29,15 @@ export default function ProfileSetupScreen() {
     setLoading(true);
     // Get auth user to ensure driver row has correct phone/email
     const { data: { user } } = await supabase.auth.getUser();
-    await DriversAPI.createOrUpdate({
+    const { error: drvErr } = await DriversAPI.createOrUpdate({
       full_name: `${firstName.trim()} ${lastName.trim()}`,
       phone: user?.phone || user?.email || "",
     });
     setLoading(false);
+    if (drvErr) {
+      setError(`Couldn't save profile: ${drvErr}`);
+      return;
+    }
     router.push("/(auth)/vehicle-setup");
   };
 

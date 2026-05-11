@@ -108,12 +108,22 @@ export default function VehicleSetupScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError("Not authenticated"); setSaving(false); return; }
 
-    // Upsert driver record to ensure it exists before adding vehicle
-    await supabase.from("drivers").upsert({
-      id:    user.id,
-      phone: user.phone || "",
-      full_name: "",
-    }, { onConflict: "id", ignoreDuplicates: true });
+    // Ensure a drivers row exists for this auth user before adding a vehicle.
+    // If RLS blocks this, the vehicle FK insert would fail with a cryptic error.
+    const { data: existing } = await supabase
+      .from("drivers").select("id").eq("id", user.id).maybeSingle();
+    if (!existing) {
+      const { error: drvErr } = await supabase.from("drivers").insert({
+        id:        user.id,
+        phone:     user.phone || user.email || "",
+        full_name: "Driver",
+      });
+      if (drvErr) {
+        setError(`Couldn't create driver profile: ${drvErr.message}`);
+        setSaving(false);
+        return;
+      }
+    }
 
     const { error: err } = await DriversAPI.addVehicle({
       type:  detectedType,
