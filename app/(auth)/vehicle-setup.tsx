@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, ActivityIndicator, FlatList, Modal } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, ActivityIndicator, FlatList, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { VehicleType } from "../../constants/types";
 import { getSeatsForType } from "../../constants/vehicles";
+import { getVehicleImageUrl } from "../../utils/vehicleImage";
 
 // Seat count by vehicle type keywords
 function detectType(make: string, model: string): VehicleType {
@@ -194,6 +195,11 @@ export default function VehicleSetupScreen() {
         {step === "plate" && (
           <>
             <View style={s.summaryCard}>
+              <Image
+                source={{ uri: getVehicleImageUrl(make, model, parseInt(year)) }}
+                style={s.vehicleImg}
+                resizeMode="contain"
+              />
               <Text style={s.summaryTitle}>{year} {make} {model}</Text>
               <View style={s.typeBadge}>
                 <Text style={s.typeBadgeText}>{detectedType.replace("_"," ")} · {seats} seats</Text>
@@ -251,6 +257,7 @@ const s = StyleSheet.create({
   yearBtnActive:  { borderColor:Colors.accent, backgroundColor:Colors.accent+"15" },
   yearBtnText:    { color:Colors.t2, fontSize:13, fontWeight:"500" },
   summaryCard:    { backgroundColor:Colors.card, borderRadius:14, padding:16, borderWidth:1, borderColor:Colors.accent+"40", marginBottom:24 },
+  vehicleImg:     { width:"100%", height:140, borderRadius:10, marginBottom:12 },
   summaryTitle:   { fontSize:18, fontWeight:"700", color:Colors.t1, marginBottom:8 },
   typeBadge:      { backgroundColor:Colors.accent+"20", borderRadius:8, paddingHorizontal:10, paddingVertical:4, alignSelf:"flex-start" },
   typeBadgeText:  { color:Colors.accent, fontSize:12, fontWeight:"600" },
