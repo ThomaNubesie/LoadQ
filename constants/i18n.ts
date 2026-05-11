@@ -140,6 +140,28 @@ export const STRINGS = {
     typeMessage:      "Type a message...",
     send:             "Send",
 
+
+    // Registration
+    firstName:        "First name",
+    lastName:         "Last name",
+    dateOfBirth:      "Date of birth",
+    sex:              "Sex",
+    male:             "Male",
+    female:           "Female",
+    other:            "Other",
+    emailAddress:     "Email address",
+    emailRecovery:    "Used for account recovery if your phone is unavailable",
+    setupProfile:     "Your profile",
+    setupProfileSub:  "How other drivers will see you",
+    setupVehicle:     "Your vehicle",
+    setupVehicleSub:  "Seats are assigned automatically by type",
+    setupEmail:       "Recovery email",
+    setupEmailSub:    "Optional but recommended",
+    stepOf:           "of",
+    next:             "Next",
+    skip:             "Skip",
+    dobPlaceholder:   "DD / MM / YYYY",
+
     // Common
     back:             "Back",
     save:             "Save",
@@ -293,6 +315,28 @@ export const STRINGS = {
     messages:         "Messages",
     typeMessage:      "Écrire un message...",
     send:             "Envoyer",
+
+
+    // Registration
+    firstName:        "Prénom",
+    lastName:         "Nom de famille",
+    dateOfBirth:      "Date de naissance",
+    sex:              "Sexe",
+    male:             "Homme",
+    female:           "Femme",
+    other:            "Autre",
+    emailAddress:     "Adresse e-mail",
+    emailRecovery:    "Utilisée pour récupérer votre compte si votre téléphone est indisponible",
+    setupProfile:     "Votre profil",
+    setupProfileSub:  "Comment les autres conducteurs vous verront",
+    setupVehicle:     "Votre véhicule",
+    setupVehicleSub:  "Les sièges sont assignés automatiquement selon le type",
+    setupEmail:       "E-mail de récupération",
+    setupEmailSub:    "Facultatif mais recommandé",
+    stepOf:           "sur",
+    next:             "Suivant",
+    skip:             "Passer",
+    dobPlaceholder:   "JJ / MM / AAAA",
 
     // Common
     back:             "Retour",
