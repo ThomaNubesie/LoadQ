@@ -14,7 +14,9 @@ export const DriversAPI = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Not authenticated" };
     const { data, error } = await supabase
-      .from("drivers").upsert({ id: user.id, ...fields }).select().single();
+      .from("drivers")
+      .upsert({ id: user.id, ...fields }, { onConflict: "id" })
+      .select().single();
     return { data, error: error?.message };
   },
 
