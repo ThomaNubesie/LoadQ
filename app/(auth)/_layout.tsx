@@ -5,6 +5,8 @@ export default function AuthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>
       <Stack.Screen name="language" />
+      <Stack.Screen name="welcome" />
+      <Stack.Screen name="passenger-setup" />
       <Stack.Screen name="sign-in" />
       <Stack.Screen name="otp" />
       <Stack.Screen name="profile-setup" />

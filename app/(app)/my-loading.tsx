@@ -1,66 +1,214 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { QueueAPI } from "../../services/queue";
-import { DriversAPI } from "../../services/drivers";
+import { ClaimsAPI, SeatClaim } from "../../services/claims";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { QueueEntry, SeatStatus } from "../../constants/types";
 import SeatSvg from "../../components/SeatSvg";
+import BottomNav from "../../components/BottomNav";
+import { loadingState, formatRemaining } from "../../utils/loadingTimer";
+import { useNow } from "../../hooks/useNow";
+import { supabase } from "../../services/supabase";
+import { useZones } from "../../hooks/useZones";
+import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../constants/pricing";
+import { useDestinations } from "../../hooks/useDestinations";
 
-const DEMO_ZONE_ID = "00000000-0000-0000-0000-000000000001";
+// seat_states can come back from the DB as a JSON string, null, an array of
+// the wrong length, or with junk values. Always normalize to a clean array
+// of exactly `count` valid SeatStatus values.
+function normalizeSeatStates(raw: unknown, count: number): SeatStatus[] {
+  let arr: any[];
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === "string") {
+    try { const p = JSON.parse(raw); arr = Array.isArray(p) ? p : []; }
+    catch { arr = []; }
+  } else {
+    arr = [];
+  }
+  const valid = (v: any): SeatStatus =>
+    v === "boarded" || v === "locked" || v === "disputed" ? v : "empty";
+  return Array.from({ length: count }, (_, i) => valid(arr[i]));
+}
+
+function seatCountFor(entry: QueueEntry | null): number {
+  return Math.max((entry?.vehicle?.seats || 4) - 1, 1); // exclude driver
+}
 
 export default function MyLoadingScreen() {
   const router     = useRouter();
   const { t }  = useStrings();
-  const [entry,   setEntry]   = useState<QueueEntry|null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [timeLeft, setTimeLeft] = useState("");
+  const [entry,         setEntry]         = useState<QueueEntry|null>(null);
+  const [loading,       setLoading]       = useState(true);
+  const [pendingClaims, setPendingClaims] = useState<SeatClaim[]>([]);
+  const [showDestPicker, setShowDestPicker] = useState(false);
+
+  const refreshAll = async () => {
+    const mine = await QueueAPI.getMyEntry();
+    setEntry(mine || null);
+    if (mine) {
+      const pend = await ClaimsAPI.listPending(mine.id);
+      setPendingClaims(pend);
+    } else {
+      setPendingClaims([]);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const load = async () => {
-      const driver = await DriversAPI.getMe();
-      if (!driver) return;
-      const queue = await QueueAPI.getZoneQueue(DEMO_ZONE_ID);
-      const mine  = queue.find(e => e.driver_id === driver.id);
-      setEntry(mine || null);
-      setLoading(false);
-    };
-    load();
+    refreshAll();
+    // Poll pending claims every 8s so the driver sees new claims promptly.
+    const id = setInterval(refreshAll, 8000);
+    return () => clearInterval(id);
   }, []);
 
-  // Countdown timer
+  const handleConfirmClaim = async (claim: SeatClaim) => {
+    if (!entry) return;
+    const price = getPricePerSeat(zone?.region, entry.destination_region) ?? 0;
+    const { error } = await ClaimsAPI.confirm(
+      claim,
+      entry.zone_id,
+      entry.destination_region || "",
+      price,
+    );
+    if (error) { Alert.alert(t.error, error); return; }
+    await refreshAll();
+  };
+
+  const handleRejectClaim = async (claim: SeatClaim) => {
+    Alert.alert(
+      "Reject passenger?",
+      `Reject ${claim.passenger?.full_name || "this passenger"}'s claim. They can try again or claim with another driver.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: t.rejectClaim,
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await ClaimsAPI.reject(claim.id);
+            if (error) { Alert.alert(t.error, error); return; }
+            await refreshAll();
+          },
+        },
+      ]
+    );
+  };
+
+  const isLoadingState = entry?.status === "loading";
+  const now            = useNow(1000, isLoadingState);
+
+  // When my own 2h timer expires, immediately trigger the watchdog and bounce
+  // back to the queue — don't sit on an expired loading screen.
+  const expiredFired = useRef(false);
   useEffect(() => {
-    if (!entry?.load_deadline) return;
-    const tick = () => {
-      const diff = new Date(entry.load_deadline!).getTime() - Date.now();
-      if (diff <= 0) { setTimeLeft("Expired"); return; }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [entry?.load_deadline]);
+    if (!entry || entry.status !== "loading" || !entry.load_start_at) return;
+    const elapsed = now - new Date(entry.load_start_at).getTime();
+    if (elapsed >= 2 * 60 * 60 * 1000 && !expiredFired.current) {
+      expiredFired.current = true;
+      QueueAPI.triggerWatchdog();
+      Alert.alert("Time's up", "Your 2-hour loading window has ended. You've been moved to the back of the queue.");
+      setTimeout(() => router.replace("/(app)/queue"), 1500);
+    }
+  }, [now, entry?.id, entry?.status, entry?.load_start_at]);
 
   const handleSeatTap = async (idx: number) => {
     if (!entry) return;
-    const states = [...((entry.seat_states as SeatStatus[]) || Array(entry.vehicle?.seats || 4).fill("empty"))];
-    if (states[idx] === "locked") return;
-    states[idx] = states[idx] === "boarded" ? "empty" : "boarded";
+    const states = normalizeSeatStates(entry.seat_states, seatCountFor(entry));
+    // Tap only ADDS a passenger; removing is a long-press (see handleSeatLongPress).
+    if (states[idx] !== "empty") return; // already boarded/locked — long-press to remove
+    states[idx] = "boarded";
     const boarded = states.filter(s => s === "boarded" || s === "locked").length;
     await QueueAPI.updateSeatStates(entry.id, states, boarded);
     setEntry({ ...entry, seat_states: states, seats_boarded: boarded });
   };
 
+  const handleSeatLongPress = (idx: number) => {
+    if (!entry) return;
+    const states = normalizeSeatStates(entry.seat_states, seatCountFor(entry));
+    const wasLocked = states[idx] === "locked";
+    if (states[idx] === "empty") return;
+    Alert.alert(
+      wasLocked ? "Remove confirmed passenger?" : "Remove passenger?",
+      wasLocked
+        ? "This seat is locked (passenger confirmed). Removing them will reopen the seat."
+        : "This passenger will be removed and the seat will reopen.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            const newStates = [...states];
+            newStates[idx] = "empty";
+            const boarded     = newStates.filter(s => s === "boarded" || s === "locked").length;
+            const seatsLocked = newStates.filter(s => s === "locked").length;
+            await QueueAPI.updateSeatStates(entry.id, newStates, boarded);
+            // Also update locked count if we just unlocked a seat
+            if (wasLocked) {
+              await supabase.from("queue_entries").update({ seats_locked: seatsLocked }).eq("id", entry.id);
+            }
+            setEntry({ ...entry, seat_states: newStates, seats_boarded: boarded, seats_locked: seatsLocked });
+          },
+        },
+      ]
+    );
+  };
+
+  const elapsedMs   = entry?.load_start_at ? Date.now() - new Date(entry.load_start_at).getTime() : 0;
+  const canChangeDest = !!entry
+    && (entry.seats_boarded ?? 0) === 0
+    && elapsedMs <= 60 * 60 * 1000;
+
+  const handleChangeDestination = async (newDest: string) => {
+    if (!entry) return;
+    setShowDestPicker(false);
+    const { error } = await QueueAPI.changeDestination(entry, newDest);
+    if (error) { Alert.alert(t.error, error); return; }
+    await refreshAll();
+  };
+
+  const handleDepart = () => {
+    if (!entry) return;
+    Alert.alert(
+      "Depart now?",
+      `You're leaving with ${boarded} of ${seats} seats filled. The next driver in your queue will be promoted to loading.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Depart",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await QueueAPI.depart(entry.id);
+            if (error) { Alert.alert("Error", error); return; }
+            router.replace("/(app)/queue");
+          },
+        },
+      ]
+    );
+  };
+
   const totalSeats     = entry?.vehicle?.seats || 4;
-  const seats          = Math.max(totalSeats - 1, 1); // exclude driver
-  const states  = (entry?.seat_states as SeatStatus[]) || Array(seats).fill("empty");
+  const seats          = seatCountFor(entry); // exclude driver
+  const states  = normalizeSeatStates(entry?.seat_states, seats);
   const boarded = states.filter(s => s === "boarded" || s === "locked").length;
   const locked  = entry?.seats_locked || 0;
+
+  const lstate   = isLoadingState ? loadingState(entry?.load_start_at, seats, now) : null;
+  const required = lstate ? lstate.effectiveRequired : seats;
+
+  const { zones } = useZones();
+  const { activeCodes: activeDestCodes } = useDestinations();
+  const zone        = zones.find(z => z.id === entry?.zone_id);
+  const zoneAddress = zone ? `${zone.name}${zone.address ? ` — ${zone.address}` : ""}` : "—";
+  const startedDate = entry?.load_start_at
+    ? new Date(entry.load_start_at).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })
+    : "—";
+  const startedTime = entry?.load_start_at
+    ? new Date(entry.load_start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "—";
 
   return (
     <SafeAreaView style={s.container}>
@@ -87,15 +235,78 @@ export default function MyLoadingScreen() {
               <Text style={s.carSub}>{entry.vehicle?.plate} · Slot #{entry.position}</Text>
             </View>
 
-            {timeLeft ? (
-              <View style={s.timerRow}>
-                <Text style={s.timerLabel}>⏱ Session expires in</Text>
-                <Text style={[s.timerVal, timeLeft === "Expired" && { color:Colors.red }]}>{timeLeft}</Text>
+            {pendingClaims.length > 0 && (
+              <View style={s.claimsCard}>
+                <Text style={s.claimsTitle}>🛎 {t.pendingClaims} · {pendingClaims.length}</Text>
+                {pendingClaims.map(claim => (
+                  <View key={claim.id} style={s.claimRow}>
+                    {claim.passenger?.avatar_url ? (
+                      <Image source={{ uri: claim.passenger.avatar_url }} style={s.claimAvatar} />
+                    ) : (
+                      <View style={s.claimAvatarFallback}><Text style={{ fontSize: 18 }}>👤</Text></View>
+                    )}
+                    <Text style={s.claimName} numberOfLines={1}>
+                      {claim.passenger?.full_name || "Passenger"}
+                    </Text>
+                    <TouchableOpacity style={s.rejectBtn} onPress={() => handleRejectClaim(claim)}>
+                      <Text style={s.rejectBtnText}>{t.rejectClaim}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.confirmBtn} onPress={() => handleConfirmClaim(claim)}>
+                      <Text style={s.confirmBtnText}>{t.confirmClaim}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
-            ) : null}
+            )}
+
+            {entry.load_start_at && (
+              <View style={s.metaCard}>
+                <View style={s.metaRow}>
+                  <Text style={s.metaKey}>📍 Address</Text>
+                  <Text style={s.metaVal} numberOfLines={2}>{zoneAddress}</Text>
+                </View>
+                <View style={s.metaRow}>
+                  <Text style={s.metaKey}>📅 Date</Text>
+                  <Text style={s.metaVal}>{startedDate}</Text>
+                </View>
+                <View style={[s.metaRow, { borderBottomWidth: 0 }]}>
+                  <Text style={s.metaKey}>🕒 Started</Text>
+                  <Text style={s.metaVal}>{startedTime}</Text>
+                </View>
+              </View>
+            )}
+
+            {lstate && (
+              <View style={[
+                s.timerRow,
+                lstate.phase === "warning" || lstate.phase === "expired" ? s.timerRowDanger
+                  : lstate.phase === "reduced3" ? s.timerRowWarn
+                  : null,
+              ]}>
+                <Text style={s.timerLabel}>⏱ {t.timeLeft}</Text>
+                <Text style={[
+                  s.timerVal,
+                  lstate.phase === "warning" || lstate.phase === "expired" ? { color:Colors.red }
+                    : lstate.phase === "reduced3" ? { color:Colors.yellow }
+                    : null,
+                ]}>{formatRemaining(lstate.remainingMs)}</Text>
+              </View>
+            )}
+            {lstate?.showWarning && (
+              <View style={s.warnBanner}>
+                <Text style={s.warnText}>⚠ {t.twoHourWarning}</Text>
+              </View>
+            )}
+            {lstate && required !== seats && (
+              <View style={s.reduceBanner}>
+                <Text style={s.reduceText}>
+                  {t.requiredReduced.replace("{from}", String(seats)).replace("{to}", String(required))}
+                </Text>
+              </View>
+            )}
             <View style={s.countRow}>
-              <Text style={s.countMain}>{boarded} / {seats}</Text>
-          <Text style={s.countLabel}>passenger seats (driver excluded)</Text>
+              <Text style={s.countMain}>{boarded} / {required}</Text>
+              <Text style={s.countLabel}>passenger seats (driver excluded)</Text>
               <Text style={s.countLabel}>{t.boarded}</Text>
             </View>
 
@@ -110,7 +321,7 @@ export default function MyLoadingScreen() {
                   color={Colors.accent}
                   size="full"
                   onPress={() => handleSeatTap(i)}
-                  disabled={states[i] === "locked"}
+                  onLongPress={() => handleSeatLongPress(i)}
                 />
               ))}
             </View>
@@ -142,9 +353,62 @@ export default function MyLoadingScreen() {
                 <Text style={s.pendingText}>⏱ {boarded - locked} {t.seatPending}</Text>
               </View>
             )}
+
+            <Text style={s.tip}>Tap a seat to add a passenger · Long-press to remove</Text>
+
+            <View style={s.destRow}>
+              <Text style={s.destLabel}>Destination: {getRegionName(entry.destination_region) || "—"}</Text>
+              <TouchableOpacity
+                style={[s.changeDestBtn, !canChangeDest && s.changeDestBtnOff]}
+                onPress={() => canChangeDest && setShowDestPicker(true)}
+                disabled={!canChangeDest}
+              >
+                <Text style={s.changeDestText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+            {!canChangeDest && (
+              <Text style={s.destHint}>
+                Destination locked — {(entry.seats_boarded ?? 0) > 0
+                  ? "passengers have boarded"
+                  : "more than 1 hour since loading started"}
+              </Text>
+            )}
+
+            <TouchableOpacity style={s.departBtn} onPress={handleDepart} activeOpacity={0.85}>
+              <Text style={s.departBtnText}>🚌 Depart now ({boarded}/{seats})</Text>
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
+      <BottomNav />
+
+      <Modal visible={showDestPicker} transparent animationType="slide" onRequestClose={() => setShowDestPicker(false)}>
+        <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowDestPicker(false)}>
+          <View style={s.modalSheet}>
+            <View style={s.modalHandle} />
+            <Text style={s.modalTitle}>Change destination</Text>
+            <ScrollView style={{ maxHeight: 420 }}>
+              {(zone ? getDestinationsFrom(zone.region, activeDestCodes) : []).map(dest => {
+                const price = getPricePerSeat(zone?.region, dest);
+                return (
+                  <TouchableOpacity
+                    key={dest}
+                    style={[s.destPickRow, entry?.destination_region === dest && s.destPickActive]}
+                    onPress={() => handleChangeDestination(dest)}
+                  >
+                    <Text style={[s.destPickName, entry?.destination_region === dest && { color: Colors.accent }]}>
+                      → {getRegionName(dest)}
+                    </Text>
+                    <Text style={s.destPickPrice}>
+                      {price !== null ? `C$${price} / seat` : "Set on board"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -159,9 +423,13 @@ const s = StyleSheet.create({
   empty:       { alignItems:"center", marginTop:80 },
   emptyEmoji:  { fontSize:48, marginBottom:12 },
   emptyText:   { fontSize:16, color:Colors.t2 },
-  carCard:     { backgroundColor:Colors.card, borderRadius:12, padding:14, borderWidth:0.5, borderColor:Colors.border, marginBottom:20 },
+  carCard:     { backgroundColor:Colors.card, borderRadius:12, padding:14, borderWidth:0.5, borderColor:Colors.border, marginBottom:16 },
   carName:     { fontSize:16, fontWeight:"600", color:Colors.t1 },
   carSub:      { fontSize:12, color:Colors.t3, marginTop:3 },
+  metaCard:    { backgroundColor:Colors.card, borderRadius:12, padding:4, borderWidth:0.5, borderColor:Colors.border, marginBottom:20 },
+  metaRow:     { flexDirection:"row", alignItems:"flex-start", justifyContent:"space-between", paddingVertical:10, paddingHorizontal:10, gap:10, borderBottomWidth:0.5, borderBottomColor:Colors.border },
+  metaKey:     { color:Colors.t3, fontSize:11, fontWeight:"600" },
+  metaVal:     { color:Colors.t1, fontSize:12, fontWeight:"500", textAlign:"right", flex:1, marginLeft:8 },
   countRow:    { alignItems:"center", marginBottom:8 },
   countMain:   { fontSize:36, fontWeight:"900", color:Colors.accent },
   countLabel:  { fontSize:13, color:Colors.t2, marginTop:2 },
@@ -171,10 +439,43 @@ const s = StyleSheet.create({
   legendItem:  { flexDirection:"row", alignItems:"center", gap:6 },
   legendText:  { color:Colors.t3, fontSize:11 },
   timerRow:    { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.card, borderRadius:8, padding:10, marginBottom:12, borderWidth:0.5, borderColor:Colors.border },
+  timerRowWarn:  { borderColor:Colors.yellow+"60", backgroundColor:Colors.yellow+"10" },
+  timerRowDanger:{ borderColor:Colors.red+"60",    backgroundColor:Colors.red+"10" },
   timerLabel:  { color:Colors.t2, fontSize:12 },
   timerVal:    { color:Colors.accent, fontSize:14, fontWeight:"700" },
+  warnBanner:  { backgroundColor:Colors.red+"15", borderRadius:8, padding:10, marginBottom:8, borderWidth:0.5, borderColor:Colors.red+"40" },
+  warnText:    { color:Colors.red, fontSize:12, textAlign:"center", fontWeight:"600" },
+  reduceBanner:{ backgroundColor:Colors.yellow+"12", borderRadius:8, padding:10, marginBottom:12, borderWidth:0.5, borderColor:Colors.yellow+"30" },
+  reduceText:  { color:Colors.yellow, fontSize:12, textAlign:"center", fontWeight:"600" },
   lockedBar:   { backgroundColor:Colors.accent+"12", borderRadius:8, padding:10, marginBottom:8, borderWidth:0.5, borderColor:Colors.accent+"30" },
   lockedText:  { color:Colors.accent, fontSize:12, textAlign:"center" },
   pendingBar:  { backgroundColor:Colors.yellow+"12", borderRadius:8, padding:10, borderWidth:0.5, borderColor:Colors.yellow+"30" },
   pendingText: { color:Colors.yellow, fontSize:12, textAlign:"center" },
+  tip:         { color:Colors.t3, fontSize:11, textAlign:"center", marginTop:14, marginBottom:8, fontStyle:"italic" },
+  departBtn:   { marginTop:8, backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center", marginBottom:24 },
+  departBtnText:{ color:Colors.accentText, fontSize:15, fontWeight:"800" },
+  destRow:     { flexDirection:"row", alignItems:"center", justifyContent:"space-between", marginTop:14, backgroundColor:Colors.card, borderRadius:12, padding:14, borderWidth:0.5, borderColor:Colors.border },
+  destLabel:   { color:Colors.t1, fontSize:13, fontWeight:"600", flex:1 },
+  changeDestBtn:{ backgroundColor:Colors.accent+"20", borderRadius:8, paddingHorizontal:12, paddingVertical:6, borderWidth:0.5, borderColor:Colors.accent+"50" },
+  changeDestBtnOff:{ opacity:0.35 },
+  changeDestText:{ color:Colors.accent, fontSize:12, fontWeight:"700" },
+  destHint:    { color:Colors.t3, fontSize:11, marginTop:6, fontStyle:"italic", textAlign:"center" },
+  modalOverlay:{ flex:1, backgroundColor:"rgba(0,0,0,0.6)", justifyContent:"flex-end" },
+  modalSheet:  { backgroundColor:Colors.card, borderTopLeftRadius:20, borderTopRightRadius:20, paddingTop:12, paddingBottom:24 },
+  modalHandle: { width:36, height:4, borderRadius:2, backgroundColor:Colors.border, alignSelf:"center", marginBottom:16 },
+  modalTitle:  { fontSize:16, fontWeight:"700", color:Colors.t1, paddingHorizontal:16, marginBottom:8 },
+  destPickRow: { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:14, paddingHorizontal:16, borderBottomWidth:0.5, borderBottomColor:Colors.border },
+  destPickActive:{ backgroundColor:Colors.accent+"10" },
+  destPickName:{ fontSize:14, fontWeight:"600", color:Colors.t1 },
+  destPickPrice:{ fontSize:12, color:Colors.accent, fontWeight:"700" },
+  claimsCard:  { backgroundColor:Colors.yellow+"12", borderRadius:14, padding:12, marginBottom:16, borderWidth:1, borderColor:Colors.yellow+"40" },
+  claimsTitle: { color:Colors.yellow, fontSize:13, fontWeight:"800", marginBottom:10 },
+  claimRow:    { flexDirection:"row", alignItems:"center", gap:8, paddingVertical:6 },
+  claimAvatar: { width:32, height:32, borderRadius:16, backgroundColor:Colors.cardAlt },
+  claimAvatarFallback: { width:32, height:32, borderRadius:16, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center", borderWidth:0.5, borderColor:Colors.border },
+  claimName:   { flex:1, color:Colors.t1, fontSize:13, fontWeight:"600" },
+  rejectBtn:   { backgroundColor:Colors.red+"18", paddingHorizontal:10, paddingVertical:6, borderRadius:8, borderWidth:0.5, borderColor:Colors.red+"50" },
+  rejectBtnText:{ color:Colors.red, fontSize:11, fontWeight:"700" },
+  confirmBtn:  { backgroundColor:"#22C55E", paddingHorizontal:10, paddingVertical:6, borderRadius:8 },
+  confirmBtnText:{ color:"#fff", fontSize:11, fontWeight:"700" },
 });

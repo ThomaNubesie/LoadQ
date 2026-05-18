@@ -4,13 +4,14 @@ import Svg, { Rect } from "react-native-svg";
 import { Colors } from "../constants/colors";
 
 interface SeatSvgProps {
-  filled:    boolean;
-  locked?:   boolean;
-  disputed?: boolean;
-  color?:    string;
-  size?:     "full" | "mini";
-  onPress?:  () => void;
-  disabled?: boolean;
+  filled:       boolean;
+  locked?:      boolean;
+  disputed?:    boolean;
+  color?:       string;
+  size?:        "full" | "mini";
+  onPress?:     () => void;
+  onLongPress?: () => void;
+  disabled?:    boolean;
 }
 
 export default function SeatSvg({
@@ -20,6 +21,7 @@ export default function SeatSvg({
   color = Colors.accent,
   size = "full",
   onPress,
+  onLongPress,
   disabled,
 }: SeatSvgProps) {
   const isMini = size === "mini";
@@ -46,12 +48,12 @@ export default function SeatSvg({
     </Svg>
   );
 
-  if (!onPress || disabled) {
+  if ((!onPress && !onLongPress) || disabled) {
     return <View style={{ opacity: disabled ? 0.35 : 1 }}>{seat}</View>;
   }
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} disabled={disabled}>
+    <TouchableOpacity onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7} disabled={disabled} delayLongPress={350}>
       {seat}
     </TouchableOpacity>
   );

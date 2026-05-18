@@ -24,14 +24,30 @@ export default function ProfileSetupScreen() {
     return `${d.slice(0,2)} / ${d.slice(2,4)} / ${d.slice(4,8)}`;
   };
 
+  // "DD / MM / YYYY" → "YYYY-MM-DD" (returns null if incomplete or invalid)
+  const parseDobIso = (val: string): string | null => {
+    const d = val.replace(/\D/g, "");
+    if (d.length !== 8) return null;
+    const day   = d.slice(0, 2);
+    const month = d.slice(2, 4);
+    const year  = d.slice(4, 8);
+    const test = new Date(`${year}-${month}-${day}`);
+    if (Number.isNaN(test.getTime())) return null;
+    return `${year}-${month}-${day}`;
+  };
+
   const handleNext = async () => {
     if (!firstName.trim() || !lastName.trim()) { setError("Please enter your full name"); return; }
     setLoading(true);
-    // Get auth user to ensure driver row has correct phone/email
     const { data: { user } } = await supabase.auth.getUser();
+    // Parse "DD / MM / YYYY" into ISO date if present + complete
+    const dobIso = parseDobIso(dob);
     const { error: drvErr } = await DriversAPI.createOrUpdate({
       full_name: `${firstName.trim()} ${lastName.trim()}`,
-      phone: user?.phone || user?.email || "",
+      ...(user?.phone ? { phone: user.phone } : {}),
+      ...(user?.email ? { email: user.email } : {}),
+      ...(dobIso ? { dob: dobIso } : {}),
+      ...(sex ? { sex } : {}),
     });
     setLoading(false);
     if (drvErr) {

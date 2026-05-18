@@ -5,13 +5,16 @@ import * as Location from "expo-location";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import {
-  REGIONS, ZONE_LOCATIONS, ZoneLocation, RegionCode,
+  REGIONS, ZoneLocation, RegionCode,
   detectUserRegion, getZonesByRegion, getDistanceKm
 } from "../../constants/zones";
+import { useZones } from "../../hooks/useZones";
 
 export default function ZoneSelectScreen() {
   const router     = useRouter();
   const { t }  = useStrings();
+
+  const { zones } = useZones();
 
   const [userLat,    setUserLat]    = useState<number|null>(null);
   const [userLon,    setUserLon]    = useState<number|null>(null);
@@ -41,7 +44,7 @@ export default function ZoneSelectScreen() {
     getLocation();
   }, []);
 
-  const zonesInTab  = getZonesByRegion(activeTab);
+  const zonesInTab  = getZonesByRegion(zones, activeTab);
   const isMyRegion  = activeTab === userRegion;
 
   const getDistance = (zone: ZoneLocation): string => {

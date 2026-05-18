@@ -13,17 +13,18 @@ export default function PaymentScreen() {
   const [loading, setLoading] = useState(false);
 
   const isAnnual = plan === "annual";
-  const monthly  = isAnnual ? "C$6.99" : "C$9.99";
-  const total    = isAnnual ? "C$83.88 / year" : "C$9.99 / month";
+  const monthly  = "C$30";
+  const total    = isAnnual ? "C$360 / year" : "C$30 / month";
 
+  const TRIAL_DAYS = 14;
   const trialEnd = new Date();
-  trialEnd.setDate(trialEnd.getDate() + 7);
+  trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
   const trialEndStr = trialEnd.toLocaleDateString("en-CA", { month:"long", day:"numeric" });
 
   const handleStartTrial = async () => {
     setLoading(true);
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
     const subEndsAt = new Date();
     isAnnual ? subEndsAt.setFullYear(subEndsAt.getFullYear() + 1) : subEndsAt.setMonth(subEndsAt.getMonth() + 1);
     await supabase.from("drivers").update({

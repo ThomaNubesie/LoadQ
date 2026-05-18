@@ -9,6 +9,10 @@ export default function AppLayout() {
       <Stack.Screen name="my-loading" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="alerts" />
+      <Stack.Screen name="admin-zones" />
+      <Stack.Screen name="loading-history" />
+      <Stack.Screen name="edit-vehicle" />
+      <Stack.Screen name="admin-destinations" />
     </Stack>
   );
 }

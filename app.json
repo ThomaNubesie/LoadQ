@@ -30,6 +30,11 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
+        }
+      },
       "versionCode": 1
     },
     "plugins": [

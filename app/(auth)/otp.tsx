@@ -4,17 +4,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
+import { PassengersAPI } from "../../services/passengers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function OTPScreen() {
   const router     = useRouter();
   const { t }  = useStrings();
-  const { phone, isEmail } = useLocalSearchParams<{ phone: string; isEmail?: string }>();
+  const { phone, isEmail, role } = useLocalSearchParams<{ phone: string; isEmail?: string; role?: "driver" | "passenger" }>();
+  const intendedRole: "driver" | "passenger" = role === "passenger" ? "passenger" : "driver";
   const [otp,     setOtp]     = useState(["","","","","",""]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
-  const inputs = useRef<TextInput[]>([]);
+  const inputs       = useRef<TextInput[]>([]);
+  const verifyingRef = useRef(false);
+  const verifiedCode = useRef<string | null>(null);
 
   const handleChange = (val: string, idx: number) => {
     if (val.length === 6) {
@@ -32,6 +36,13 @@ export default function OTPScreen() {
 
   const handleVerify = async (code: string) => {
     if (code.length !== 6) return;
+    // Guard against re-entry (autofill triggers onChangeText per character,
+    // which can fire handleVerify more than once for the same 6-digit code;
+    // the second call hits "token expired" because the token was consumed).
+    if (verifyingRef.current) return;
+    if (verifiedCode.current === code) return;
+    verifyingRef.current = true;
+
     setLoading(true);
     setError("");
 
@@ -44,16 +55,50 @@ export default function OTPScreen() {
       verifyError = error;
     }
 
-    if (verifyError) { setError(verifyError.message); setLoading(false); return; }
+    if (verifyError) {
+      verifyingRef.current = false;
+      setError(verifyError.message);
+      setLoading(false);
+      return;
+    }
 
-    const driver = await DriversAPI.getMe();
+    verifiedCode.current = code;
+
+    // Role resolution: check both tables to know what this account already is.
+    const [driver, passenger] = await Promise.all([
+      DriversAPI.getMe(),
+      PassengersAPI.getMe(),
+    ]);
+
+    // Block role mismatch (a phone registered as driver tries to sign in as passenger or vice-versa).
+    if (intendedRole === "passenger" && driver) {
+      verifyingRef.current = false;
+      setLoading(false);
+      setError(t.cantSwitchRoles.replace(/{role}/g, t.iAmDriver.toLowerCase()));
+      return;
+    }
+    if (intendedRole === "driver" && passenger) {
+      verifyingRef.current = false;
+      setLoading(false);
+      setError(t.cantSwitchRoles.replace(/{role}/g, t.iAmPassenger.toLowerCase()));
+      return;
+    }
+
     setLoading(false);
 
-    if (!driver || !driver.full_name) {
-      router.replace("/(auth)/profile-setup");
+    if (intendedRole === "passenger") {
+      if (!passenger || !passenger.full_name) {
+        router.replace("/(auth)/passenger-setup");
+      } else {
+        router.replace("/(passenger)/queue");
+      }
     } else {
-      const hasSub = await DriversAPI.hasActiveSubscription();
-      router.replace(hasSub ? "/(app)/zone-select" : "/(auth)/subscribe");
+      if (!driver || !driver.full_name) {
+        router.replace("/(auth)/profile-setup");
+      } else {
+        const hasSub = await DriversAPI.hasActiveSubscription();
+        router.replace(hasSub ? "/(app)/zone-select" : "/(auth)/subscribe");
+      }
     }
   };
 

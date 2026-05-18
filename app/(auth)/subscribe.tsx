@@ -1,18 +1,70 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
+import type { PurchasesPackage, PurchasesOffering } from "react-native-purchases";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import { DriversAPI } from "../../services/drivers";
+import { BillingAPI } from "../../services/billing";
+import { Driver } from "../../constants/types";
 
 export default function SubscribeScreen() {
   const router     = useRouter();
   const { t }  = useStrings();
-  const [plan, setPlan] = useState<"annual"|"monthly">("annual");
+  // v1 ships monthly-only (no annual product in the stores yet).
+  const [plan, setPlan] = useState<"annual"|"monthly">("monthly");
+  const [driver, setDriver] = useState<Driver | null>(null);
+  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
+  const [loadingOffer, setLoadingOffer] = useState(true);
+  const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    DriversAPI.getMe().then(setDriver);
+    BillingAPI.getCurrentOffering().then(o => { setOffering(o); setLoadingOffer(false); });
+  }, []);
+
+  const pkgMonthly: PurchasesPackage | null = offering?.monthly ?? null;
+  const pkgAnnual:  PurchasesPackage | null = offering?.annual  ?? null;
+  const selectedPkg = plan === "annual" ? pkgAnnual : pkgMonthly;
+
+  const trialEnded = driver?.subscription_status === "trialing"
+    && driver?.trial_ends_at
+    && new Date(driver.trial_ends_at).getTime() < Date.now();
+  const onHold = driver && (
+    driver.subscription_status === "expired"
+    || driver.subscription_status === "cancelled"
+    || trialEnded
+  );
+
+  const handleSubscribe = async () => {
+    if (!selectedPkg) {
+      Alert.alert("Unavailable", "Subscription products aren't available right now. Try again shortly.");
+      return;
+    }
+    setBusy(true);
+    const { ok, error } = await BillingAPI.purchase(selectedPkg);
+    setBusy(false);
+    if (ok) { router.replace("/(app)/zone-select"); return; }
+    if (error && error !== "cancelled") Alert.alert("Purchase failed", error);
+  };
+
+  const handleRestore = async () => {
+    setBusy(true);
+    const { ok, error } = await BillingAPI.restore();
+    setBusy(false);
+    if (ok) { router.replace("/(app)/zone-select"); return; }
+    Alert.alert("Restore", error ? error : "No active subscription found for this account.");
+  };
+
+  // Prices come from the store (localized). Fall back to static labels if the
+  // offering hasn't loaded (dev without RC keys).
+  const monthlyPrice = pkgMonthly?.product.priceString ?? "C$30";
+  const annualPrice  = pkgAnnual?.product.priceString  ?? "C$360";
+
+  // Monthly-only for v1. (Annual returns when an annual store product exists.)
   const PLANS = [
-    { key:"annual" as const,  name:t.annual,   price:"C$6.99",  full:"C$83.88/yr", per:t.perMonth, desc:t.billedAnnually, badge:t.save33,  perks:["Full queue access","Seat tracking + peer confirm","Priority queue on join","Extended return +2 min","Annual tax receipt"], popular:true  },
-    { key:"monthly" as const, name:t.monthly,  price:"C$9.99",  full:null,         per:t.perMonth, desc:t.billedMonthly,  badge:null,       perks:["Full queue access","Seat tracking + peer confirm","In-app chat + calls","Push notifications"],                       popular:false },
+    { key:"monthly" as const, name:t.monthly, price:monthlyPrice, full:null, per:t.perMonth, desc:t.billedMonthly, badge:null, perks:["Full queue access","Seat tracking + peer confirm","Priority queue on join","Loading history","14-day free trial"], popular:true },
   ];
 
   return (
@@ -27,9 +79,16 @@ export default function SubscribeScreen() {
           <Text style={s.logoSub}>Driver subscription</Text>
         </View>
 
-        <View style={s.trialBanner}>
-          <Text style={s.trialText}>🎁 {t.freeTrial}</Text>
-        </View>
+        {onHold ? (
+          <View style={s.holdBanner}>
+            <Text style={s.holdTitle}>⏸ {t.accountOnHold}</Text>
+            <Text style={s.holdSub}>{t.accountOnHoldSub}</Text>
+          </View>
+        ) : (
+          <View style={s.trialBanner}>
+            <Text style={s.trialText}>🎁 {t.freeTrial}</Text>
+          </View>
+        )}
 
         <Text style={s.title}>{t.choosePlan}</Text>
 
@@ -63,12 +122,23 @@ export default function SubscribeScreen() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity style={s.btn} onPress={() => router.push({ pathname:"/(auth)/payment", params:{ plan } })} activeOpacity={0.85}>
-          <Text style={s.btnText}>{t.startTrial} — {plan==="annual" ? t.annual : t.monthly} →</Text>
+        <TouchableOpacity
+          style={[s.btn, (busy || loadingOffer) && { opacity: 0.5 }]}
+          onPress={handleSubscribe}
+          disabled={busy || loadingOffer}
+          activeOpacity={0.85}
+        >
+          {busy || loadingOffer
+            ? <ActivityIndicator color={Colors.accentText} />
+            : <Text style={s.btnText}>{t.startTrial} — {plan==="annual" ? t.annual : t.monthly} →</Text>}
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleRestore} disabled={busy} style={{ alignItems:"center", paddingVertical:10 }}>
+          <Text style={{ color:Colors.t2, fontSize:13, fontWeight:"600" }}>Restore purchases</Text>
         </TouchableOpacity>
 
         <View style={s.secureRow}>
-          <Text style={s.secureBadge}>🔒 {t.securedStripe}</Text>
+          <Text style={s.secureBadge}>🔒 14-day free trial</Text>
           <Text style={s.secureBadge}>{t.cancelAnytime}</Text>
         </View>
       </ScrollView>
@@ -86,6 +156,9 @@ const s = StyleSheet.create({
   logoSub:     { fontSize:12, color:Colors.t3, marginTop:3 },
   trialBanner: { backgroundColor:Colors.yellow+"18", borderWidth:0.5, borderColor:Colors.yellow+"44", borderRadius:10, padding:10, marginBottom:20 },
   trialText:   { color:Colors.yellow, fontSize:13, textAlign:"center" },
+  holdBanner:  { backgroundColor:Colors.red+"15", borderWidth:0.5, borderColor:Colors.red+"40", borderRadius:10, padding:14, marginBottom:20 },
+  holdTitle:   { color:Colors.red, fontSize:14, fontWeight:"800", textAlign:"center", marginBottom:4 },
+  holdSub:     { color:Colors.t2, fontSize:12, textAlign:"center", lineHeight:18 },
   title:       { fontSize:20, fontWeight:"700", color:Colors.t1, marginBottom:16 },
   card:        { backgroundColor:Colors.card, borderRadius:14, padding:16, marginBottom:12, borderWidth:1, borderColor:Colors.border },
   cardActive:  { borderColor:Colors.accent, backgroundColor:Colors.accent+"08" },
@@ -97,7 +170,7 @@ const s = StyleSheet.create({
   badgeText:   { color:Colors.accent, fontSize:9, fontWeight:"600" },
   price:       { fontSize:20, fontWeight:"700", color:Colors.t1 },
   pricePer:    { fontSize:10, color:Colors.t3 },
-  priceFull:   { fontSize:10, color:Colors.t3, textDecorationLine:"line-through" },
+  priceFull:   { fontSize:10, color:Colors.t3 },
   perks:       { gap:6 },
   perkRow:     { flexDirection:"row", alignItems:"center", gap:8 },
   perkCheck:   { color:Colors.accent, fontSize:12, fontWeight:"700" },

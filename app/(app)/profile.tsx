@@ -1,31 +1,61 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { AuthAPI } from "../../services/auth";
 import { DriversAPI } from "../../services/drivers";
+import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { Driver, Vehicle } from "../../constants/types";
 import { Lang } from "../../constants/i18n";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { VEHICLE_TYPES } from "../../constants/vehicles";
+import BottomNav from "../../components/BottomNav";
 
 export default function ProfileScreen() {
   const router      = useRouter();
   const { t, lang } = useStrings();
-  const [driver,   setDriver]   = useState<Driver|null>(null);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [driver,    setDriver]    = useState<Driver|null>(null);
+  const [vehicles,  setVehicles]  = useState<Vehicle[]>([]);
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     DriversAPI.getMe().then(setDriver);
     DriversAPI.getVehicles().then(setVehicles);
+    supabase.auth.getUser().then(({ data }) => setAuthEmail(data.user?.email ?? null));
   }, []);
 
   const handleSignOut = async () => {
     await AuthAPI.signOut();
     router.replace("/(auth)/language");
   };
+
+  const handlePickAvatar = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(t.permissionNeeded, t.photoPermissionBody);
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    setUploading(true);
+    const { url, error } = await DriversAPI.uploadAvatar(result.assets[0].uri);
+    setUploading(false);
+    if (error) { Alert.alert(t.error, error); return; }
+    if (url) setDriver(d => d ? { ...d, avatar_url: url } : d);
+  };
+
+  const shortId = driver?.id ? `#${driver.id.slice(0, 8).toUpperCase()}` : "—";
+  const emailDisplay = driver?.email || authEmail || "—";
+  const phoneDisplay = driver?.phone || "—";
 
   const subColor = driver?.subscription_status === "active"   ? Colors.accent
     : driver?.subscription_status === "trialing"  ? Colors.blue
@@ -50,11 +80,42 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={s.inner}>
         {/* Avatar */}
         <View style={s.avatar}>
-          <View style={s.avatarCircle}>
-            <Text style={s.avatarEmoji}>👤</Text>
-          </View>
+          <TouchableOpacity onPress={handlePickAvatar} disabled={uploading} activeOpacity={0.8}>
+            <View style={s.avatarCircle}>
+              {driver?.avatar_url ? (
+                <Image source={{ uri: driver.avatar_url }} style={s.avatarImg} />
+              ) : (
+                <Text style={s.avatarEmoji}>👤</Text>
+              )}
+              <View style={s.avatarEditBadge}>
+                {uploading
+                  ? <ActivityIndicator size="small" color={Colors.accentText} />
+                  : <Text style={s.avatarEditIcon}>✎</Text>}
+              </View>
+            </View>
+          </TouchableOpacity>
           <Text style={s.name}>{driver?.full_name || "Driver"}</Text>
-          <Text style={s.phone}>{driver?.phone}</Text>
+          <TouchableOpacity onPress={handlePickAvatar} disabled={uploading}>
+            <Text style={s.avatarHint}>
+              {uploading ? t.loading : (driver?.avatar_url ? t.changePhoto : t.addPhoto)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Identity */}
+        <View style={s.card}>
+          <View style={s.identRow}>
+            <Text style={s.identKey}>{t.emailAddress}</Text>
+            <Text style={s.identVal} numberOfLines={1}>{emailDisplay}</Text>
+          </View>
+          <View style={s.identRow}>
+            <Text style={s.identKey}>{t.phoneNumber}</Text>
+            <Text style={s.identVal} numberOfLines={1}>{phoneDisplay}</Text>
+          </View>
+          <View style={[s.identRow, { borderBottomWidth: 0 }]}>
+            <Text style={s.identKey}>{t.driverId}</Text>
+            <Text style={s.identVal} numberOfLines={1}>{shortId}</Text>
+          </View>
         </View>
 
         {/* Subscription */}
@@ -94,11 +155,18 @@ export default function ProfileScreen() {
                     <Text style={s.vehicleName}>{v.year} {v.make} {v.model}</Text>
                     {v.is_active && <View style={s.activeDot}><Text style={s.activeDotText}>Active</Text></View>}
                   </View>
-                  <Text style={s.vehiclePlate}>{v.plate}</Text>
+                  <Text style={s.vehiclePlate}>{v.plate}{v.color ? ` · ${v.color}` : ""}</Text>
                   <View style={s.vehicleMeta}>
                     <Text style={s.vehicleType}>{VEHICLE_TYPES[v.type]?.label || v.type}</Text>
                     <Text style={s.vehicleSeats}>· {v.seats} {t.seats}</Text>
                   </View>
+                  <TouchableOpacity
+                    style={s.editVehicleBtn}
+                    onPress={() => router.push({ pathname: "/(app)/edit-vehicle", params: { vehicleId: v.id } })}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={s.editVehicleText}>✎ Edit</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -120,10 +188,26 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/loading-history")} activeOpacity={0.85}>
+          <Text style={s.historyBtnText}>📋  Loading history</Text>
+        </TouchableOpacity>
+
+        {driver?.is_admin && (
+          <>
+            <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-zones")} activeOpacity={0.85}>
+              <Text style={s.adminBtnText}>🛠  Admin · Zones</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-destinations")} activeOpacity={0.85}>
+              <Text style={s.adminBtnText}>🗺  Admin · Destinations</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
         <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
           <Text style={s.signOutText}>{t.signOut}</Text>
         </TouchableOpacity>
       </ScrollView>
+      <BottomNav />
     </SafeAreaView>
   );
 }
@@ -135,10 +219,16 @@ const s = StyleSheet.create({
   title:             { fontSize:17, fontWeight:"700", color:Colors.t1 },
   inner:             { padding:20, paddingBottom:60 },
   avatar:            { alignItems:"center", marginBottom:24 },
-  avatarCircle:      { width:72, height:72, borderRadius:36, backgroundColor:Colors.card, borderWidth:1, borderColor:Colors.border, alignItems:"center", justifyContent:"center", marginBottom:10 },
-  avatarEmoji:       { fontSize:32 },
-  name:              { fontSize:20, fontWeight:"700", color:Colors.t1 },
-  phone:             { fontSize:13, color:Colors.t3, marginTop:4 },
+  avatarCircle:      { width:88, height:88, borderRadius:44, backgroundColor:Colors.card, borderWidth:1, borderColor:Colors.border, alignItems:"center", justifyContent:"center", marginBottom:10, overflow:"hidden" },
+  avatarEmoji:       { fontSize:40 },
+  avatarImg:         { width:88, height:88, borderRadius:44 },
+  avatarEditBadge:   { position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:14, backgroundColor:Colors.accent, alignItems:"center", justifyContent:"center", borderWidth:2, borderColor:Colors.bg },
+  avatarEditIcon:    { color:Colors.accentText, fontSize:14, fontWeight:"700" },
+  avatarHint:        { fontSize:12, color:Colors.accent, marginTop:6, fontWeight:"600" },
+  name:              { fontSize:20, fontWeight:"700", color:Colors.t1, marginTop:4 },
+  identRow:          { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:10, borderBottomWidth:0.5, borderBottomColor:Colors.border },
+  identKey:          { color:Colors.t3, fontSize:12, fontWeight:"600" },
+  identVal:          { color:Colors.t1, fontSize:13, fontWeight:"500", maxWidth:"60%", textAlign:"right" },
   card:              { backgroundColor:Colors.card, borderRadius:14, padding:16, borderWidth:0.5, borderColor:Colors.border, marginBottom:24 },
   cardRow:           { flexDirection:"row", justifyContent:"space-between", alignItems:"center", marginBottom:6 },
   cardTitle:         { fontSize:14, fontWeight:"600", color:Colors.t1 },
@@ -158,6 +248,8 @@ const s = StyleSheet.create({
   activeDot:         { backgroundColor:Colors.accent+"20", borderRadius:6, paddingHorizontal:7, paddingVertical:2 },
   activeDotText:     { color:Colors.accent, fontSize:10, fontWeight:"600" },
   vehiclePlate:      { fontSize:12, color:Colors.t2, marginBottom:4 },
+  editVehicleBtn:    { alignSelf:"flex-start", marginTop:8, backgroundColor:Colors.accent+"15", borderRadius:8, paddingHorizontal:10, paddingVertical:5, borderWidth:0.5, borderColor:Colors.accent+"40" },
+  editVehicleText:   { color:Colors.accent, fontSize:11, fontWeight:"700" },
   vehicleMeta:       { flexDirection:"row", gap:4 },
   vehicleType:       { fontSize:11, color:Colors.t3 },
   vehicleSeats:      { fontSize:11, color:Colors.t3 },
@@ -167,6 +259,10 @@ const s = StyleSheet.create({
   langBtn:           { flex:1, backgroundColor:Colors.card, borderRadius:10, padding:12, borderWidth:1, borderColor:Colors.border, alignItems:"center" },
   langBtnActive:     { borderColor:Colors.accent, backgroundColor:Colors.accent+"12" },
   langBtnText:       { fontSize:13, fontWeight:"600", color:Colors.t2 },
+  historyBtn:        { backgroundColor:Colors.card, borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.border, marginBottom:10 },
+  historyBtnText:    { color:Colors.t1, fontSize:14, fontWeight:"700" },
+  adminBtn:          { backgroundColor:Colors.accent+"12", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.accent+"40", marginBottom:10 },
+  adminBtnText:      { color:Colors.accent, fontSize:14, fontWeight:"700" },
   signOutBtn:        { backgroundColor:Colors.red+"15", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.red+"30" },
   signOutText:       { color:Colors.red, fontSize:14, fontWeight:"600" },
 });

@@ -8,6 +8,7 @@ export interface Vehicle {
   model: string;
   year: number;
   plate: string;
+  color?: string;
   seats: number;
   image_url?: string;
   is_active: boolean;
@@ -20,6 +21,9 @@ export interface Driver {
   phone: string;
   email?: string;
   avatar_url?: string;
+  is_admin?: boolean;
+  dob?: string | null;
+  sex?: "male" | "female" | "other" | null;
   subscription_status: "trialing" | "active" | "grace" | "expired" | "cancelled";
   subscription_plan: "monthly" | "annual" | null;
   trial_ends_at?: string;
@@ -27,6 +31,7 @@ export interface Driver {
   grace_ends_at?: string;
   stripe_customer_id?: string;
   trust_score: number;
+  push_token?: string | null;
   created_at: string;
 }
 
@@ -61,6 +66,7 @@ export interface QueueEntry {
   load_start_at?: string;
   load_deadline?: string;
   joined_at: string;
+  destination_region?: string | null; // RegionCode the driver is heading to
   driver?: Driver;
   vehicle?: Vehicle;
   seat_states?: SeatStatus[];

@@ -127,3 +127,20 @@ export function getSeatsForModel(make: string, model: string): number {
 export function getIconForType(type: VehicleType): string {
   return VEHICLE_TYPES[type].icon;
 }
+
+// Standard car color palette + a swatch hex for UI chips.
+export const CAR_COLORS: { name: string; hex: string }[] = [
+  { name: "White",  hex: "#F5F5F5" },
+  { name: "Black",  hex: "#1A1A1A" },
+  { name: "Silver", hex: "#C0C0C0" },
+  { name: "Gray",   hex: "#808080" },
+  { name: "Red",    hex: "#C0392B" },
+  { name: "Blue",   hex: "#2E5FA3" },
+  { name: "Green",  hex: "#27795B" },
+  { name: "Brown",  hex: "#6B4A2E" },
+  { name: "Beige",  hex: "#D8C9A3" },
+  { name: "Gold",   hex: "#C9A23B" },
+  { name: "Orange", hex: "#D9690F" },
+  { name: "Yellow", hex: "#E3C200" },
+  { name: "Other",  hex: "#9CA3AF" },
+];

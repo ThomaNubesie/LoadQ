@@ -7,7 +7,7 @@ import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { VehicleType } from "../../constants/types";
-import { getSeatsForType, getSeatsForModel } from "../../constants/vehicles";
+import { getSeatsForType, getSeatsForModel, CAR_COLORS } from "../../constants/vehicles";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 
 // Years: newest first, sorted correctly
@@ -52,6 +52,7 @@ export default function VehicleSetupScreen() {
   const [make,    setMake]    = useState("");
   const [model,   setModel]   = useState("");
   const [plate,   setPlate]   = useState("");
+  const [color,   setColor]   = useState("");
   const [makes,   setMakes]   = useState<string[]>([]);
   const [models,  setModels]  = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -102,6 +103,7 @@ export default function VehicleSetupScreen() {
 
   const handleSave = async () => {
     if (!plate.trim()) { setError("Please enter your plate number"); return; }
+    if (!color)        { setError("Please select your car colour"); return; }
     setSaving(true);
 
     // Make sure driver row exists first
@@ -131,6 +133,7 @@ export default function VehicleSetupScreen() {
       model: model.trim(),
       year:  parseInt(year),
       plate: plate.trim().toUpperCase(),
+      color,
     });
     setSaving(false);
     if (err) { setError(err); return; }
@@ -170,7 +173,7 @@ export default function VehicleSetupScreen() {
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => {
-          if (step === "year")  goBack();
+          if (step === "year")  router.canGoBack() ? router.back() : router.replace("/(app)/profile");
           else if (step === "make")  setStep("year");
           else if (step === "model") setStep("make");
           else setStep("model");
@@ -252,12 +255,27 @@ export default function VehicleSetupScreen() {
               autoCapitalize="characters"
             />
 
+            <Text style={s.label}>CAR COLOUR</Text>
+            <View style={s.colorRow}>
+              {CAR_COLORS.map(c => (
+                <TouchableOpacity
+                  key={c.name}
+                  style={[s.colorChip, color === c.name && s.colorChipActive]}
+                  onPress={() => { setColor(c.name); setError(""); }}
+                  activeOpacity={0.8}
+                >
+                  <View style={[s.swatch, { backgroundColor: c.hex }]} />
+                  <Text style={[s.colorText, color === c.name && { color: Colors.accent }]}>{c.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             {!!error && <Text style={s.error}>{error}</Text>}
 
             <TouchableOpacity
-              style={[s.btn, (!plate || saving) && s.btnOff]}
+              style={[s.btn, (!plate || !color || saving) && s.btnOff]}
               onPress={handleSave}
-              disabled={!plate || saving}
+              disabled={!plate || !color || saving}
               activeOpacity={0.85}
             >
               <Text style={s.btnText}>{saving ? t.loading : t.next + " →"}</Text>
@@ -300,6 +318,11 @@ const s = StyleSheet.create({
   typeBadgeText:  { color:Colors.accent, fontSize:12, fontWeight:"600" },
   label:          { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:6 },
   input:          { backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, padding:14, color:Colors.t1, fontSize:15, marginBottom:16 },
+  colorRow:       { flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:16 },
+  colorChip:      { flexDirection:"row", alignItems:"center", gap:6, paddingHorizontal:10, paddingVertical:8, borderRadius:10, borderWidth:1, borderColor:Colors.border, backgroundColor:Colors.card },
+  colorChipActive:{ borderColor:Colors.accent, backgroundColor:Colors.accent+"15" },
+  swatch:         { width:14, height:14, borderRadius:7, borderWidth:0.5, borderColor:Colors.border },
+  colorText:      { color:Colors.t2, fontSize:12, fontWeight:"600" },
   error:          { color:Colors.red, fontSize:13, marginBottom:12 },
   btn:            { backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center" },
   btnOff:         { opacity:0.4 },

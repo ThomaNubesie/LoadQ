@@ -5,12 +5,24 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View, Text } from "react-native";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { initLang } from "../hooks/useStrings";
+import { BillingAPI } from "../services/billing";
+import { PushAPI } from "../services/push";
+import { supabase } from "../services/supabase";
 import { Colors } from "../constants/colors";
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     initLang().then(() => setReady(true));
+    // Init RevenueCat, then tie purchases to the signed-in user if any.
+    BillingAPI.configure();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) { BillingAPI.identify(data.user.id); PushAPI.register(); }
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.user) { BillingAPI.identify(session.user.id); PushAPI.register(); }
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   if (!ready) return (
