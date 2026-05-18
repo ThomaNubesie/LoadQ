@@ -77,4 +77,4 @@ updated" date above.
 
 ## Contact
 
-Questions or data requests: **REPLACE_WITH_YOUR_SUPPORT_EMAIL**
+Questions or data requests: **shaloderick@gmail.com**
