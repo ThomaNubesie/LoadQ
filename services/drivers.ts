@@ -76,16 +76,36 @@ export const DriversAPI = {
   },
 
   async hasActiveSubscription(): Promise<boolean> {
-    // RevenueCat entitlement is the source of truth once billing is live —
-    // it covers the store-side free trial AND the paid period.
-    const entitled = await BillingAPI.isEntitled();
-    if (entitled !== null) return entitled;
-
-    // Billing not configured yet (dev / keys missing) → fall back to the DB
-    // trial columns so development isn't blocked.
     const driver = await DriversAPI.getMe();
     if (!driver) return false;
     const now = Date.now();
+
+    // An already-running referral waiver grants access regardless of billing.
+    if (driver.waiver_until && new Date(driver.waiver_until).getTime() > now) {
+      return true;
+    }
+
+    // RevenueCat entitlement is the source of truth once billing is live —
+    // it covers the store-side free trial AND the paid period.
+    const entitled = await BillingAPI.isEntitled();
+    if (entitled === true) return true;
+
+    // Not entitled (period lapsed / not renewed) and a free month is banked:
+    // start it now. Capped at one month — referral_waiver_granted prevents the
+    // bank from ever being topped past 1, so this fires at most once.
+    if ((driver.waiver_months ?? 0) > 0) {
+      const until = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from("drivers")
+        .update({ waiver_until: until, waiver_months: 0 })
+        .eq("id", driver.id);
+      if (!error) return true;
+    }
+
+    if (entitled === false) return false;
+
+    // Billing not configured yet (dev / keys missing) → fall back to the DB
+    // trial columns so development isn't blocked.
     // "trialing" is valid only while trial_ends_at is still in the future.
     if (driver.subscription_status === "trialing") {
       const end = driver.trial_ends_at ? new Date(driver.trial_ends_at).getTime() : 0;

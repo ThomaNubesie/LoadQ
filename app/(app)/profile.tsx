@@ -192,6 +192,10 @@ export default function ProfileScreen() {
           <Text style={s.historyBtnText}>📋  Loading history</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/referral")} activeOpacity={0.85}>
+          <Text style={s.historyBtnText}>🎁  Refer & earn a free month</Text>
+        </TouchableOpacity>
+
         {driver?.is_admin && (
           <>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-zones")} activeOpacity={0.85}>
@@ -199,6 +203,9 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-destinations")} activeOpacity={0.85}>
               <Text style={s.adminBtnText}>🗺  Admin · Destinations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-verify")} activeOpacity={0.85}>
+              <Text style={s.adminBtnText}>✅  Admin · Verify drivers</Text>
             </TouchableOpacity>
           </>
         )}

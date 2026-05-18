@@ -4,6 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { PassengersAPI } from "../../services/passengers";
+import { ReferralAPI } from "../../services/referral";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
@@ -45,12 +46,14 @@ export default function PassengerSetupScreen() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     const dobIso = parseDobIso(dob);
+    const referredBy = await ReferralAPI.consumePendingRef();
     const { error: err } = await PassengersAPI.createOrUpdate({
       full_name: `${firstName.trim()} ${lastName.trim()}`,
       ...(user?.phone ? { phone: user.phone } : {}),
       ...(user?.email ? { email: user.email } : {}),
       ...(dobIso ? { dob: dobIso } : {}),
       ...(sex ? { sex } : {}),
+      ...(referredBy && referredBy !== user?.id ? { referred_by: referredBy } : {}),
     });
     setLoading(false);
     if (err) {

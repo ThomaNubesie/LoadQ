@@ -32,6 +32,10 @@ export interface Driver {
   stripe_customer_id?: string;
   trust_score: number;
   push_token?: string | null;
+  verified?: boolean;
+  waiver_months?: number;
+  waiver_until?: string | null;
+  referral_waiver_granted?: boolean;
   created_at: string;
 }
 

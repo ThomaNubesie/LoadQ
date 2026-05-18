@@ -43,6 +43,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(app)" />
           <Stack.Screen name="(admin)" />
+          <Stack.Screen name="ref/[id]" />
         </Stack>
       </StripeProvider>
     </SafeAreaProvider>

@@ -8,6 +8,7 @@ export interface Passenger {
   avatar_url?: string | null;
   dob?:       string | null;
   sex?:       "male" | "female" | "other" | null;
+  referred_by?: string | null;
   created_at: string;
 }
 

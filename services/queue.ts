@@ -2,8 +2,39 @@ import { supabase } from "./supabase";
 import { QueueEntry, SeatStatus } from "../constants/types";
 import { isWithinLoadingWindow } from "../utils/loadingTimer";
 import { getZoneTimezone } from "../hooks/useZones";
+import { DriversAPI } from "./drivers";
 
 export const QueueAPI = {
+  // Profile validation gate. A driver may only join the queue once an admin
+  // has verified them AND their profile/vehicle/billing are in good standing.
+  async canJoin(): Promise<{ ok: boolean; reason?: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false, reason: "Not authenticated" };
+
+    const driver = await DriversAPI.getMe();
+    if (!driver) return { ok: false, reason: "Driver profile not found" };
+
+    if (!driver.verified) {
+      return { ok: false, reason: "Your account is pending verification. An admin will review it shortly." };
+    }
+    if (!driver.full_name?.trim() || !driver.phone?.trim() || !driver.dob || !driver.sex) {
+      return { ok: false, reason: "Complete your profile (name, phone, date of birth, sex) before joining." };
+    }
+
+    const { data: activeVehicle } = await supabase
+      .from("vehicles").select("id")
+      .eq("driver_id", user.id).eq("is_active", true).limit(1).maybeSingle();
+    if (!activeVehicle) {
+      return { ok: false, reason: "Add and select an active vehicle before joining." };
+    }
+
+    const entitled = await DriversAPI.hasActiveSubscription();
+    if (!entitled) {
+      return { ok: false, reason: "Your subscription is inactive. Subscribe or restore to join the queue." };
+    }
+    return { ok: true };
+  },
+
   // The signed-in user's current queue entry, across ALL zones.
   async getMyEntry(): Promise<QueueEntry | null> {
     const { data: { user } } = await supabase.auth.getUser();
@@ -34,6 +65,9 @@ export const QueueAPI = {
     if (!isWithinLoadingWindow(new Date(), getZoneTimezone(zoneId))) {
       return { error: "Queue closed (4:00 AM – 8:00 PM local)" };
     }
+
+    const gate = await this.canJoin();
+    if (!gate.ok) return { error: gate.reason };
 
     // Position is scoped to this specific route (zone + destination).
     const { data: entries } = await supabase
