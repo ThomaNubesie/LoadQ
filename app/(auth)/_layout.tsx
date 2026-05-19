@@ -11,9 +11,7 @@ export default function AuthLayout() {
       <Stack.Screen name="otp" />
       <Stack.Screen name="profile-setup" />
       <Stack.Screen name="vehicle-setup" />
-      <Stack.Screen name="email-setup" />
       <Stack.Screen name="subscribe" />
-      <Stack.Screen name="payment" />
     </Stack>
   );
 }

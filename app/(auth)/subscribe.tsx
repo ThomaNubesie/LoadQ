@@ -74,7 +74,7 @@ export default function SubscribeScreen() {
   return (
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.inner}>
-        <TouchableOpacity onPress={() => router.replace("/(auth)/email-setup")} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(auth)/welcome")} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
         </TouchableOpacity>
 

@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
+import { resolveHome } from "../../services/authRoute";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { VehicleType } from "../../constants/types";
@@ -139,7 +140,9 @@ export default function VehicleSetupScreen() {
     });
     setSaving(false);
     if (err) { setError(err); return; }
-    router.push("/(auth)/email-setup");
+    // New drivers are on a 14-day trial → resolveHome sends them straight
+    // into the app. No legacy "recovery email" step, no subscription gate.
+    router.replace(await resolveHome());
   };
 
   const renderList = (items: string[], onSelect: (v: string) => void) => (
