@@ -7,6 +7,7 @@ import { AuthAPI } from "../../services/auth";
 import { PassengersAPI, Passenger } from "../../services/passengers";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
+import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
 import { Colors } from "../../constants/colors";
 import { Lang } from "../../constants/i18n";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -45,7 +46,10 @@ export default function PassengerProfileScreen() {
     const { url, error } = await PassengersAPI.uploadAvatar(result.assets[0].uri);
     setUploading(false);
     if (error) { Alert.alert(t.error, error); return; }
-    if (url) setPassenger(p => p ? { ...p, avatar_url: url } : p);
+    if (url) {
+      setPassenger(p => p ? { ...p, avatar_url: url } : p);
+      clearMyAvatarCache();
+    }
   };
 
   const shortId = passenger?.id ? `#${passenger.id.slice(0, 8).toUpperCase()}` : "—";

@@ -13,9 +13,14 @@ export default function ProfileSetupScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
   const [dob,       setDob]       = useState("");
+  const [phone,     setPhone]     = useState("");
   const [sex,       setSex]       = useState<"male"|"female"|"other"|"">("");
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
+  const [invalid,   setInvalid]   = useState<Record<string, string>>({});
+
+  const clearInvalid = (k: string) =>
+    setInvalid(prev => (prev[k] ? { ...prev, [k]: "" } : prev));
 
   const formatDob = (val: string) => {
     const d = val.replace(/\D/g, "");
@@ -37,14 +42,24 @@ export default function ProfileSetupScreen() {
   };
 
   const handleNext = async () => {
-    if (!firstName.trim() || !lastName.trim()) { setError("Please enter your full name"); return; }
+    setError("");
+    const dobIso = parseDobIso(dob);
+    const phoneDigits = phone.replace(/\D/g, "");
+    const errs: Record<string, string> = {};
+    if (!firstName.trim()) errs.firstName = t.fieldRequired;
+    if (!lastName.trim())  errs.lastName  = t.fieldRequired;
+    if (!dob.trim())       errs.dob = t.fieldRequired;
+    else if (!dobIso)      errs.dob = t.invalidDob;
+    if (!phone.trim())     errs.phone = t.fieldRequired;
+    else if (phoneDigits.length < 10) errs.phone = t.invalidPhone;
+    if (!sex)              errs.sex = t.selectAnOption;
+    if (Object.keys(errs).length > 0) { setInvalid(errs); return; }
+
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    // Parse "DD / MM / YYYY" into ISO date if present + complete
-    const dobIso = parseDobIso(dob);
     const { error: drvErr } = await DriversAPI.createOrUpdate({
       full_name: `${firstName.trim()} ${lastName.trim()}`,
-      ...(user?.phone ? { phone: user.phone } : {}),
+      phone: phoneDigits,
       ...(user?.email ? { email: user.email } : {}),
       ...(dobIso ? { dob: dobIso } : {}),
       ...(sex ? { sex } : {}),
@@ -79,26 +94,34 @@ export default function ProfileSetupScreen() {
         <Text style={s.sub}>{t.setupProfileSub}</Text>
 
         <Text style={s.label}>{t.firstName.toUpperCase()}</Text>
-        <TextInput style={s.input} value={firstName} onChangeText={setFirstName} placeholder="Jean" placeholderTextColor={Colors.t3} autoCapitalize="words" />
+        <TextInput style={[s.input, invalid.firstName && s.inputError]} value={firstName} onChangeText={v => { setFirstName(v); clearInvalid("firstName"); }} placeholder="Jean" placeholderTextColor={Colors.t3} autoCapitalize="words" />
+        {!!invalid.firstName && <Text style={s.fieldMsg}>{invalid.firstName}</Text>}
 
         <Text style={s.label}>{t.lastName.toUpperCase()}</Text>
-        <TextInput style={s.input} value={lastName} onChangeText={setLastName} placeholder="Martin" placeholderTextColor={Colors.t3} autoCapitalize="words" />
+        <TextInput style={[s.input, invalid.lastName && s.inputError]} value={lastName} onChangeText={v => { setLastName(v); clearInvalid("lastName"); }} placeholder="Martin" placeholderTextColor={Colors.t3} autoCapitalize="words" />
+        {!!invalid.lastName && <Text style={s.fieldMsg}>{invalid.lastName}</Text>}
 
         <Text style={s.label}>{t.dateOfBirth.toUpperCase()}</Text>
-        <TextInput style={s.input} value={dob} onChangeText={v => setDob(formatDob(v))} placeholder={t.dobPlaceholder} placeholderTextColor={Colors.t3} keyboardType="number-pad" maxLength={14} />
+        <TextInput style={[s.input, invalid.dob && s.inputError]} value={dob} onChangeText={v => { setDob(formatDob(v)); clearInvalid("dob"); }} placeholder={t.dobPlaceholder} placeholderTextColor={Colors.t3} keyboardType="number-pad" maxLength={14} />
+        {!!invalid.dob && <Text style={s.fieldMsg}>{invalid.dob}</Text>}
+
+        <Text style={s.label}>{t.phoneNumber.toUpperCase()}</Text>
+        <TextInput style={[s.input, invalid.phone && s.inputError]} value={phone} onChangeText={v => { setPhone(v); clearInvalid("phone"); }} placeholder={t.phonePlaceholder} placeholderTextColor={Colors.t3} keyboardType="phone-pad" maxLength={20} />
+        {!!invalid.phone && <Text style={s.fieldMsg}>{invalid.phone}</Text>}
 
         <Text style={s.label}>{t.sex.toUpperCase()}</Text>
         <View style={s.sexRow}>
           {SEX_OPTIONS.map(o => (
-            <TouchableOpacity key={o.key} style={[s.sexBtn, sex === o.key && s.sexBtnActive]} onPress={() => setSex(o.key)} activeOpacity={0.8}>
+            <TouchableOpacity key={o.key} style={[s.sexBtn, sex === o.key && s.sexBtnActive, invalid.sex && s.sexBtnError]} onPress={() => { setSex(o.key); clearInvalid("sex"); }} activeOpacity={0.8}>
               <Text style={[s.sexText, sex === o.key && s.sexTextActive]}>{o.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
+        {!!invalid.sex && <Text style={[s.fieldMsg, { marginTop:-16 }]}>{invalid.sex}</Text>}
 
         {!!error && <Text style={s.error}>{error}</Text>}
 
-        <TouchableOpacity style={[s.btn, (!firstName || !lastName || loading) && s.btnOff]} onPress={handleNext} disabled={!firstName || !lastName || loading} activeOpacity={0.85}>
+        <TouchableOpacity style={[s.btn, loading && s.btnOff]} onPress={handleNext} disabled={loading} activeOpacity={0.85}>
           <Text style={s.btnText}>{loading ? t.loading : t.next + " →"}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -120,9 +143,12 @@ const s = StyleSheet.create({
   sub:         { fontSize:13, color:Colors.t2, marginBottom:28, lineHeight:20 },
   label:       { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:6 },
   input:       { backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, padding:14, color:Colors.t1, fontSize:15, marginBottom:18 },
+  inputError:  { borderColor:Colors.red, marginBottom:4 },
+  fieldMsg:    { color:Colors.red, fontSize:12, marginBottom:14 },
   sexRow:      { flexDirection:"row", gap:10, marginBottom:24 },
   sexBtn:      { flex:1, padding:12, borderRadius:10, borderWidth:1, borderColor:Colors.border, backgroundColor:Colors.card, alignItems:"center" },
   sexBtnActive:{ borderColor:Colors.accent, backgroundColor:Colors.accent+"15" },
+  sexBtnError: { borderColor:Colors.red },
   sexText:     { color:Colors.t2, fontSize:13, fontWeight:"600" },
   sexTextActive:{ color:Colors.accent },
   error:       { color:Colors.red, fontSize:13, marginBottom:12 },

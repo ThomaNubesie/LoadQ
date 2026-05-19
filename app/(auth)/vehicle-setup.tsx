@@ -60,6 +60,7 @@ export default function VehicleSetupScreen() {
   const [search,  setSearch]  = useState("");
   const [error,   setError]   = useState("");
   const [saving,  setSaving]  = useState(false);
+  const [invalid, setInvalid] = useState<{ plate?: string; color?: string }>({});
 
   useEffect(() => {
     if (!year) return;
@@ -103,8 +104,12 @@ export default function VehicleSetupScreen() {
   const seats        = modelSeats || getSeatsForType(detectedType);
 
   const handleSave = async () => {
-    if (!plate.trim()) { setError("Please enter your plate number"); return; }
-    if (!color)        { setError("Please select your car colour"); return; }
+    setError("");
+    const errs: { plate?: string; color?: string } = {};
+    if (!plate.trim()) errs.plate = t.fieldRequired;
+    if (!color)        errs.color = t.selectAnOption;
+    if (errs.plate || errs.color) { setInvalid(errs); return; }
+    setInvalid({});
     setSaving(true);
 
     // Make sure driver row exists first
@@ -260,21 +265,22 @@ export default function VehicleSetupScreen() {
 
             <Text style={s.label}>{t.plateNumber.toUpperCase()}</Text>
             <TextInput
-              style={s.input}
+              style={[s.input, invalid.plate && s.inputError]}
               value={plate}
-              onChangeText={v => { setPlate(v.toUpperCase()); setError(""); }}
+              onChangeText={v => { setPlate(v.toUpperCase()); setError(""); setInvalid(p => ({ ...p, plate: undefined })); }}
               placeholder="ABC-1234"
               placeholderTextColor={Colors.t3}
               autoCapitalize="characters"
             />
+            {!!invalid.plate && <Text style={s.fieldMsg}>{invalid.plate}</Text>}
 
             <Text style={s.label}>CAR COLOUR</Text>
-            <View style={s.colorRow}>
+            <View style={[s.colorRow, invalid.color && s.colorRowError]}>
               {CAR_COLORS.map(c => (
                 <TouchableOpacity
                   key={c.name}
                   style={[s.colorChip, color === c.name && s.colorChipActive]}
-                  onPress={() => { setColor(c.name); setError(""); }}
+                  onPress={() => { setColor(c.name); setError(""); setInvalid(p => ({ ...p, color: undefined })); }}
                   activeOpacity={0.8}
                 >
                   <View style={[s.swatch, { backgroundColor: c.hex }]} />
@@ -282,13 +288,14 @@ export default function VehicleSetupScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            {!!invalid.color && <Text style={s.fieldMsg}>{invalid.color}</Text>}
 
             {!!error && <Text style={s.error}>{error}</Text>}
 
             <TouchableOpacity
-              style={[s.btn, (!plate || !color || saving) && s.btnOff]}
+              style={[s.btn, saving && s.btnOff]}
               onPress={handleSave}
-              disabled={!plate || !color || saving}
+              disabled={saving}
               activeOpacity={0.85}
             >
               <Text style={s.btnText}>{saving ? t.loading : t.next + " →"}</Text>
@@ -335,6 +342,9 @@ const s = StyleSheet.create({
   colorPreviewText: { color:Colors.t1, fontSize:12, fontWeight:"600" },
   label:          { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:6 },
   input:          { backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, padding:14, color:Colors.t1, fontSize:15, marginBottom:16 },
+  inputError:     { borderColor:Colors.red, marginBottom:4 },
+  fieldMsg:       { color:Colors.red, fontSize:12, marginBottom:14 },
+  colorRowError:  { borderWidth:1, borderColor:Colors.red, borderRadius:12, padding:8, marginBottom:8 },
   colorRow:       { flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:16 },
   colorChip:      { flexDirection:"row", alignItems:"center", gap:6, paddingHorizontal:10, paddingVertical:8, borderRadius:10, borderWidth:1, borderColor:Colors.border, backgroundColor:Colors.card },
   colorChipActive:{ borderColor:Colors.accent, backgroundColor:Colors.accent+"15" },

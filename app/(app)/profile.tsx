@@ -7,6 +7,7 @@ import { AuthAPI } from "../../services/auth";
 import { DriversAPI } from "../../services/drivers";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
+import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
 import { Colors } from "../../constants/colors";
 import { Driver, Vehicle } from "../../constants/types";
 import { Lang } from "../../constants/i18n";
@@ -50,7 +51,10 @@ export default function ProfileScreen() {
     const { url, error } = await DriversAPI.uploadAvatar(result.assets[0].uri);
     setUploading(false);
     if (error) { Alert.alert(t.error, error); return; }
-    if (url) setDriver(d => d ? { ...d, avatar_url: url } : d);
+    if (url) {
+      setDriver(d => d ? { ...d, avatar_url: url } : d);
+      clearMyAvatarCache();
+    }
   };
 
   const shortId = driver?.id ? `#${driver.id.slice(0, 8).toUpperCase()}` : "—";

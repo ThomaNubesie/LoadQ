@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { clearMyAvatarCache } from "../hooks/useMyAvatar";
 
 export const AuthAPI = {
   async sendOTP(phone: string) {
@@ -18,6 +19,7 @@ export const AuthAPI = {
 
   async signOut() {
     await supabase.auth.signOut();
+    clearMyAvatarCache();
   },
 
   onAuthStateChange(callback: (event: string, session: any) => void) {

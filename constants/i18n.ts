@@ -221,6 +221,11 @@ export const STRINGS = {
     next:             "Next",
     skip:             "Skip",
     dobPlaceholder:   "DD / MM / YYYY",
+    phonePlaceholder: "(514) 555-0199",
+    fieldRequired:    "Please complete this field",
+    invalidPhone:     "Enter a valid phone number",
+    invalidDob:       "Enter a valid date (DD / MM / YYYY)",
+    selectAnOption:   "Please select an option",
 
     // Common
     back:             "Back",
@@ -457,6 +462,11 @@ export const STRINGS = {
     next:             "Suivant",
     skip:             "Passer",
     dobPlaceholder:   "JJ / MM / AAAA",
+    phonePlaceholder: "(514) 555-0199",
+    fieldRequired:    "Veuillez remplir ce champ",
+    invalidPhone:     "Entrez un numéro de téléphone valide",
+    invalidDob:       "Entrez une date valide (JJ / MM / AAAA)",
+    selectAnOption:   "Veuillez sélectionner une option",
 
     // Common
     back:             "Retour",
