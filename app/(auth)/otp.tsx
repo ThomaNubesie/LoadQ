@@ -5,13 +5,15 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { PassengersAPI } from "../../services/passengers";
+import { resolveHome } from "../../services/authRoute";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
 export default function OTPScreen() {
   const router     = useRouter();
   const { t }  = useStrings();
-  const { phone, isEmail, role } = useLocalSearchParams<{ phone: string; isEmail?: string; role?: "driver" | "passenger" }>();
+  const { phone, isEmail, role, mode } = useLocalSearchParams<{ phone: string; isEmail?: string; role?: "driver" | "passenger"; mode?: "signin" | "signup" }>();
+  const isSignIn = mode === "signin";
   const intendedRole: "driver" | "passenger" = role === "passenger" ? "passenger" : "driver";
   const [otp,     setOtp]     = useState(["","","","","",""]);
   const [loading, setLoading] = useState(false);
@@ -64,42 +66,26 @@ export default function OTPScreen() {
 
     verifiedCode.current = code;
 
-    // Role resolution: check both tables to know what this account already is.
+    // Does this account already exist on either side?
     const [driver, passenger] = await Promise.all([
       DriversAPI.getMe(),
       PassengersAPI.getMe(),
     ]);
-
-    // Block role mismatch (a phone registered as driver tries to sign in as passenger or vice-versa).
-    if (intendedRole === "passenger" && driver) {
-      verifyingRef.current = false;
-      setLoading(false);
-      setError(t.cantSwitchRoles.replace(/{role}/g, t.iAmDriver.toLowerCase()));
-      return;
-    }
-    if (intendedRole === "driver" && passenger) {
-      verifyingRef.current = false;
-      setLoading(false);
-      setError(t.cantSwitchRoles.replace(/{role}/g, t.iAmPassenger.toLowerCase()));
-      return;
-    }
+    const hasAccount = !!(driver || passenger);
 
     setLoading(false);
 
-    if (intendedRole === "passenger") {
-      if (!passenger || !passenger.full_name) {
-        router.replace("/(auth)/passenger-setup");
-      } else {
-        router.replace("/(passenger)/queue");
-      }
-    } else {
-      if (!driver || !driver.full_name) {
-        router.replace("/(auth)/profile-setup");
-      } else {
-        const hasSub = await DriversAPI.hasActiveSubscription();
-        router.replace(hasSub ? "/(app)/zone-select" : "/(auth)/subscribe");
-      }
+    // Sign-in, OR an already-registered account regardless of which role
+    // button was tapped: send them wherever they actually belong. This is
+    // what makes returning users "remembered" and removes the old hard
+    // role-mismatch lockout.
+    if (isSignIn || hasAccount) {
+      router.replace(await resolveHome());
+      return;
     }
+
+    // Brand-new account from the sign-up flow → start the chosen role's setup.
+    router.replace(intendedRole === "passenger" ? "/(auth)/passenger-setup" : "/(auth)/profile-setup");
   };
 
   return (

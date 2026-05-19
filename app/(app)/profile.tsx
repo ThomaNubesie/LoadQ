@@ -146,7 +146,7 @@ export default function ProfileScreen() {
             {vehicles.map(v => (
               <View key={v.id} style={[s.vehicleCard, v.is_active && s.vehicleCardActive]}>
                 <Image
-                  source={{ uri: getVehicleImageUrl(v.make, v.model, v.year) }}
+                  source={{ uri: getVehicleImageUrl(v.make, v.model, v.year, "side", v.color || undefined) }}
                   style={s.vehicleImg}
                   resizeMode="contain"
                 />

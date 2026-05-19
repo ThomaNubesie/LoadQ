@@ -5,6 +5,10 @@ export const STRINGS = {
     // Auth
     signIn:           "Sign in",
     signUp:           "Create account",
+    haveAccount:      "Already have an account?",
+    noAccountFound:   "No account found for this email. Go back and pick a role to create one.",
+    welcomeBack:      "Welcome back",
+    signInSub:        "Enter your email and we'll send a sign-in code.",
     phoneNumber:      "Phone number",
     sendCode:         "Send code",
     verifyCode:       "Verify code",
@@ -237,6 +241,10 @@ export const STRINGS = {
     // Auth
     signIn:           "Se connecter",
     signUp:           "Créer un compte",
+    haveAccount:      "Vous avez déjà un compte ?",
+    noAccountFound:   "Aucun compte trouvé pour cet e-mail. Revenez et choisissez un rôle pour en créer un.",
+    welcomeBack:      "Bon retour",
+    signInSub:        "Entrez votre e-mail et nous vous enverrons un code de connexion.",
     phoneNumber:      "Numéro de téléphone",
     sendCode:         "Envoyer le code",
     verifyCode:       "Vérifier le code",

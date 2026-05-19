@@ -9,7 +9,8 @@ import { Colors } from "../../constants/colors";
 export default function SignInScreen() {
   const router  = useRouter();
   const { t }   = useStrings();
-  const { role } = useLocalSearchParams<{ role?: "driver" | "passenger" }>();
+  const { role, mode } = useLocalSearchParams<{ role?: "driver" | "passenger"; mode?: "signin" | "signup" }>();
+  const isSignIn = mode === "signin";
   const intendedRole: "driver" | "passenger" = role === "passenger" ? "passenger" : "driver";
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,10 +24,23 @@ export default function SignInScreen() {
   const handleSend = async () => {
     setLoading(true); setError("");
     const addr = email.trim().toLowerCase();
-    const { error: err } = await supabase.auth.signInWithOtp({ email: addr });
+    // Sign-in must NOT create accounts — an unknown email should fail so the
+    // user is told to sign up, instead of silently spawning a duplicate.
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: addr,
+      options: { shouldCreateUser: !isSignIn },
+    });
     setLoading(false);
-    if (err) { setError(err.message); return; }
-    router.push({ pathname:"/(auth)/otp", params:{ phone: addr, isEmail:"true", role: intendedRole } });
+    if (err) {
+      const m = err.message.toLowerCase();
+      if (isSignIn && (m.includes("not allowed") || m.includes("signups") || m.includes("not found"))) {
+        setError(t.noAccountFound);
+      } else {
+        setError(err.message);
+      }
+      return;
+    }
+    router.push({ pathname:"/(auth)/otp", params:{ phone: addr, isEmail:"true", role: intendedRole, mode: isSignIn ? "signin" : "signup" } });
   };
 
   return (
@@ -37,8 +51,9 @@ export default function SignInScreen() {
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         <Text style={s.title}>
-          {intendedRole === "passenger" ? t.passengerSignup : t.driverSignup}
+          {isSignIn ? t.welcomeBack : intendedRole === "passenger" ? t.passengerSignup : t.driverSignup}
         </Text>
+        {isSignIn && <Text style={s.subtitle}>{t.signInSub}</Text>}
 
         <Text style={s.label}>{t.emailAddress.toUpperCase()}</Text>
         <TextInput
@@ -75,6 +90,7 @@ const s = StyleSheet.create({
   backText:    { color:Colors.t2, fontSize:14 },
   logo:        { fontSize:28, fontWeight:"900", color:Colors.accent, letterSpacing:3, marginBottom:28 },
   title:       { fontSize:26, fontWeight:"700", color:Colors.t1, marginBottom:24 },
+  subtitle:    { fontSize:14, color:Colors.t2, marginTop:-16, marginBottom:24, lineHeight:20 },
   label:       { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:6 },
   input:       { backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, padding:14, color:Colors.t1, fontSize:15, marginBottom:16 },
   phoneRow:    { flexDirection:"row", alignItems:"center", backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, marginBottom:16, overflow:"hidden" },

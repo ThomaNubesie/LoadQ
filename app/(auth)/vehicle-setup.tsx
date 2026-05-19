@@ -119,6 +119,8 @@ export default function VehicleSetupScreen() {
         id:        user.id,
         phone:     user.phone || user.email || "",
         full_name: "Driver",
+        subscription_status: "trialing",
+        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       });
       if (drvErr) {
         setError(`Couldn't create driver profile: ${drvErr.message}`);
@@ -235,13 +237,21 @@ export default function VehicleSetupScreen() {
           <>
             <View style={s.summaryCard}>
               <Image
-                source={{ uri: getVehicleImageUrl(make, model, parseInt(year)) }}
+                source={{ uri: getVehicleImageUrl(make, model, parseInt(year), "side", color || undefined) }}
                 style={s.vehicleImg}
                 resizeMode="contain"
               />
               <Text style={s.summaryTitle}>{year} {make} {model}</Text>
-              <View style={s.typeBadge}>
-                <Text style={s.typeBadgeText}>{detectedType.replace("_"," ")} · {seats} seats</Text>
+              <View style={s.summaryMetaRow}>
+                <View style={s.typeBadge}>
+                  <Text style={s.typeBadgeText}>{detectedType.replace("_"," ")} · {seats} seats</Text>
+                </View>
+                {!!color && (
+                  <View style={s.colorPreview}>
+                    <View style={[s.colorPreviewSwatch, { backgroundColor: CAR_COLORS.find(c => c.name === color)?.hex || "#888" }]} />
+                    <Text style={s.colorPreviewText}>{color}</Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -314,8 +324,12 @@ const s = StyleSheet.create({
   summaryCard:    { backgroundColor:Colors.card, borderRadius:14, padding:16, borderWidth:1, borderColor:Colors.accent+"40", marginBottom:24 },
   vehicleImg:     { width:"100%", height:140, borderRadius:10, marginBottom:12 },
   summaryTitle:   { fontSize:18, fontWeight:"700", color:Colors.t1, marginBottom:8 },
+  summaryMetaRow: { flexDirection:"row", alignItems:"center", gap:10, flexWrap:"wrap" },
   typeBadge:      { backgroundColor:Colors.accent+"20", borderRadius:8, paddingHorizontal:10, paddingVertical:4, alignSelf:"flex-start" },
   typeBadgeText:  { color:Colors.accent, fontSize:12, fontWeight:"600" },
+  colorPreview:   { flexDirection:"row", alignItems:"center", gap:6, backgroundColor:Colors.bg, borderRadius:8, paddingHorizontal:10, paddingVertical:4, borderWidth:1, borderColor:Colors.border },
+  colorPreviewSwatch: { width:14, height:14, borderRadius:7, borderWidth:0.5, borderColor:Colors.border },
+  colorPreviewText: { color:Colors.t1, fontSize:12, fontWeight:"600" },
   label:          { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:6 },
   input:          { backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, padding:14, color:Colors.t1, fontSize:15, marginBottom:16 },
   colorRow:       { flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:16 },

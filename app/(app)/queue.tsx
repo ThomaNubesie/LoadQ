@@ -346,7 +346,7 @@ export default function QueueScreen() {
           <View style={[s.expandPanel, { borderLeftColor: timerColor }]}>
             {vehicle && (
               <Image
-                source={{ uri: getVehicleImageUrl(vehicle.make, vehicle.model, vehicle.year) }}
+                source={{ uri: getVehicleImageUrl(vehicle.make, vehicle.model, vehicle.year, "side", vehicle.color || undefined) }}
                 style={s.expandVehicle}
                 resizeMode="contain"
               />
@@ -429,7 +429,7 @@ export default function QueueScreen() {
       {myVehicle && (
         <View style={s.vehicleBanner}>
           <Image
-            source={{ uri: getVehicleImageUrl(myVehicle.make, myVehicle.model, myVehicle.year) }}
+            source={{ uri: getVehicleImageUrl(myVehicle.make, myVehicle.model, myVehicle.year, "side", myVehicle.color || undefined) }}
             style={s.vehicleBannerImg}
             resizeMode="contain"
           />

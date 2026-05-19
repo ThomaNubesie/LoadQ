@@ -27,9 +27,17 @@ export const DriversAPI = {
       return { data, error: error?.message };
     }
 
+    // Every new driver starts a 14-day app-managed free trial. Explicit
+    // values in `fields` still win (spread last).
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from("drivers")
-      .insert({ id: user.id, ...fields })
+      .insert({
+        id: user.id,
+        subscription_status: "trialing",
+        trial_ends_at: trialEndsAt,
+        ...fields,
+      })
       .select().single();
     return { data, error: error?.message };
   },
@@ -85,14 +93,33 @@ export const DriversAPI = {
       return true;
     }
 
-    // RevenueCat entitlement is the source of truth once billing is live —
-    // it covers the store-side free trial AND the paid period.
+    // RevenueCat entitlement is the source of truth once store billing is
+    // live — it covers the store-side free trial AND the paid period.
     const entitled = await BillingAPI.isEntitled();
     if (entitled === true) return true;
 
-    // Not entitled (period lapsed / not renewed) and a free month is banked:
-    // start it now. Capped at one month — referral_waiver_granted prevents the
-    // bank from ever being topped past 1, so this fires at most once.
+    // App-managed access grants entry even when RevenueCat reports no
+    // entitlement or isn't reachable. This is what makes the 14-day trial
+    // the way in for the soft launch, before App Store billing is set up.
+    // "trialing" is valid only while trial_ends_at is still in the future.
+    if (driver.subscription_status === "trialing") {
+      const end = driver.trial_ends_at ? new Date(driver.trial_ends_at).getTime() : 0;
+      if (end > now) return true;
+    }
+    // "grace" is valid only until grace_ends_at.
+    if (driver.subscription_status === "grace") {
+      const end = driver.grace_ends_at ? new Date(driver.grace_ends_at).getTime() : 0;
+      if (end > now) return true;
+    }
+    // "active" is valid until subscription_ends_at (or always if not set).
+    if (driver.subscription_status === "active") {
+      if (!driver.subscription_ends_at) return true;
+      if (new Date(driver.subscription_ends_at).getTime() > now) return true;
+    }
+
+    // Lapsed and a referral free month is banked: start it now. Capped at
+    // one month — referral_waiver_granted prevents the bank from ever being
+    // topped past 1, so this fires at most once.
     if ((driver.waiver_months ?? 0) > 0) {
       const until = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();
       const { error } = await supabase
@@ -102,26 +129,7 @@ export const DriversAPI = {
       if (!error) return true;
     }
 
-    if (entitled === false) return false;
-
-    // Billing not configured yet (dev / keys missing) → fall back to the DB
-    // trial columns so development isn't blocked.
-    // "trialing" is valid only while trial_ends_at is still in the future.
-    if (driver.subscription_status === "trialing") {
-      const end = driver.trial_ends_at ? new Date(driver.trial_ends_at).getTime() : 0;
-      return end > now;
-    }
-    // "grace" is valid only until grace_ends_at.
-    if (driver.subscription_status === "grace") {
-      const end = driver.grace_ends_at ? new Date(driver.grace_ends_at).getTime() : 0;
-      return end > now;
-    }
-    // "active" is valid until subscription_ends_at (or always if not set).
-    if (driver.subscription_status === "active") {
-      if (!driver.subscription_ends_at) return true;
-      return new Date(driver.subscription_ends_at).getTime() > now;
-    }
-    // expired / cancelled / anything else → on hold.
+    // No entitlement, no active trial/grace/DB period, no banked month.
     return false;
   },
 

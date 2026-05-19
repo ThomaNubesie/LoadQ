@@ -9,7 +9,11 @@ export default function WelcomeScreen() {
   const { t }  = useStrings();
 
   const pick = (role: "driver" | "passenger") => {
-    router.push({ pathname: "/(auth)/sign-in", params: { role } });
+    router.push({ pathname: "/(auth)/sign-in", params: { role, mode: "signup" } });
+  };
+
+  const signIn = () => {
+    router.push({ pathname: "/(auth)/sign-in", params: { mode: "signin" } });
   };
 
   return (
@@ -34,6 +38,11 @@ export default function WelcomeScreen() {
           <Text style={s.cardTitle}>{t.iAmPassenger}</Text>
           <Text style={s.cardSub}>{t.passengerDesc}</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={s.signInRow} onPress={signIn} activeOpacity={0.7}>
+          <Text style={s.signInText}>{t.haveAccount} </Text>
+          <Text style={s.signInLink}>{t.signIn}</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -53,4 +62,7 @@ const s = StyleSheet.create({
   cardEmoji:  { fontSize:42, marginBottom:8 },
   cardTitle:  { fontSize:18, fontWeight:"800", color:Colors.t1, marginBottom:4 },
   cardSub:    { fontSize:12, color:Colors.t3, textAlign:"center", lineHeight:18 },
+  signInRow:  { flexDirection:"row", justifyContent:"center", alignItems:"center", marginTop:20, padding:8 },
+  signInText: { fontSize:14, color:Colors.t3 },
+  signInLink: { fontSize:14, color:Colors.accent, fontWeight:"700" },
 });

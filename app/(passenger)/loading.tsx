@@ -147,7 +147,7 @@ export default function PassengerLoadingScreen() {
               <View key={entry.id} style={s.card}>
                 {vehicle && (
                   <Image
-                    source={{ uri: getVehicleImageUrl(vehicle.make, vehicle.model, vehicle.year) }}
+                    source={{ uri: getVehicleImageUrl(vehicle.make, vehicle.model, vehicle.year, "side", vehicle.color || undefined) }}
                     style={s.vehicleImg}
                     resizeMode="contain"
                   />

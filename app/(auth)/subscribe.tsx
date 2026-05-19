@@ -31,7 +31,11 @@ export default function SubscribeScreen() {
   const trialEnded = driver?.subscription_status === "trialing"
     && driver?.trial_ends_at
     && new Date(driver.trial_ends_at).getTime() < Date.now();
-  const onHold = driver && (
+  // Only treat as "on hold" if the driver actually had access before
+  // (a started trial or a past subscription). A brand-new driver who has
+  // never subscribed must see the trial offer, NOT "your trial has ended".
+  const hadHistory = !!(driver?.trial_ends_at || driver?.subscription_ends_at);
+  const onHold = !!driver && hadHistory && (
     driver.subscription_status === "expired"
     || driver.subscription_status === "cancelled"
     || trialEnded
@@ -59,8 +63,8 @@ export default function SubscribeScreen() {
 
   // Prices come from the store (localized). Fall back to static labels if the
   // offering hasn't loaded (dev without RC keys).
-  const monthlyPrice = pkgMonthly?.product.priceString ?? "C$30";
-  const annualPrice  = pkgAnnual?.product.priceString  ?? "C$360";
+  const monthlyPrice = pkgMonthly?.product.priceString ?? "C$34.99";
+  const annualPrice  = pkgAnnual?.product.priceString  ?? "C$349.99";
 
   // Monthly-only for v1. (Annual returns when an annual store product exists.)
   const PLANS = [
@@ -175,7 +179,7 @@ const s = StyleSheet.create({
   perkRow:     { flexDirection:"row", alignItems:"center", gap:8 },
   perkCheck:   { color:Colors.accent, fontSize:12, fontWeight:"700" },
   perkText:    { color:Colors.t2, fontSize:12 },
-  radio:       { position:"absolute", top:16, right:16, width:18, height:18, borderRadius:9, borderWidth:2, borderColor:Colors.t3, alignItems:"center", justifyContent:"center" },
+  radio:       { position:"absolute", bottom:16, right:16, width:18, height:18, borderRadius:9, borderWidth:2, borderColor:Colors.t3, alignItems:"center", justifyContent:"center" },
   radioActive: { borderColor:Colors.accent },
   radioDot:    { width:8, height:8, borderRadius:4, backgroundColor:Colors.accent },
   btn:         { backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center", marginTop:8, marginBottom:12 },
