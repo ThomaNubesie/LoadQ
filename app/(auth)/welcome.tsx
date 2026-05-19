@@ -1,6 +1,7 @@
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { supabase } from "../../services/supabase";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 
@@ -8,7 +9,15 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const { t }  = useStrings();
 
-  const pick = (role: "driver" | "passenger") => {
+  const pick = async (role: "driver" | "passenger") => {
+    // Already authenticated but no profile yet (OTP done, sign-up abandoned):
+    // go straight to that role's setup — re-running sign-in/OTP here is a
+    // dead-end loop back to this screen.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      router.push(role === "passenger" ? "/(auth)/passenger-setup" : "/(auth)/profile-setup");
+      return;
+    }
     router.push({ pathname: "/(auth)/sign-in", params: { role, mode: "signup" } });
   };
 
