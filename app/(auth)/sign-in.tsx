@@ -12,16 +12,19 @@ export default function SignInScreen() {
   const { role, mode } = useLocalSearchParams<{ role?: "driver" | "passenger"; mode?: "signin" | "signup" }>();
   const isSignIn = mode === "signin";
   const intendedRole: "driver" | "passenger" = role === "passenger" ? "passenger" : "driver";
-  const [email,   setEmail]   = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [email,        setEmail]        = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState("");
 
   // Soft launch: email-only auth. Phone/SMS is deferred until Twilio is on a
   // paid plan, so the phone path is intentionally not exposed here.
-  const emailValid = email.includes("@") && email.includes(".");
-  const canSend    = emailValid;
+  const emailValid   = email.includes("@") && email.includes(".");
+  const emailsMatch  = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+  const canSend      = emailValid && confirmEmail.length > 0 && emailsMatch;
 
   const handleSend = async () => {
+    if (!emailsMatch) { setError(t.emailsDoNotMatch); return; }
     setLoading(true); setError("");
     const addr = email.trim().toLowerCase();
     // Sign-in must NOT create accounts — an unknown email should fail so the
@@ -67,6 +70,21 @@ export default function SignInScreen() {
           autoCorrect={false}
         />
 
+        <Text style={s.label}>{t.confirmEmail.toUpperCase()}</Text>
+        <TextInput
+          style={[s.input, confirmEmail.length > 0 && !emailsMatch && s.inputError]}
+          value={confirmEmail}
+          onChangeText={v => { setConfirmEmail(v); setError(""); }}
+          placeholder="you@email.com"
+          placeholderTextColor={Colors.t3}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {confirmEmail.length > 0 && !emailsMatch && (
+          <Text style={s.fieldMsg}>{t.emailsDoNotMatch}</Text>
+        )}
+
         {!!error && <Text style={s.error}>{error}</Text>}
 
         <TouchableOpacity
@@ -93,6 +111,8 @@ const s = StyleSheet.create({
   subtitle:    { fontSize:14, color:Colors.t2, marginTop:-16, marginBottom:24, lineHeight:20 },
   label:       { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:6 },
   input:       { backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, padding:14, color:Colors.t1, fontSize:15, marginBottom:16 },
+  inputError:  { borderColor:Colors.red, marginBottom:4 },
+  fieldMsg:    { color:Colors.red, fontSize:12, marginBottom:12 },
   phoneRow:    { flexDirection:"row", alignItems:"center", backgroundColor:Colors.card, borderRadius:12, borderWidth:1, borderColor:Colors.border, marginBottom:16, overflow:"hidden" },
   dialBadge:   { paddingHorizontal:14, paddingVertical:14, borderRightWidth:1, borderRightColor:Colors.border },
   dialText:    { color:Colors.t1, fontSize:14, fontWeight:"600" },

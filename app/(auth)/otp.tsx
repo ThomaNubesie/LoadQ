@@ -129,7 +129,7 @@ export default function OTPScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace("/(auth)/sign-in")} style={s.wrongNum}>
-          <Text style={s.wrongNumText}>← {t.wrongNumber}</Text>
+          <Text style={s.wrongNumText}>← {isEmail === "true" ? t.wrongEmail : t.wrongNumber}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
