@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { ReferralAPI, DriverCard } from "../../services/referral";
 import { PassengersAPI } from "../../services/passengers";
 import { Colors } from "../../constants/colors";
+import VerifiedBadge from "../../components/VerifiedBadge";
 
 export default function ReferralCardScreen() {
   const router = useRouter();
@@ -77,9 +78,9 @@ export default function ReferralCardScreen() {
         <View style={s.cardBox}>
           <View style={s.row}>
             <Text style={s.name}>{card.full_name}</Text>
-            <Text style={card.verified ? s.badgeOk : s.badgeNo}>
-              {card.verified ? "✓ Verified" : "Unverified"}
-            </Text>
+            {card.verified
+              ? <VerifiedBadge size={20} />
+              : <Text style={s.badgeNo}>Unverified</Text>}
           </View>
           {card.vehicle_make ? (
             <Text style={s.vehicle}>

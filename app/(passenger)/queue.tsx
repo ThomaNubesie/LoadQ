@@ -7,6 +7,9 @@ import { QueueAPI } from "../../services/queue";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { QueueEntry } from "../../constants/types";
+import VerifiedBadge from "../../components/VerifiedBadge";
+import UserActionMenu from "../../components/UserActionMenu";
+import { UserActions } from "../../services/userActions";
 import {
   REGIONS, detectUserRegion, RegionCode, getZonesByRegion, getDistanceKm
 } from "../../constants/zones";
@@ -34,6 +37,9 @@ export default function PassengerQueueScreen() {
   const [showZonePicker, setShowZonePicker] = useState(false);
   const [showDestPicker, setShowDestPicker] = useState(false);
   const [manualZone,   setManualZone]   = useState(false); // true once user picks a zone by hand
+  const [blockedIds,   setBlockedIds]   = useState<Set<string>>(new Set());
+
+  useEffect(() => { UserActions.getMyBlockedIds().then(setBlockedIds); }, []);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -71,9 +77,10 @@ export default function PassengerQueueScreen() {
   }, [activeZone?.id]);
 
   const STATUS_RANK: Record<string, number> = { loading: 0, called_back: 1, waiting: 2, penalised: 3 };
-  const filtered = destFilter
+  const filtered = (destFilter
     ? entries.filter(e => e.destination_region === destFilter)
-    : entries;
+    : entries
+  ).filter(e => !e.driver_id || !blockedIds.has(e.driver_id));
   const byDest = filtered.reduce<Record<string, QueueEntry[]>>((acc, e) => {
     const key = e.destination_region || "_unknown";
     (acc[key] ??= []).push(e);
@@ -174,7 +181,17 @@ export default function PassengerQueueScreen() {
                         </View>
                       )}
                       <View style={s.info}>
-                        <Text style={s.driverName}>{entry.driver?.full_name || "Driver"}</Text>
+                        <View style={s.driverNameRow}>
+                          <Text style={s.driverName}>{entry.driver?.full_name || "Driver"}</Text>
+                          {entry.driver?.verified && <VerifiedBadge size={14} />}
+                          {entry.driver_id && (
+                            <UserActionMenu
+                              userId={entry.driver_id}
+                              userName={entry.driver?.full_name || "Driver"}
+                              onBlocked={() => setBlockedIds(prev => new Set(prev).add(entry.driver_id!))}
+                            />
+                          )}
+                        </View>
                         <Text style={s.vehicleName}>{vehicle ? `${vehicle.make} ${vehicle.model}` : "Vehicle"}</Text>
                         <View style={s.miniSeats}>
                           {Array.from({ length: seats }).map((_, i) => (
@@ -285,6 +302,7 @@ const s = StyleSheet.create({
   avatar:      { width:38, height:38, borderRadius:19, backgroundColor:Colors.cardAlt },
   avatarFallback: { width:38, height:38, borderRadius:19, backgroundColor:Colors.card, alignItems:"center", justifyContent:"center", borderWidth:0.5, borderColor:Colors.border },
   info:        { flex:1, minWidth:0 },
+  driverNameRow:{ flexDirection:"row", alignItems:"center", gap:6 },
   driverName:  { fontSize:13, fontWeight:"600", color:Colors.t1 },
   vehicleName: { fontSize:10, color:Colors.t3, marginTop:1 },
   miniSeats:   { flexDirection:"row", flexWrap:"wrap", gap:2, marginTop:4 },

@@ -9,6 +9,7 @@ export interface Passenger {
   dob?:       string | null;
   sex?:       "male" | "female" | "other" | null;
   referred_by?: string | null;
+  blocked?:     boolean;
   created_at: string;
 }
 

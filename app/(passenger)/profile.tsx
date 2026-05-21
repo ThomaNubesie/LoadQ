@@ -113,6 +113,10 @@ export default function PassengerProfileScreen() {
           ))}
         </View>
 
+        <TouchableOpacity style={s.messagesBtn} onPress={() => router.push("/(passenger)/messages" as any)} activeOpacity={0.85}>
+          <Text style={s.messagesBtnText}>💬  Messages</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
           <Text style={s.signOutText}>{t.signOut}</Text>
         </TouchableOpacity>
@@ -145,6 +149,8 @@ const s = StyleSheet.create({
   langBtn:           { flex:1, backgroundColor:Colors.card, borderRadius:10, padding:12, borderWidth:1, borderColor:Colors.border, alignItems:"center" },
   langBtnActive:     { borderColor:Colors.accent, backgroundColor:Colors.accent+"12" },
   langBtnText:       { fontSize:13, fontWeight:"600", color:Colors.t2 },
+  messagesBtn:       { backgroundColor:Colors.card, borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.border, marginBottom:10 },
+  messagesBtnText:   { color:Colors.t1, fontSize:14, fontWeight:"700" },
   signOutBtn:        { backgroundColor:Colors.red+"15", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.red+"30" },
   signOutText:       { color:Colors.red, fontSize:14, fontWeight:"600" },
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import * as Location from "expo-location";
@@ -338,6 +338,38 @@ export default function QueueScreen() {
               </Text>
             )}
           </View>
+          {!isMe && entry.driver && (
+            <View style={s.contactRow}>
+              {entry.driver.phone && (
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation?.(); Linking.openURL(`tel:${entry.driver!.phone}`); }}
+                  style={s.contactBtn}
+                  activeOpacity={0.7}
+                  hitSlop={8}
+                >
+                  <Text style={s.contactBtnText}>📞</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  router.push({
+                    pathname: "/(app)/thread" as any,
+                    params: {
+                      id: entry.driver_id,
+                      name: entry.driver!.full_name || t("driver"),
+                      phone: entry.driver!.phone || "",
+                    },
+                  });
+                }}
+                style={s.contactBtn}
+                activeOpacity={0.7}
+                hitSlop={8}
+              >
+                <Text style={s.contactBtnText}>💬</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {isExpandable && <Text style={s.expandChevron}>{isExpanded ? "▾" : "▸"}</Text>}
           {entry.status === "called_back" && <Text style={{ fontSize:16 }}>⏱</Text>}
         </TouchableOpacity>
@@ -707,6 +739,9 @@ const s = StyleSheet.create({
   statusText:         { fontSize:10, marginTop:3 },
   timerText:          { fontSize:10, marginTop:2, fontWeight:"700" },
   expandChevron:      { color:Colors.t3, fontSize:12, fontWeight:"700", paddingHorizontal:4 },
+  contactRow:         { flexDirection:"row", alignItems:"center", gap:6, marginRight:4 },
+  contactBtn:         { width:32, height:32, alignItems:"center", justifyContent:"center", borderRadius:16, backgroundColor:Colors.card },
+  contactBtnText:     { fontSize:14 },
   expandPanel:        { backgroundColor:Colors.card, borderLeftWidth:3, borderRadius:12, padding:12, marginBottom:8, marginTop:-6, marginLeft:8 },
   expandVehicle:      { width:"100%", height:90, marginBottom:10, backgroundColor:Colors.cardAlt, borderRadius:8 },
   expandRow:          { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:6, borderBottomWidth:0.3, borderBottomColor:Colors.border },

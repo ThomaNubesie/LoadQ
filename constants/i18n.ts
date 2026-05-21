@@ -202,6 +202,12 @@ export const STRINGS = {
     messages:         "Messages",
     typeMessage:      "Type a message...",
     send:             "Send",
+    driver:           "Driver",
+    missingUserId:    "Missing user id.",
+    noPhoneNumber:    "No phone number",
+    noPhoneNumberDesc:"This driver hasn't shared a phone number yet.",
+    callDriver:       "Call driver",
+    messageDriver:    "Message driver",
 
 
     // Registration
@@ -446,6 +452,12 @@ export const STRINGS = {
     messages:         "Messages",
     typeMessage:      "Écrire un message...",
     send:             "Envoyer",
+    driver:           "Conducteur",
+    missingUserId:    "Identifiant d'utilisateur manquant.",
+    noPhoneNumber:    "Aucun numéro de téléphone",
+    noPhoneNumberDesc:"Ce conducteur n'a pas encore partagé son numéro.",
+    callDriver:       "Appeler le conducteur",
+    messageDriver:    "Envoyer un message",
 
 
     // Registration

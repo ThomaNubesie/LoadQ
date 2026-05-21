@@ -8,6 +8,7 @@ export default function PassengerLayout() {
       <Stack.Screen name="loading" />
       <Stack.Screen name="analytics" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="messages" />
     </Stack>
   );
 }

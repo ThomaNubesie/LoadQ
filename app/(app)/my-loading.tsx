@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Mod
 import { useRouter } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { ClaimsAPI, SeatClaim } from "../../services/claims";
+import UserActionMenu from "../../components/UserActionMenu";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { QueueEntry, SeatStatus } from "../../constants/types";
@@ -248,6 +249,12 @@ export default function MyLoadingScreen() {
                     <Text style={s.claimName} numberOfLines={1}>
                       {claim.passenger?.full_name || "Passenger"}
                     </Text>
+                    {claim.passenger_id && (
+                      <UserActionMenu
+                        userId={claim.passenger_id}
+                        userName={claim.passenger?.full_name || "Passenger"}
+                      />
+                    )}
                     <TouchableOpacity style={s.rejectBtn} onPress={() => handleRejectClaim(claim)}>
                       <Text style={s.rejectBtnText}>{t.rejectClaim}</Text>
                     </TouchableOpacity>

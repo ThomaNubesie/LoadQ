@@ -23,6 +23,13 @@ export const ClaimsAPI = {
   async claim(queueEntryId: string): Promise<{ data?: SeatClaim; error?: string }> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Not authenticated" };
+
+    const { data: passenger } = await supabase
+      .from("passengers").select("blocked").eq("id", user.id).maybeSingle();
+    if (passenger?.blocked) {
+      return { error: "Your account has been blocked. Contact support for help." };
+    }
+
     const { data, error } = await supabase
       .from("seat_claims")
       .insert({ passenger_id: user.id, queue_entry_id: queueEntryId, status: "pending" })

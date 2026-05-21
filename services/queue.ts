@@ -14,6 +14,9 @@ export const QueueAPI = {
     const driver = await DriversAPI.getMe();
     if (!driver) return { ok: false, reason: "Driver profile not found" };
 
+    if (driver.blocked) {
+      return { ok: false, reason: "Your account has been blocked. Contact support for help." };
+    }
     if (!driver.verified) {
       return { ok: false, reason: "Your account is pending verification. An admin will review it shortly." };
     }

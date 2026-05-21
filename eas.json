@@ -19,12 +19,17 @@
     },
     "production": {
       "distribution": "store",
+      "node": "20.19.4",
       "android": {
         "buildType": "app-bundle"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6770652996"
+      }
+    }
   }
 }

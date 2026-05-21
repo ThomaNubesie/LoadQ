@@ -16,6 +16,8 @@ import { loadingState, formatRemaining } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import SeatSvg from "../../components/SeatSvg";
+import VerifiedBadge from "../../components/VerifiedBadge";
+import UserActionMenu from "../../components/UserActionMenu";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 
 export default function PassengerLoadingScreen() {
@@ -159,7 +161,16 @@ export default function PassengerLoadingScreen() {
                     <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>👤</Text></View>
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={s.driverName}>{entry.driver?.full_name || "Driver"}</Text>
+                    <View style={s.driverNameRow}>
+                      <Text style={s.driverName}>{entry.driver?.full_name || "Driver"}</Text>
+                      {entry.driver?.verified && <VerifiedBadge size={15} />}
+                      {entry.driver_id && (
+                        <UserActionMenu
+                          userId={entry.driver_id}
+                          userName={entry.driver?.full_name || "Driver"}
+                        />
+                      )}
+                    </View>
                     <Text style={s.routeText}>
                       {getRegionName(activeZone?.region)} → {getRegionName(entry.destination_region)}
                     </Text>
@@ -291,6 +302,7 @@ const s = StyleSheet.create({
   driverRow:   { flexDirection:"row", alignItems:"center", gap:10, padding:12, borderBottomWidth:0.3, borderBottomColor:Colors.border },
   avatar:      { width:44, height:44, borderRadius:22, backgroundColor:Colors.cardAlt },
   avatarFallback: { width:44, height:44, borderRadius:22, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center", borderWidth:0.5, borderColor:Colors.border },
+  driverNameRow:{ flexDirection:"row", alignItems:"center", gap:6 },
   driverName:  { fontSize:14, fontWeight:"700", color:Colors.t1 },
   routeText:   { fontSize:12, color:Colors.t2, marginTop:2 },
   priceBox:    { alignItems:"flex-end" },

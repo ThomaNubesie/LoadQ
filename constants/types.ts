@@ -22,6 +22,7 @@ export interface Driver {
   email?: string;
   avatar_url?: string;
   is_admin?: boolean;
+  blocked?: boolean;
   dob?: string | null;
   sex?: "male" | "female" | "other" | null;
   subscription_status: "trialing" | "active" | "grace" | "expired" | "cancelled";

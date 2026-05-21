@@ -13,6 +13,14 @@ export default function AppLayout() {
       <Stack.Screen name="loading-history" />
       <Stack.Screen name="edit-vehicle" />
       <Stack.Screen name="admin-destinations" />
+      <Stack.Screen name="admin-verify" />
+      <Stack.Screen name="admin-user" />
+      <Stack.Screen name="admin-inbox" />
+      <Stack.Screen name="admin-thread" />
+      <Stack.Screen name="messages" />
+      <Stack.Screen name="thread" />
+      <Stack.Screen name="admin-print-user" />
+      <Stack.Screen name="admin-add-user" />
     </Stack>
   );
 }

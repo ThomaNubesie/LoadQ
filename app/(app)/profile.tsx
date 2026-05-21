@@ -14,6 +14,7 @@ import { Lang } from "../../constants/i18n";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { VEHICLE_TYPES } from "../../constants/vehicles";
 import BottomNav from "../../components/BottomNav";
+import VerifiedBadge from "../../components/VerifiedBadge";
 
 export default function ProfileScreen() {
   const router      = useRouter();
@@ -98,7 +99,10 @@ export default function ProfileScreen() {
               </View>
             </View>
           </TouchableOpacity>
-          <Text style={s.name}>{driver?.full_name || "Driver"}</Text>
+          <View style={s.nameRow}>
+            <Text style={s.name}>{driver?.full_name || "Driver"}</Text>
+            {driver?.verified && <VerifiedBadge size={20} />}
+          </View>
           <TouchableOpacity onPress={handlePickAvatar} disabled={uploading}>
             <Text style={s.avatarHint}>
               {uploading ? t.loading : (driver?.avatar_url ? t.changePhoto : t.addPhoto)}
@@ -200,6 +204,10 @@ export default function ProfileScreen() {
           <Text style={s.historyBtnText}>🎁  Refer & earn a free month</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/messages" as any)} activeOpacity={0.85}>
+          <Text style={s.historyBtnText}>💬  Messages</Text>
+        </TouchableOpacity>
+
         {driver?.is_admin && (
           <>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-zones")} activeOpacity={0.85}>
@@ -209,7 +217,10 @@ export default function ProfileScreen() {
               <Text style={s.adminBtnText}>🗺  Admin · Destinations</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-verify")} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>✅  Admin · Verify drivers</Text>
+              <Text style={s.adminBtnText}>👥  Admin · Users</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-inbox" as any)} activeOpacity={0.85}>
+              <Text style={s.adminBtnText}>📨  Admin · Inbox</Text>
             </TouchableOpacity>
           </>
         )}
@@ -236,7 +247,8 @@ const s = StyleSheet.create({
   avatarEditBadge:   { position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:14, backgroundColor:Colors.accent, alignItems:"center", justifyContent:"center", borderWidth:2, borderColor:Colors.bg },
   avatarEditIcon:    { color:Colors.accentText, fontSize:14, fontWeight:"700" },
   avatarHint:        { fontSize:12, color:Colors.accent, marginTop:6, fontWeight:"600" },
-  name:              { fontSize:20, fontWeight:"700", color:Colors.t1, marginTop:4 },
+  nameRow:           { flexDirection:"row", alignItems:"center", gap:8, marginTop:4 },
+  name:              { fontSize:20, fontWeight:"700", color:Colors.t1 },
   identRow:          { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:10, borderBottomWidth:0.5, borderBottomColor:Colors.border },
   identKey:          { color:Colors.t3, fontSize:12, fontWeight:"600" },
   identVal:          { color:Colors.t1, fontSize:13, fontWeight:"500", maxWidth:"60%", textAlign:"right" },
