@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../services/supabase";
 import { MessagesAPI, Message } from "../services/messages";
 import { Colors } from "../constants/colors";
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export default function MessageThreadView({ otherId, otherName }: Props) {
+  const insets = useSafeAreaInsets();
   const [me, setMe]         = useState<string | null>(null);
   const [msgs, setMsgs]     = useState<Message[]>([]);
   const [body, setBody]     = useState("");
@@ -59,8 +61,8 @@ export default function MessageThreadView({ otherId, otherName }: Props) {
   return (
     <KeyboardAvoidingView
       style={s.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 0}
     >
       <FlatList
         ref={listRef}

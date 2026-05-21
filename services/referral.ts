@@ -24,10 +24,12 @@ export interface ReferralProgress {
 }
 
 export const ReferralAPI = {
-  // The deep link encoded in the driver's QR. Scanned by a passenger's native
-  // camera → opens LoadQ at /ref/<id>.
+  // The web URL encoded in the driver's QR. Hosts a landing page on loadq.ca
+  // that auto-opens the LoadQ app if installed, or falls back to App Store /
+  // Play Store install links. Works with any phone's native camera, even if
+  // LoadQ isn't installed yet.
   link(driverId: string): string {
-    return Linking.createURL(`ref/${driverId}`);
+    return `https://loadq.ca/ref/${driverId}`;
   },
 
   async setPendingRef(driverId: string) {

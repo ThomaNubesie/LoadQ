@@ -7,7 +7,7 @@ import * as Location from "expo-location";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
-import { QueueEntry, Vehicle, Driver } from "../../constants/types";
+import { QueueEntry, Vehicle } from "../../constants/types";
 import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
 import ZoneMap from "../../components/ZoneMap";
@@ -35,7 +35,7 @@ export default function QueueScreen() {
   const [refreshing,   setRefreshing]   = useState(false);
   const [myId,         setMyId]         = useState<string|null>(null);
   const [myVehicle,    setMyVehicle]    = useState<Vehicle|null>(null);
-  const [previewDriver, setPreviewDriver] = useState<Driver|null>(null);
+  const [previewEntry, setPreviewEntry] = useState<QueueEntry|null>(null);
   const [userRegion,   setUserRegion]   = useState<RegionCode|null>(null);
   const [activeZone,   setActiveZone]   = useState<ZoneLocation|null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -307,14 +307,14 @@ export default function QueueScreen() {
             <Text style={[s.posText, { color: idx < 3 ? "#000" : Colors.t2 }]}>{entry.position}</Text>
           </View>
           <TouchableOpacity
-            onPress={(e) => { e.stopPropagation?.(); if (entry.driver) setPreviewDriver(entry.driver); }}
+            onPress={(e) => { e.stopPropagation?.(); setPreviewEntry(entry); }}
             activeOpacity={0.7}
           >
             {entry.driver?.avatar_url ? (
               <Image source={{ uri: entry.driver.avatar_url }} style={s.rowAvatar} />
             ) : (
-              <View style={[s.carIcon, { backgroundColor: sc+"20", borderColor: sc+"40" }]}>
-                <Text style={{ fontSize:14 }}>{entry.status === "loading" ? "🚌" : entry.status === "called_back" ? "🔄" : "🚗"}</Text>
+              <View style={[s.rowAvatar, s.rowAvatarFallback, { borderColor: sc+"40" }]}>
+                <Text style={{ fontSize:18 }}>👤</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -582,25 +582,73 @@ export default function QueueScreen() {
 
       {/* ── Zone selector dropdown modal ── */}
       {/* Driver profile preview — opens on row avatar tap */}
-      <Modal visible={!!previewDriver} transparent animationType="fade" onRequestClose={() => setPreviewDriver(null)}>
-        <TouchableOpacity style={s.previewOverlay} activeOpacity={1} onPress={() => setPreviewDriver(null)}>
-          <View style={s.previewCard}>
+      <Modal visible={!!previewEntry} transparent animationType="fade" onRequestClose={() => setPreviewEntry(null)}>
+        <TouchableOpacity style={s.previewOverlay} activeOpacity={1} onPress={() => setPreviewEntry(null)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation?.()} style={s.previewCard}>
             <View style={s.previewAvatarBox}>
-              {previewDriver?.avatar_url ? (
-                <Image source={{ uri: previewDriver.avatar_url }} style={s.previewAvatar} />
+              {previewEntry?.driver?.avatar_url ? (
+                <Image source={{ uri: previewEntry.driver.avatar_url }} style={s.previewAvatar} />
               ) : (
                 <View style={s.previewAvatarFallback}><Text style={{ fontSize: 48 }}>👤</Text></View>
               )}
             </View>
-            <Text style={s.previewName}>{previewDriver?.full_name || "Driver"}</Text>
-            {previewDriver?.trust_score !== undefined && (
-              <Text style={s.previewTrust}>⭐ Trust score: {previewDriver.trust_score}</Text>
+            <Text style={s.previewName}>{previewEntry?.driver?.full_name || "Driver"}</Text>
+            {previewEntry?.driver?.trust_score !== undefined && (
+              <Text style={s.previewTrust}>⭐ Trust score: {previewEntry.driver.trust_score}</Text>
             )}
-            <Text style={s.previewId}>#{previewDriver?.id?.slice(0, 8).toUpperCase()}</Text>
-            <TouchableOpacity style={s.previewClose} onPress={() => setPreviewDriver(null)}>
+            <Text style={s.previewId}>#{previewEntry?.driver?.id?.slice(0, 8).toUpperCase()}</Text>
+
+            {previewEntry?.vehicle && (
+              <View style={s.previewVehicleBox}>
+                <Image
+                  source={{ uri: getVehicleImageUrl(
+                    previewEntry.vehicle.make,
+                    previewEntry.vehicle.model,
+                    previewEntry.vehicle.year,
+                    "side",
+                    previewEntry.vehicle.color || undefined
+                  ) }}
+                  style={s.previewVehicle}
+                  resizeMode="contain"
+                />
+                <Text style={s.previewVehicleName}>
+                  {previewEntry.vehicle.year} {previewEntry.vehicle.make} {previewEntry.vehicle.model}
+                </Text>
+                <Text style={s.previewPlate}>{previewEntry.vehicle.plate}</Text>
+              </View>
+            )}
+
+            {previewEntry && previewEntry.driver_id !== myId && (
+              <View style={s.previewActions}>
+                {previewEntry.driver?.phone && (
+                  <TouchableOpacity
+                    style={[s.previewActBtn, s.previewActCall]}
+                    onPress={() => { Linking.openURL(`tel:${previewEntry.driver!.phone}`); }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={s.previewActText}>📞  Call</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[s.previewActBtn, s.previewActMsg]}
+                  onPress={() => {
+                    const id   = previewEntry.driver_id;
+                    const name = previewEntry.driver?.full_name || t("driver");
+                    const phone = previewEntry.driver?.phone || "";
+                    setPreviewEntry(null);
+                    router.push({ pathname: "/(app)/thread" as any, params: { id, name, phone } });
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.previewActText}>💬  Message</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <TouchableOpacity style={s.previewClose} onPress={() => setPreviewEntry(null)}>
               <Text style={s.previewCloseText}>Close</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
@@ -732,6 +780,7 @@ const s = StyleSheet.create({
   posText:            { fontSize:11, fontWeight:"700" },
   carIcon:            { width:34, height:34, borderRadius:8, alignItems:"center", justifyContent:"center", borderWidth:0.5, flexShrink:0 },
   rowAvatar:          { width:34, height:34, borderRadius:17, backgroundColor:Colors.cardAlt },
+  rowAvatarFallback:  { alignItems:"center", justifyContent:"center", borderWidth:1 },
   info:               { flex:1, minWidth:0 },
   name:               { fontSize:12, fontWeight:"600", color:Colors.t1 },
   vehicleName:        { fontSize:10, color:Colors.t3, marginTop:1 },
@@ -776,6 +825,15 @@ const s = StyleSheet.create({
   previewName:        { fontSize:18, fontWeight:"700", color:Colors.t1, marginBottom:6 },
   previewTrust:       { fontSize:12, color:Colors.yellow, marginBottom:6 },
   previewId:          { fontSize:11, color:Colors.t3, marginBottom:16 },
+  previewVehicleBox:  { alignSelf:"stretch", marginTop:16, marginBottom:12, padding:12, backgroundColor:Colors.bg, borderRadius:12, borderWidth:0.5, borderColor:Colors.border, alignItems:"center" },
+  previewVehicle:     { width:240, height:120 },
+  previewVehicleName: { color:Colors.t1, fontSize:14, fontWeight:"700", marginTop:6 },
+  previewPlate:       { color:Colors.accent, fontSize:13, fontWeight:"800", letterSpacing:1.5, marginTop:4 },
+  previewActions:     { flexDirection:"row", gap:10, alignSelf:"stretch", marginBottom:12 },
+  previewActBtn:      { flex:1, paddingVertical:12, borderRadius:10, alignItems:"center", borderWidth:1 },
+  previewActCall:     { backgroundColor:Colors.green+"18", borderColor:Colors.green },
+  previewActMsg:      { backgroundColor:Colors.accent+"18", borderColor:Colors.accent },
+  previewActText:     { color:Colors.t1, fontSize:14, fontWeight:"800" },
   previewClose:       { backgroundColor:Colors.card, borderRadius:10, paddingHorizontal:20, paddingVertical:8, borderWidth:0.5, borderColor:Colors.border },
   previewCloseText:   { color:Colors.t2, fontSize:13, fontWeight:"600" },
   modalOverlay:       { flex:1, backgroundColor:"rgba(0,0,0,0.6)", justifyContent:"flex-end" },
