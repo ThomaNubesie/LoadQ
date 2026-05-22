@@ -21,7 +21,7 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "buildNumber": "8"
+      "buildNumber": "9"
     },
     "android": {
       "adaptiveIcon": {
@@ -38,7 +38,7 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 8
+      "versionCode": 9
     },
     "plugins": [
       "expo-router",
