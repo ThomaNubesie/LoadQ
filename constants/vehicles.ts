@@ -28,7 +28,7 @@ const MODEL_SEAT_MAP: Record<string, number> = {
   "chevrolet|suburban": 9, "chevrolet|tahoe": 9, "chevrolet|traverse": 8,
   "gmc|yukon": 9, "gmc|acadia": 7,
   "cadillac|escalade": 7, "cadillac|xt6": 7,
-  "dodge|durango": 7,
+  "dodge|durango": 7, "dodge|grand caravan": 7,
   "jeep|grand cherokee l": 7, "jeep|wagoneer": 8,
   "lincoln|navigator": 8,
   "nissan|armada": 8, "nissan|pathfinder": 8,

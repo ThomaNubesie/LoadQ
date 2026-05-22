@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { useFocusEffect } from "expo-router";
 import { AuthAPI } from "../../services/auth";
 import { DriversAPI } from "../../services/drivers";
+import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
 import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
@@ -23,12 +25,17 @@ export default function ProfileScreen() {
   const [vehicles,  setVehicles]  = useState<Vehicle[]>([]);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [unread,    setUnread]    = useState<number>(0);
 
   useEffect(() => {
     DriversAPI.getMe().then(setDriver);
     DriversAPI.getVehicles().then(setVehicles);
     supabase.auth.getUser().then(({ data }) => setAuthEmail(data.user?.email ?? null));
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    MessagesAPI.unreadCount().then(setUnread);
+  }, []));
 
   const handleSignOut = async () => {
     await AuthAPI.signOut();
@@ -205,7 +212,14 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/messages" as any)} activeOpacity={0.85}>
-          <Text style={s.historyBtnText}>💬  Messages</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={s.historyBtnText}>💬  Messages</Text>
+            {unread > 0 && (
+              <View style={s.unreadBadge}>
+                <Text style={s.unreadBadgeText}>{unread > 99 ? "99+" : unread}</Text>
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
 
         {driver?.is_admin && (
@@ -284,6 +298,8 @@ const s = StyleSheet.create({
   langBtnText:       { fontSize:13, fontWeight:"600", color:Colors.t2 },
   historyBtn:        { backgroundColor:Colors.card, borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.border, marginBottom:10 },
   historyBtnText:    { color:Colors.t1, fontSize:14, fontWeight:"700" },
+  unreadBadge:       { marginLeft:8, minWidth:22, height:22, borderRadius:11, backgroundColor:Colors.red, paddingHorizontal:6, alignItems:"center", justifyContent:"center" },
+  unreadBadgeText:   { color:"#fff", fontSize:11, fontWeight:"800" },
   adminBtn:          { backgroundColor:Colors.accent+"12", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.accent+"40", marginBottom:10 },
   adminBtnText:      { color:Colors.accent, fontSize:14, fontWeight:"700" },
   signOutBtn:        { backgroundColor:Colors.red+"15", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.red+"30" },

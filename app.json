@@ -18,7 +18,10 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "4"
+      "entitlements": {
+        "aps-environment": "production"
+      },
+      "buildNumber": "5"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +38,7 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 4
+      "versionCode": 5
     },
     "plugins": [
       "expo-router",

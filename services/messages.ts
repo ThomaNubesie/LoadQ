@@ -48,6 +48,26 @@ export const MessagesAPI = {
       .from("messages")
       .insert({ sender_id: user.id, recipient_id: recipientId, body: trimmed })
       .select().single();
+
+    // Best-effort push notification to the recipient. Don't fail the send
+    // if the push call fails (network glitch, no token, etc).
+    if (!error && data) {
+      try {
+        // Get sender's display name for the push title
+        const { data: senderDrv } = await supabase
+          .from("drivers").select("full_name").eq("id", user.id).maybeSingle();
+        const senderName = senderDrv?.full_name || "LoadQ";
+        await supabase.functions.invoke("send-push", {
+          body: {
+            recipient_id: recipientId,
+            title:        senderName,
+            body:         trimmed.length > 80 ? trimmed.slice(0, 77) + "…" : trimmed,
+            data:         { kind: "message", sender_id: user.id },
+          },
+        });
+      } catch { /* swallow */ }
+    }
+
     return { data: data as Message | undefined, error: error?.message };
   },
 

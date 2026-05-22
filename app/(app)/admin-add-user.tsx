@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { Colors } from "../../constants/colors";
@@ -9,6 +9,7 @@ type Role = "driver" | "passenger";
 
 export default function AdminAddUserScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [role, setRole]         = useState<Role>("driver");
   const [fullName, setFullName] = useState("");
   const [email, setEmail]       = useState("");
@@ -42,7 +43,12 @@ export default function AdminAddUserScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 0}
+      >
+      <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
         <Text style={s.label}>Role</Text>
         <View style={s.roleRow}>
           <TouchableOpacity
@@ -99,6 +105,7 @@ export default function AdminAddUserScreen() {
           {busy ? <ActivityIndicator color={Colors.accentText} /> : <Text style={s.submitText}>Create profile</Text>}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking, TextInput } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { Colors } from "../../constants/colors";
@@ -49,15 +49,18 @@ function fmtWhen(iso: string) {
 
 export default function AdminUserScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id, role } = useLocalSearchParams<{ id: string; role: Role }>();
   const isDriver = role === "driver";
 
   const [user, setUser]         = useState<UserDetail | null>(null);
+  const [vehicle, setVehicle]   = useState<{ id: string; plate: string; make: string; model: string; year: number; color: string | null; seats: number } | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading]   = useState(true);
   const [busy, setBusy]         = useState(false);
   const [editing, setEditing]   = useState(false);
   const [draft, setDraft]       = useState({ full_name: "", email: "", phone: "" });
+  const [vehicleDraft, setVehicleDraft] = useState({ plate: "", make: "", model: "", year: "", color: "", seats: "" });
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -66,6 +69,11 @@ export default function AdminUserScreen() {
         .select("id, full_name, email, phone, avatar_url, dob, sex, verified, blocked, is_admin, subscription_status, trial_ends_at, trust_score, created_at")
         .eq("id", id).maybeSingle();
       if (data) setUser(data as UserDetail);
+
+      const { data: veh } = await supabase.from("vehicles")
+        .select("id, plate, make, model, year, color, seats")
+        .eq("driver_id", id).eq("is_active", true).maybeSingle();
+      setVehicle((veh as any) ?? null);
 
       const { data: hist } = await supabase.from("loading_history")
         .select("id, zone_id, destination_region, ended_at, end_reason, seats_filled")
@@ -140,6 +148,16 @@ export default function AdminUserScreen() {
       email:     user.email     || "",
       phone:     user.phone     || "",
     });
+    if (vehicle) {
+      setVehicleDraft({
+        plate: vehicle.plate || "",
+        make:  vehicle.make  || "",
+        model: vehicle.model || "",
+        year:  String(vehicle.year || ""),
+        color: vehicle.color || "",
+        seats: String(vehicle.seats || ""),
+      });
+    }
     setEditing(true);
   };
 
@@ -155,14 +173,38 @@ export default function AdminUserScreen() {
       p_email:     draft.email,
       p_phone:     draft.phone,
     });
-    setBusy(false);
-    if (error) { Alert.alert("Could not update", error.message); return; }
+    if (error) { setBusy(false); Alert.alert("Could not update", error.message); return; }
     setUser(u => u ? {
       ...u,
       full_name: draft.full_name.trim(),
       email:     draft.email.trim()  || null,
       phone:     draft.phone.trim()  || null,
     } : u);
+
+    if (isDriver && vehicle) {
+      const yearN  = parseInt(vehicleDraft.year,  10);
+      const seatsN = parseInt(vehicleDraft.seats, 10);
+      const { error: vErr } = await supabase.rpc("admin_update_vehicle_basics", {
+        p_vehicle_id: vehicle.id,
+        p_plate:      vehicleDraft.plate,
+        p_make:       vehicleDraft.make,
+        p_model:      vehicleDraft.model,
+        p_year:       isNaN(yearN)  ? null : yearN,
+        p_color:      vehicleDraft.color,
+        p_seats:      isNaN(seatsN) ? null : seatsN,
+      });
+      if (vErr) { setBusy(false); Alert.alert("Could not update vehicle", vErr.message); return; }
+      setVehicle(v => v ? {
+        ...v,
+        plate: vehicleDraft.plate.trim(),
+        make:  vehicleDraft.make.trim(),
+        model: vehicleDraft.model.trim(),
+        year:  isNaN(yearN)  ? v.year  : yearN,
+        color: vehicleDraft.color.trim() || null,
+        seats: isNaN(seatsN) ? v.seats : seatsN,
+      } : v);
+    }
+    setBusy(false);
     setEditing(false);
   };
 
@@ -191,7 +233,12 @@ export default function AdminUserScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 0}
+      >
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
         <View style={s.hero}>
           {user.avatar_url
             ? <Image source={{ uri: user.avatar_url }} style={s.avatar} />
@@ -229,6 +276,29 @@ export default function AdminUserScreen() {
             </>
           )}
         </View>
+
+        {isDriver && vehicle && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>VEHICLE</Text>
+            {editing ? (
+              <>
+                <EditRow k="Make"  value={vehicleDraft.make}  onChange={v => setVehicleDraft(d => ({ ...d, make: v }))} />
+                <EditRow k="Model" value={vehicleDraft.model} onChange={v => setVehicleDraft(d => ({ ...d, model: v }))} />
+                <EditRow k="Year"  value={vehicleDraft.year}  onChange={v => setVehicleDraft(d => ({ ...d, year: v }))} keyboardType="phone-pad" />
+                <EditRow k="Color" value={vehicleDraft.color} onChange={v => setVehicleDraft(d => ({ ...d, color: v }))} />
+                <EditRow k="Plate" value={vehicleDraft.plate} onChange={v => setVehicleDraft(d => ({ ...d, plate: v }))} />
+                <EditRow k="Seats" value={vehicleDraft.seats} onChange={v => setVehicleDraft(d => ({ ...d, seats: v }))} keyboardType="phone-pad" last />
+              </>
+            ) : (
+              <>
+                <Row k="Make/Model" v={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} />
+                <Row k="Color"      v={vehicle.color || "—"} />
+                <Row k="Plate"      v={vehicle.plate || "—"} />
+                <Row k="Seats"      v={String(vehicle.seats)} last />
+              </>
+            )}
+          </View>
+        )}
 
         {editing ? (
           <View style={s.actionGrid}>
@@ -292,6 +362,7 @@ export default function AdminUserScreen() {
           </View>
         ))}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

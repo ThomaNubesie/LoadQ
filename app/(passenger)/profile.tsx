@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { AuthAPI } from "../../services/auth";
 import { PassengersAPI, Passenger } from "../../services/passengers";
+import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
 import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
@@ -18,11 +19,16 @@ export default function PassengerProfileScreen() {
   const [passenger, setPassenger] = useState<Passenger | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [unread,    setUnread]    = useState<number>(0);
 
   useEffect(() => {
     PassengersAPI.getMe().then(setPassenger);
     supabase.auth.getUser().then(({ data }) => setAuthEmail(data.user?.email ?? null));
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    MessagesAPI.unreadCount().then(setUnread);
+  }, []));
 
   const handleSignOut = async () => {
     await AuthAPI.signOut();
@@ -114,7 +120,14 @@ export default function PassengerProfileScreen() {
         </View>
 
         <TouchableOpacity style={s.messagesBtn} onPress={() => router.push("/(passenger)/messages" as any)} activeOpacity={0.85}>
-          <Text style={s.messagesBtnText}>💬  Messages</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={s.messagesBtnText}>💬  Messages</Text>
+            {unread > 0 && (
+              <View style={s.badge}>
+                <Text style={s.badgeText}>{unread > 99 ? "99+" : unread}</Text>
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
@@ -150,6 +163,8 @@ const s = StyleSheet.create({
   langBtnActive:     { borderColor:Colors.accent, backgroundColor:Colors.accent+"12" },
   langBtnText:       { fontSize:13, fontWeight:"600", color:Colors.t2 },
   messagesBtn:       { backgroundColor:Colors.card, borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.border, marginBottom:10 },
+  badge:             { marginLeft:8, minWidth:22, height:22, borderRadius:11, backgroundColor:Colors.red, paddingHorizontal:6, alignItems:"center", justifyContent:"center" },
+  badgeText:         { color:"#fff", fontSize:11, fontWeight:"800" },
   messagesBtnText:   { color:Colors.t1, fontSize:14, fontWeight:"700" },
   signOutBtn:        { backgroundColor:Colors.red+"15", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.red+"30" },
   signOutText:       { color:Colors.red, fontSize:14, fontWeight:"600" },
