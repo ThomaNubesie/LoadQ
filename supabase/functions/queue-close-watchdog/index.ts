@@ -28,6 +28,7 @@ interface LoadingRow {
   load_start_at: string | null;
   vehicle_id: string | null;
   seats_boarded: number | null;
+  pushback_count: number | null;
   vehicles: { seats: number } | null;
 }
 
@@ -118,7 +119,7 @@ Deno.serve(async () => {
 
   const { data: loadingEntries, error } = await supabase
     .from("queue_entries")
-    .select("id, zone_id, driver_id, destination_region, load_start_at, vehicle_id, seats_boarded, vehicles(seats)")
+    .select("id, zone_id, driver_id, destination_region, load_start_at, vehicle_id, seats_boarded, pushback_count, vehicles(seats)")
     .eq("status", "loading");
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
@@ -137,7 +138,12 @@ Deno.serve(async () => {
     const elapsedOver = !!e.load_start_at &&
       (now.getTime() - new Date(e.load_start_at).getTime() >= TWO_HOURS_MS);
 
-    if (!zoneClosed && !elapsedOver) continue;
+    // P79: When the zone closes at 8 PM, a driver who's still actively loading
+    // keeps their 2-hour clock. They get cleared once the clock elapses on a
+    // later watchdog tick. Only act now if either the clock is expired OR the
+    // entry isn't loading at all (which never enters this branch — rows is
+    // pre-filtered to status='loading').
+    if (!elapsedOver) continue;
 
     affectedZones.add(e.zone_id);
     affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
@@ -162,58 +168,94 @@ Deno.serve(async () => {
           supabase, e.driver_id, "removed",
           `removed:${e.id}:${now.toISOString().slice(0, 10)}`,
           "Loading closed for the day",
-          "Loading is now closed (8:00 PM). Your spot was cleared — rejoin tomorrow.",
+          "Loading window closed and your 2-hour clock has ended. Rejoin tomorrow.",
           pushQueue,
         );
       }
     } else {
-      // Move to back of THIS route's sub-queue (zone + destination scope).
-      let maxQuery = supabase
-        .from("queue_entries").select("position")
-        .eq("zone_id", e.zone_id);
-      maxQuery = e.destination_region
-        ? maxQuery.eq("destination_region", e.destination_region)
-        : maxQuery.is("destination_region", null);
-      const { data: maxRow } = await maxQuery
-        .order("position", { ascending: false })
-        .limit(1).maybeSingle();
-      const newPos = (maxRow?.position ?? 0) + 1;
-      const { error: updErr } = await supabase.from("queue_entries").update({
-        status:        "waiting",
-        position:      newPos,
-        load_start_at: null,
-        load_deadline: null,
-        seats_boarded: 0,
-        seats_locked:  0,
-        seat_states:   null,
-      }).eq("id", e.id);
-      if (!updErr) {
-        moved.push(e.id);
-        await recordAndQueue(
-          supabase, e.driver_id, "moved_back",
-          `moved_back:${e.id}:${e.load_start_at ?? now.toISOString()}`,
-          "Loading time up",
-          "Your 2-hour loading window ended. You've been moved to the back of the queue.",
-          pushQueue,
-        );
+      // P85: Two-strike rule. If this is the driver's SECOND timeout in this
+      // queue entry (pushback_count was already 1), remove them instead of
+      // moving them back. First-time timeout → move to back AND bump count.
+      const previousPushbacks = e.pushback_count ?? 0;
+      if (previousPushbacks >= 1) {
+        const { error: delErr } = await supabase.from("queue_entries").delete().eq("id", e.id);
+        if (!delErr) {
+          removed.push(e.id);
+          await recordAndQueue(
+            supabase, e.driver_id, "removed",
+            `removed:${e.id}:${e.load_start_at ?? now.toISOString()}`,
+            "Removed from the queue",
+            "Your loading time expired twice in a row. You've been removed from the queue — please rejoin when you're ready to load.",
+            pushQueue,
+          );
+        }
+      } else {
+        // First timeout — move to back of THIS route's sub-queue, bump count.
+        let maxQuery = supabase
+          .from("queue_entries").select("position")
+          .eq("zone_id", e.zone_id);
+        maxQuery = e.destination_region
+          ? maxQuery.eq("destination_region", e.destination_region)
+          : maxQuery.is("destination_region", null);
+        const { data: maxRow } = await maxQuery
+          .order("position", { ascending: false })
+          .limit(1).maybeSingle();
+        const newPos = (maxRow?.position ?? 0) + 1;
+        const { error: updErr } = await supabase.from("queue_entries").update({
+          status:         "waiting",
+          position:       newPos,
+          load_start_at:  null,
+          load_deadline:  null,
+          seats_boarded:  0,
+          seats_locked:   0,
+          seat_states:    null,
+          pushback_count: previousPushbacks + 1,
+        }).eq("id", e.id);
+        if (!updErr) {
+          moved.push(e.id);
+          await recordAndQueue(
+            supabase, e.driver_id, "moved_back",
+            `moved_back:${e.id}:${e.load_start_at ?? now.toISOString()}`,
+            "Loading time up — last chance",
+            "Your 2-hour loading window ended. You've been moved to the back of the queue. If you time out again, you'll be removed.",
+            pushQueue,
+          );
+        }
       }
     }
   }
 
-  // EOD purge — NO ROLLOVER. When a zone's window is closed, clear the WHOLE
-  // queue for that zone (waiting drivers included, not just the loading one).
-  // The day always starts with an empty queue: #1 is whoever joins first that
-  // day, with zero carry-over from yesterday.
+  // EOD purge — NO ROLLOVER for waiting drivers. When a zone's window closes,
+  // wipe everyone EXCEPT a driver who is actively loading with an unexpired
+  // 2-hour clock — they get to finish, even if the clock runs past 8 PM. Those
+  // entries are picked up by the loading-entries loop above once their clock
+  // elapses (next watchdog tick).
+  const TWO_HOURS = TWO_HOURS_MS;
   for (const z of (zoneRows as ZoneRow[] ?? [])) {
     if (!isWindowClosedInTz(now, tzFor(z.id))) continue;
     const { data: leftover } = await supabase
-      .from("queue_entries").select("id, driver_id").eq("zone_id", z.id);
-    const left = (leftover ?? []) as { id: string; driver_id: string }[];
+      .from("queue_entries")
+      .select("id, driver_id, status, load_start_at")
+      .eq("zone_id", z.id);
+    const left = (leftover ?? []) as { id: string; driver_id: string; status: string; load_start_at: string | null }[];
     if (left.length === 0) continue;
-    const { error: purgeErr } = await supabase
-      .from("queue_entries").delete().eq("zone_id", z.id);
-    if (purgeErr) continue;
+
+    // Split: keepers (still-running 2h clocks) vs purgees (everyone else).
+    const toRemove: typeof left = [];
+    const keepers:  typeof left = [];
     for (const l of left) {
+      const isLoadingActive =
+        l.status === "loading" &&
+        l.load_start_at &&
+        (now.getTime() - new Date(l.load_start_at).getTime() < TWO_HOURS);
+      (isLoadingActive ? keepers : toRemove).push(l);
+    }
+    if (toRemove.length === 0) continue;
+
+    const { error: purgeErr } = await supabase
+      .from("queue_entries").delete().in("id", toRemove.map(t => t.id));
+    if (purgeErr) continue;
+    for (const l of toRemove) {
       removed.push(l.id);
       await recordAndQueue(
         supabase, l.driver_id, "removed",

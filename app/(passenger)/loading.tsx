@@ -174,6 +174,13 @@ export default function PassengerLoadingScreen() {
                     <Text style={s.routeText}>
                       {getRegionName(activeZone?.region)} → {getRegionName(entry.destination_region)}
                     </Text>
+                    {vehicle && (
+                      <Text style={s.vehicleInfoText}>
+                        {vehicle.year} {vehicle.make} {vehicle.model}
+                        {vehicle.color ? `  ·  ${vehicle.color}` : ""}
+                        {vehicle.plate ? `  ·  ${vehicle.plate}` : ""}
+                      </Text>
+                    )}
                   </View>
                   {price !== null && (
                     <View style={s.priceBox}>
@@ -305,6 +312,7 @@ const s = StyleSheet.create({
   driverNameRow:{ flexDirection:"row", alignItems:"center", gap:6 },
   driverName:  { fontSize:14, fontWeight:"700", color:Colors.t1 },
   routeText:   { fontSize:12, color:Colors.t2, marginTop:2 },
+  vehicleInfoText: { fontSize:11, color:Colors.t3, marginTop:3, fontWeight:"500" },
   priceBox:    { alignItems:"flex-end" },
   priceText:   { fontSize:18, fontWeight:"800", color:Colors.accent },
   priceSub:    { fontSize:10, color:Colors.t3 },

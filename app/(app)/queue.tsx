@@ -613,6 +613,7 @@ export default function QueueScreen() {
                 />
                 <Text style={s.previewVehicleName}>
                   {previewEntry.vehicle.year} {previewEntry.vehicle.make} {previewEntry.vehicle.model}
+                  {previewEntry.vehicle.color ? `  ·  ${previewEntry.vehicle.color}` : ""}
                 </Text>
                 <Text style={s.previewPlate}>{previewEntry.vehicle.plate}</Text>
               </View>

@@ -55,12 +55,14 @@ export default function AdminUserScreen() {
 
   const [user, setUser]         = useState<UserDetail | null>(null);
   const [vehicle, setVehicle]   = useState<{ id: string; plate: string; make: string; model: string; year: number; color: string | null; seats: number } | null>(null);
+  const [queueEntryId, setQueueEntryId] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading]   = useState(true);
   const [busy, setBusy]         = useState(false);
   const [editing, setEditing]   = useState(false);
   const [draft, setDraft]       = useState({ full_name: "", email: "", phone: "" });
   const [vehicleDraft, setVehicleDraft] = useState({ plate: "", make: "", model: "", year: "", color: "", seats: "" });
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -74,6 +76,10 @@ export default function AdminUserScreen() {
         .select("id, plate, make, model, year, color, seats")
         .eq("driver_id", id).eq("is_active", true).maybeSingle();
       setVehicle((veh as any) ?? null);
+
+      const { data: qe } = await supabase.from("queue_entries")
+        .select("id").eq("driver_id", id).maybeSingle();
+      setQueueEntryId((qe as any)?.id ?? null);
 
       const { data: hist } = await supabase.from("loading_history")
         .select("id, zone_id, destination_region, ended_at, end_reason, seats_filled")
@@ -213,6 +219,58 @@ export default function AdminUserScreen() {
     router.push({ pathname: "/(app)/admin-print-user" as any, params: { id: user.id, role } });
   };
 
+  const removeFromQueue = () => {
+    if (!queueEntryId) return;
+    Alert.alert(
+      "Remove from queue?",
+      "This driver will be removed from their current queue entry. They can rejoin manually.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: async () => {
+          setBusy(true);
+          const { error } = await supabase.rpc("admin_remove_from_queue", { p_entry_id: queueEntryId });
+          setBusy(false);
+          if (error) { Alert.alert("Could not remove", error.message); return; }
+          setQueueEntryId(null);
+        }},
+      ],
+    );
+  };
+
+  const [newVehDraft, setNewVehDraft] = useState({ make: "", model: "", year: "", plate: "", color: "", seats: "" });
+  const createVehicleForDriver = async () => {
+    if (!user) return;
+    if (!newVehDraft.make.trim() || !newVehDraft.model.trim() || !newVehDraft.plate.trim()) {
+      Alert.alert("Required", "Make, model and plate are required.");
+      return;
+    }
+    setBusy(true);
+    const yearN  = parseInt(newVehDraft.year,  10);
+    const seatsN = parseInt(newVehDraft.seats, 10);
+    const { data, error } = await supabase.rpc("admin_create_vehicle_for_driver", {
+      p_driver_id: user.id,
+      p_make:      newVehDraft.make,
+      p_model:     newVehDraft.model,
+      p_year:      isNaN(yearN)  ? null : yearN,
+      p_plate:     newVehDraft.plate,
+      p_color:     newVehDraft.color,
+      p_seats:     isNaN(seatsN) ? null : seatsN,
+    });
+    setBusy(false);
+    if (error) { Alert.alert("Could not create vehicle", error.message); return; }
+    setVehicle({
+      id:    data as string,
+      make:  newVehDraft.make.trim(),
+      model: newVehDraft.model.trim(),
+      year:  isNaN(yearN) ? new Date().getFullYear() : yearN,
+      plate: newVehDraft.plate.trim(),
+      color: newVehDraft.color.trim() || null,
+      seats: isNaN(seatsN) ? 4 : seatsN,
+    });
+    setShowAddVehicle(false);
+    setNewVehDraft({ make: "", model: "", year: "", plate: "", color: "", seats: "" });
+  };
+
   if (loading || !user) {
     return (
       <SafeAreaView style={s.container}>
@@ -276,6 +334,42 @@ export default function AdminUserScreen() {
             </>
           )}
         </View>
+
+        {isDriver && !vehicle && !showAddVehicle && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>VEHICLE</Text>
+            <Text style={{ color: Colors.t3, fontSize: 13, marginVertical: 8 }}>
+              This driver has no active vehicle. They can't join the queue until one is added.
+            </Text>
+            <TouchableOpacity
+              style={[s.actionBtn, s.actAccent, { alignSelf: "stretch" }]}
+              onPress={() => setShowAddVehicle(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={[s.actionText, s.txtAccent]}>+ Add vehicle for this driver</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {isDriver && !vehicle && showAddVehicle && (
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>NEW VEHICLE</Text>
+            <EditRow k="Make"  value={newVehDraft.make}  onChange={v => setNewVehDraft(d => ({ ...d, make: v }))} />
+            <EditRow k="Model" value={newVehDraft.model} onChange={v => setNewVehDraft(d => ({ ...d, model: v }))} />
+            <EditRow k="Year"  value={newVehDraft.year}  onChange={v => setNewVehDraft(d => ({ ...d, year: v }))} keyboardType="phone-pad" />
+            <EditRow k="Color" value={newVehDraft.color} onChange={v => setNewVehDraft(d => ({ ...d, color: v }))} />
+            <EditRow k="Plate" value={newVehDraft.plate} onChange={v => setNewVehDraft(d => ({ ...d, plate: v }))} />
+            <EditRow k="Seats" value={newVehDraft.seats} onChange={v => setNewVehDraft(d => ({ ...d, seats: v }))} keyboardType="phone-pad" last />
+            <View style={s.actionGrid}>
+              <TouchableOpacity style={[s.actionBtn, s.actAccent]} disabled={busy} onPress={createVehicleForDriver} activeOpacity={0.85}>
+                <Text style={[s.actionText, s.txtAccent]}>{busy ? "Saving…" : "Create vehicle"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.actionBtn, s.actNeutral]} disabled={busy} onPress={() => setShowAddVehicle(false)} activeOpacity={0.85}>
+                <Text style={[s.actionText, s.txtT1]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {isDriver && vehicle && (
           <View style={s.card}>
@@ -345,6 +439,16 @@ export default function AdminUserScreen() {
             <TouchableOpacity style={[s.actionBtn, s.actNeutral]} onPress={openPrint} activeOpacity={0.85}>
               <Text style={[s.actionText, s.txtT1]}>🖨  Print</Text>
             </TouchableOpacity>
+            {isDriver && queueEntryId && (
+              <TouchableOpacity
+                style={[s.actionBtn, s.actBlocked]}
+                disabled={busy}
+                onPress={removeFromQueue}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.actionText, s.txtRed]}>🚫  Remove from queue</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
