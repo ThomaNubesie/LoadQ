@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { View, Text } from "react-native";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { initLang } from "../hooks/useStrings";
@@ -26,9 +26,12 @@ export default function RootLayout() {
   }, []);
 
   if (!ready) return (
-    <View style={{ flex:1, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center" }}>
-      <Text style={{ fontSize:32, fontWeight:"900", color:Colors.accent, letterSpacing:4 }}>LOADQ</Text>
-    </View>
+    <SafeAreaProvider>
+      <StatusBar style="light" />
+      <SafeAreaView style={{ flex:1, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center" }}>
+        <Text style={{ fontSize:32, fontWeight:"900", color:Colors.accent, letterSpacing:4 }}>LOADQ</Text>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 
   return (

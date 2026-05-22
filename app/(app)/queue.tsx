@@ -451,7 +451,8 @@ export default function QueueScreen() {
             <View style={s.liveRow}>
               <View style={s.liveDot} />
               <Text style={s.liveText}>Live · {entries.length} in queue</Text>
-              {!isMyRegion && <Text style={s.watchTag}> · Watching only</Text>}
+              {userCoords && !isMyRegion && <Text style={s.watchTag}> · Watching only</Text>}
+              {!userCoords && <Text style={s.watchTag}> · Locating…</Text>}
             </View>
           )}
         </View>
