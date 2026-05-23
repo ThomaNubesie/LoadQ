@@ -16,7 +16,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "ca.loadq.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "LoadQ needs access to your photos so you can set your profile picture (used to identify you to drivers and passengers in the queue) and upload a verification photo of your vehicle for driver approval.",
+        "NSPhotoLibraryAddUsageDescription": "LoadQ may save trip-related images you take to your photo library.",
+        "NSCameraUsageDescription": "LoadQ uses the camera so you can take a profile picture or photograph your vehicle for driver verification."
       },
       "entitlements": {
         "aps-environment": "production"
@@ -43,13 +46,6 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.ca.loadq.app",
-          "enableGooglePay": false
-        }
-      ],
       [
         "expo-location",
         {

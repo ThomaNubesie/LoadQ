@@ -42,6 +42,22 @@ export default function ProfileScreen() {
     router.replace("/(auth)/language");
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your profile, vehicles, queue history, messages, and trip records. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete forever", style: "destructive", onPress: async () => {
+          const { error } = await supabase.rpc("delete_my_account");
+          if (error) { Alert.alert("Could not delete", error.message); return; }
+          await AuthAPI.signOut();
+          router.replace("/(auth)/language");
+        }},
+      ],
+    );
+  };
+
   const handlePickAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -242,6 +258,10 @@ export default function ProfileScreen() {
         <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
           <Text style={s.signOutText}>{t.signOut}</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={s.deleteAccountBtn} onPress={handleDeleteAccount}>
+          <Text style={s.deleteAccountText}>Delete account</Text>
+        </TouchableOpacity>
       </ScrollView>
       <BottomNav />
     </SafeAreaView>
@@ -304,4 +324,6 @@ const s = StyleSheet.create({
   adminBtnText:      { color:Colors.accent, fontSize:14, fontWeight:"700" },
   signOutBtn:        { backgroundColor:Colors.red+"15", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.red+"30" },
   signOutText:       { color:Colors.red, fontSize:14, fontWeight:"600" },
+  deleteAccountBtn:  { marginTop:18, padding:12, alignItems:"center" },
+  deleteAccountText: { color:Colors.t3, fontSize:13, textDecorationLine:"underline" },
 });

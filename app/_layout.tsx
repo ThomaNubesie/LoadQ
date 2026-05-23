@@ -3,7 +3,6 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { View, Text } from "react-native";
-import { StripeProvider } from "@stripe/stripe-react-native";
 import { initLang } from "../hooks/useStrings";
 import { BillingAPI } from "../services/billing";
 import { PushAPI } from "../services/push";
@@ -36,19 +35,14 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StripeProvider
-        publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}
-        merchantIdentifier="merchant.ca.loadq.app"
-      >
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown:false, contentStyle:{ backgroundColor:Colors.bg } }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(app)" />
-          <Stack.Screen name="(admin)" />
-          <Stack.Screen name="ref/[id]" />
-        </Stack>
-      </StripeProvider>
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown:false, contentStyle:{ backgroundColor:Colors.bg } }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
+        <Stack.Screen name="(admin)" />
+        <Stack.Screen name="ref/[id]" />
+      </Stack>
     </SafeAreaProvider>
   );
 }

@@ -35,6 +35,22 @@ export default function PassengerProfileScreen() {
     router.replace("/(auth)/language");
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your profile, trip records, and messages. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete forever", style: "destructive", onPress: async () => {
+          const { error } = await supabase.rpc("delete_my_account");
+          if (error) { Alert.alert("Could not delete", error.message); return; }
+          await AuthAPI.signOut();
+          router.replace("/(auth)/language");
+        }},
+      ],
+    );
+  };
+
   const handlePickAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -133,6 +149,10 @@ export default function PassengerProfileScreen() {
         <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
           <Text style={s.signOutText}>{t.signOut}</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={s.deleteAccountBtn} onPress={handleDeleteAccount}>
+          <Text style={s.deleteAccountText}>Delete account</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <PassengerBottomNav />
@@ -167,5 +187,7 @@ const s = StyleSheet.create({
   badgeText:         { color:"#fff", fontSize:11, fontWeight:"800" },
   messagesBtnText:   { color:Colors.t1, fontSize:14, fontWeight:"700" },
   signOutBtn:        { backgroundColor:Colors.red+"15", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.red+"30" },
+  deleteAccountBtn:  { marginTop:18, padding:12, alignItems:"center" },
+  deleteAccountText: { color:Colors.t3, fontSize:13, textDecorationLine:"underline" },
   signOutText:       { color:Colors.red, fontSize:14, fontWeight:"600" },
 });
