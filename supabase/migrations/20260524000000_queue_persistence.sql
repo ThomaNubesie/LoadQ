@@ -8,6 +8,14 @@
 alter table public.queue_entries
   add column if not exists end_reason text;
 
+-- The original status_check constraint didn't know about 'ended'. Drop + add
+-- so the new status value is permitted.
+alter table public.queue_entries
+  drop constraint if exists queue_entries_status_check;
+alter table public.queue_entries
+  add constraint queue_entries_status_check
+  check (status in ('waiting', 'loading', 'called_back', 'penalised', 'ended'));
+
 -- Update admin_remove_from_queue: change from DELETE to mark as ended.
 create or replace function public.admin_remove_from_queue(
   p_entry_id uuid
