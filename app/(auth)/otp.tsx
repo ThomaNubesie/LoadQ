@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
@@ -11,6 +11,7 @@ import { Colors } from "../../constants/colors";
 
 export default function OTPScreen() {
   const router     = useRouter();
+  const insets     = useSafeAreaInsets();
   const { t }  = useStrings();
   const { phone, isEmail, role, mode } = useLocalSearchParams<{ phone: string; isEmail?: string; role?: "driver" | "passenger"; mode?: "signin" | "signup" }>();
   const isSignIn = mode === "signin";
@@ -90,6 +91,11 @@ export default function OTPScreen() {
 
   return (
     <SafeAreaView style={s.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
       <View style={s.inner}>
         <TouchableOpacity onPress={() => router.replace("/(auth)/sign-in")} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
@@ -132,6 +138,7 @@ export default function OTPScreen() {
           <Text style={s.wrongNumText}>← {isEmail === "true" ? t.wrongEmail : t.wrongNumber}</Text>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

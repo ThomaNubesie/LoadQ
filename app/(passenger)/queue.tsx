@@ -169,7 +169,7 @@ export default function PassengerQueueScreen() {
                     : null;
                   const required = lstate ? lstate.effectiveRequired : seats;
                   return (
-                    <View key={entry.id} style={[s.row, entry.status === "loading" && s.rowLoading]}>
+                    <View key={entry.id} style={[s.row, entry.status === "loading" && s.rowLoading, entry.status === "ended" && s.rowEnded]}>
                       <View style={s.pos}>
                         <Text style={s.posText}>{entry.position}</Text>
                       </View>
@@ -297,6 +297,7 @@ const s = StyleSheet.create({
   priceBadgeText:{ color:Colors.accent, fontSize:10, fontWeight:"700" },
   row:         { flexDirection:"row", alignItems:"center", gap:10, backgroundColor:Colors.card, borderRadius:12, padding:10, marginBottom:6, borderWidth:0.5, borderColor:Colors.border },
   rowLoading:  { borderColor:Colors.accent+"40" },
+  rowEnded:    { opacity:0.45 },
   pos:         { width:26, height:26, borderRadius:13, alignItems:"center", justifyContent:"center", flexShrink:0, backgroundColor:Colors.card, borderWidth:1, borderColor:Colors.border },
   posText:     { fontSize:11, fontWeight:"700", color:Colors.t2 },
   avatar:      { width:38, height:38, borderRadius:19, backgroundColor:Colors.cardAlt },

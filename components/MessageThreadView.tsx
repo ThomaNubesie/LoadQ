@@ -70,12 +70,22 @@ export default function MessageThreadView({ otherId, otherName }: Props) {
         keyExtractor={i => i.id}
         contentContainerStyle={{ padding: 14, paddingBottom: 14 }}
         ListEmptyComponent={<Text style={s.empty}>Start the conversation with {otherName}.</Text>}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const mine = me && item.sender_id === me;
+          // Show sender label only when it changes between messages (groups bubbles).
+          const prev = index > 0 ? msgs[index - 1] : null;
+          const showSender = !prev || prev.sender_id !== item.sender_id;
           return (
-            <View style={[s.bubbleRow, mine ? s.right : s.left]}>
-              <View style={[s.bubble, mine ? s.bubbleMine : s.bubbleTheirs]}>
-                <Text style={[s.bubbleText, mine ? s.textMine : s.textTheirs]}>{item.body}</Text>
+            <View>
+              {showSender && (
+                <Text style={[s.senderLabel, mine ? s.senderLabelMine : s.senderLabelTheirs]}>
+                  {mine ? "You" : otherName}
+                </Text>
+              )}
+              <View style={[s.bubbleRow, mine ? s.right : s.left]}>
+                <View style={[s.bubble, mine ? s.bubbleMine : s.bubbleTheirs]}>
+                  <Text style={[s.bubbleText, mine ? s.textMine : s.textTheirs]}>{item.body}</Text>
+                </View>
               </View>
             </View>
           );
@@ -102,6 +112,9 @@ export default function MessageThreadView({ otherId, otherName }: Props) {
 const s = StyleSheet.create({
   container:   { flex: 1, backgroundColor: Colors.bg },
   empty:       { color: Colors.t3, textAlign: "center", marginTop: 40 },
+  senderLabel:      { fontSize: 11, fontWeight: "700", color: Colors.t3, marginTop: 10, marginBottom: 2 },
+  senderLabelMine:  { textAlign: "right", marginRight: 8 },
+  senderLabelTheirs:{ textAlign: "left",  marginLeft: 8 },
   bubbleRow:   { flexDirection: "row", marginVertical: 3 },
   left:        { justifyContent: "flex-start" },
   right:       { justifyContent: "flex-end" },

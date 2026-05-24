@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
@@ -9,6 +9,7 @@ import { Colors } from "../../constants/colors";
 
 export default function ProfileSetupScreen() {
   const router     = useRouter();
+  const insets     = useSafeAreaInsets();
   const { t }  = useStrings();
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
@@ -80,6 +81,11 @@ export default function ProfileSetupScreen() {
 
   return (
     <SafeAreaView style={s.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => router.replace("/(auth)/sign-in")} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
@@ -125,6 +131,7 @@ export default function ProfileSetupScreen() {
           <Text style={s.btnText}>{loading ? t.loading : t.next + " →"}</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

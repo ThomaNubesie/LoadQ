@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { ClaimsAPI, SeatClaim } from "../../services/claims";
+import { MessagesAPI } from "../../services/messages";
 import UserActionMenu from "../../components/UserActionMenu";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
@@ -107,10 +108,10 @@ export default function MyLoadingScreen() {
   useEffect(() => {
     if (!entry || entry.status !== "loading" || !entry.load_start_at) return;
     const elapsed = now - new Date(entry.load_start_at).getTime();
-    if (elapsed >= 2 * 60 * 60 * 1000 && !expiredFired.current) {
+    if (elapsed >= 3 * 60 * 60 * 1000 && !expiredFired.current) {
       expiredFired.current = true;
       QueueAPI.triggerWatchdog();
-      Alert.alert("Time's up", "Your 2-hour loading window has ended. You've been moved to the back of the queue.");
+      Alert.alert("Time's up", "Your 3-hour loading window has ended. You've been moved to the back of the queue.");
       setTimeout(() => router.replace("/(app)/queue"), 1500);
     }
   }, [now, entry?.id, entry?.status, entry?.load_start_at]);
@@ -211,6 +212,11 @@ export default function MyLoadingScreen() {
     ? new Date(entry.load_start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "—";
 
+  const [unread, setUnread] = useState(0);
+  useFocusEffect(useCallback(() => {
+    MessagesAPI.unreadCount().then(setUnread);
+  }, []));
+
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
@@ -218,7 +224,19 @@ export default function MyLoadingScreen() {
           <Text style={s.back}>←</Text>
         </TouchableOpacity>
         <Text style={s.title}>{t.myLoading}</Text>
-        <View style={{ width:24 }} />
+        <TouchableOpacity
+          onPress={() => router.push("/(app)/messages" as any)}
+          style={s.msgBtn}
+          activeOpacity={0.7}
+          hitSlop={8}
+        >
+          <Text style={s.msgBtnText}>💬</Text>
+          {unread > 0 && (
+            <View style={s.msgBadge}>
+              <Text style={s.msgBadgeText}>{unread > 9 ? "9+" : unread}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={s.inner}>
@@ -425,6 +443,10 @@ const s = StyleSheet.create({
   header:      { flexDirection:"row", alignItems:"center", justifyContent:"space-between", padding:16 },
   back:        { fontSize:20, color:Colors.t2 },
   title:       { fontSize:17, fontWeight:"700", color:Colors.t1 },
+  msgBtn:      { width:32, height:32, alignItems:"center", justifyContent:"center" },
+  msgBtnText:  { fontSize:18 },
+  msgBadge:    { position:"absolute", top:-2, right:-4, minWidth:18, height:18, borderRadius:9, backgroundColor:Colors.red, paddingHorizontal:4, alignItems:"center", justifyContent:"center" },
+  msgBadgeText:{ color:"#fff", fontSize:10, fontWeight:"800" },
   inner:       { padding:20, paddingBottom:60 },
   loadingText: { color:Colors.t2, textAlign:"center", marginTop:40 },
   empty:       { alignItems:"center", marginTop:80 },

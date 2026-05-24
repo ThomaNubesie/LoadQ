@@ -26,7 +26,7 @@ export const STRINGS = {
     permissionNeeded:   "Permission needed",
     photoPermissionBody:"LoadQ needs access to your photos to set a profile picture. Enable it in Settings.",
     timeLeft:           "Time left",
-    twoHourWarning:     "Reaching 2-hour mark — loading will be closed and the next driver moved up",
+    twoHourWarning:     "Reaching 3-hour mark — loading will be closed and the next driver moved up",
     requiredReduced:    "Required passengers reduced: {from} → {to}",
     queueClosed:        "Queue closed",
     queueClosedSub:     "Loading runs from 4:00 AM to 8:00 PM. Come back during those hours.",

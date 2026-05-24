@@ -1,9 +1,9 @@
-// Per-driver loading timer rules:
-//   t < 1h00:        required = seats
-//   1h00 ≤ t < 1h30: required = seats - 1
-//   1h30 ≤ t < 2h00: required = seats - 3   (cumulative jump)
-//   t ≥ 1h50:        warning banner ("reaching 2-hour mark")
-//   t ≥ 2h00:        hard close (handled server-side by watchdog)
+// Per-driver loading timer rules (3-hour cap):
+//   t < 1h30:        required = seats
+//   1h30 ≤ t < 2h15: required = seats - 1
+//   2h15 ≤ t < 3h00: required = seats - 3   (cumulative jump)
+//   t ≥ 2h45:        warning banner ("reaching 3-hour mark")
+//   t ≥ 3h00:        hard close (handled server-side by watchdog)
 //
 // Loading window: 4:00 — 23:59 local time. Outside this window joinQueue
 // and startLoading are blocked; in-progress loads are force-closed at 23:59
@@ -11,15 +11,16 @@
 
 const MIN  = 60_000;
 const HOUR = 60 * MIN;
+const LOAD_CAP_MS = 3 * HOUR;
 
 export type LoadingPhase = "normal" | "reduced1" | "reduced3" | "warning" | "expired";
 
 export interface LoadingState {
   phase:             LoadingPhase;
   elapsedMs:         number;
-  remainingMs:       number;          // until 2h hard close (0 if expired)
+  remainingMs:       number;          // until 3h hard close (0 if expired)
   effectiveRequired: number;          // seats after reduction (no floor — can go negative)
-  showWarning:       boolean;         // true once t ≥ 1h50
+  showWarning:       boolean;         // true once t ≥ 2h45
 }
 
 export function loadingState(loadStartAt: string | null | undefined, seats: number, now: number = Date.now()): LoadingState | null {
@@ -30,18 +31,18 @@ export function loadingState(loadStartAt: string | null | undefined, seats: numb
 
   let phase: LoadingPhase;
   let effectiveRequired: number;
-  if      (elapsedMs >= 2 * HOUR)             { phase = "expired";  effectiveRequired = seats - 3; }
-  else if (elapsedMs >= HOUR + 50 * MIN)      { phase = "warning";  effectiveRequired = seats - 3; }
-  else if (elapsedMs >= HOUR + 30 * MIN)      { phase = "reduced3"; effectiveRequired = seats - 3; }
-  else if (elapsedMs >= HOUR)                 { phase = "reduced1"; effectiveRequired = seats - 1; }
-  else                                        { phase = "normal";   effectiveRequired = seats;     }
+  if      (elapsedMs >= LOAD_CAP_MS)              { phase = "expired";  effectiveRequired = seats - 3; }
+  else if (elapsedMs >= 2 * HOUR + 45 * MIN)      { phase = "warning";  effectiveRequired = seats - 3; }
+  else if (elapsedMs >= 2 * HOUR + 15 * MIN)      { phase = "reduced3"; effectiveRequired = seats - 3; }
+  else if (elapsedMs >= HOUR + 30 * MIN)          { phase = "reduced1"; effectiveRequired = seats - 1; }
+  else                                            { phase = "normal";   effectiveRequired = seats;     }
 
   return {
     phase,
     elapsedMs,
-    remainingMs: Math.max(0, 2 * HOUR - elapsedMs),
+    remainingMs: Math.max(0, LOAD_CAP_MS - elapsedMs),
     effectiveRequired,
-    showWarning: elapsedMs >= HOUR + 50 * MIN,
+    showWarning: elapsedMs >= 2 * HOUR + 45 * MIN,
   };
 }
 

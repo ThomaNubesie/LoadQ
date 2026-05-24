@@ -288,11 +288,18 @@ export default function QueueScreen() {
       : null;
     const zoneAddr = activeZone ? `${activeZone.name}${activeZone.address ? " — " + activeZone.address : ""}` : null;
 
+    const isEnded = entry.status === "ended";
+    const endLabel: Record<string, string> = {
+      departed: "Departed", cancelled: "Cancelled", expired: "Expired",
+      removed_by_admin: "Removed", eod_close: "Closed",
+    };
+
     return (
       <View key={entry.id}>
         <TouchableOpacity
-          style={[s.row, isMe && s.rowMe, entry.status === "loading" && s.rowLoading]}
+          style={[s.row, isMe && s.rowMe, entry.status === "loading" && s.rowLoading, isEnded && s.rowEnded]}
           onPress={() => {
+            if (isEnded) return;
             if (isExpandable) {
               setExpandedId(isExpanded ? null : entry.id);
             } else if (isMe) {
@@ -334,11 +341,14 @@ export default function QueueScreen() {
             {lstate && (
               <Text style={[s.timerText, { color: timerColor }]}>
                 ⏱ {formatRemaining(lstate.remainingMs)}
-                {lstate.showWarning ? "  ⚠ 2-hour close approaching" : ""}
+                {lstate.showWarning ? "  ⚠ 3-hour close approaching" : ""}
               </Text>
             )}
           </View>
-          {!isMe && entry.driver && (
+          {isEnded && (
+            <Text style={s.endedBadge}>{endLabel[entry.end_reason || ""] || "Ended"}</Text>
+          )}
+          {!isMe && !isEnded && entry.driver && (
             <View style={s.contactRow}>
               {entry.driver.phone && (
                 <TouchableOpacity
@@ -778,6 +788,8 @@ const s = StyleSheet.create({
   row:                { flexDirection:"row", alignItems:"center", gap:10, backgroundColor:Colors.card, borderRadius:12, padding:10, marginBottom:6, borderWidth:0.5, borderColor:Colors.border },
   rowMe:              { borderColor:Colors.accent+"60", backgroundColor:Colors.accent+"08" },
   rowLoading:         { borderColor:Colors.accent+"40" },
+  rowEnded:           { opacity:0.45 },
+  endedBadge:         { color:Colors.t3, fontSize:10, fontWeight:"800", letterSpacing:0.8, paddingHorizontal:6, paddingVertical:3, borderRadius:5, borderWidth:0.5, borderColor:Colors.border },
   pos:                { width:26, height:26, borderRadius:13, alignItems:"center", justifyContent:"center", flexShrink:0 },
   posText:            { fontSize:11, fontWeight:"700" },
   carIcon:            { width:34, height:34, borderRadius:8, alignItems:"center", justifyContent:"center", borderWidth:0.5, flexShrink:0 },

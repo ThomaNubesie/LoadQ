@@ -92,7 +92,7 @@ export const QueueAPI = {
     const isFirstLoader = !existingLoading || existingLoading.length === 0;
 
     const now            = new Date();
-    const loadDeadline   = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const loadDeadline   = new Date(now.getTime() + 3 * 60 * 60 * 1000);
     const insertPayload: Record<string, unknown> = {
       zone_id:            zoneId,
       driver_id:          user.id,
@@ -118,7 +118,7 @@ export const QueueAPI = {
     // auto-promotion (which already did a per-zone TZ check) is not blocked.
     const loadStart    = new Date();
     const loadDeadline = new Date();
-    loadDeadline.setHours(loadDeadline.getHours() + 2);
+    loadDeadline.setHours(loadDeadline.getHours() + 3);
     const { error } = await supabase
       .from("queue_entries")
       .update({
@@ -184,7 +184,11 @@ export const QueueAPI = {
   },
 
   async leaveQueue(entryId: string) {
-    const { error } = await supabase.from("queue_entries").delete().eq("id", entryId);
+    // P96: persist for the day — mark ended instead of deleting.
+    const { error } = await supabase
+      .from("queue_entries")
+      .update({ status: "ended", end_reason: "cancelled" })
+      .eq("id", entryId);
     return { error: error?.message };
   },
 
@@ -212,7 +216,11 @@ export const QueueAPI = {
       });
     }
 
-    const { error } = await supabase.from("queue_entries").delete().eq("id", entryId);
+    // P96: persist for the day — mark ended instead of deleting.
+    const { error } = await supabase
+      .from("queue_entries")
+      .update({ status: "ended", end_reason: "departed" })
+      .eq("id", entryId);
     if (error) return { error: error.message };
     supabase.functions.invoke("queue-close-watchdog", { body: {} }).catch(() => {});
     return {};

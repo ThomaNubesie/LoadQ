@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { useStrings } from "../../hooks/useStrings";
@@ -8,6 +8,7 @@ import { Colors } from "../../constants/colors";
 
 export default function SignInScreen() {
   const router  = useRouter();
+  const insets  = useSafeAreaInsets();
   const { t }   = useStrings();
   const { role, mode } = useLocalSearchParams<{ role?: "driver" | "passenger"; mode?: "signin" | "signup" }>();
   const isSignIn = mode === "signin";
@@ -48,7 +49,11 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      <KeyboardAvoidingView style={s.inner} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        style={s.inner}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
         <TouchableOpacity onPress={() => router.replace("/(auth)/welcome")} style={s.backBtn}>
           <Text style={s.backText}>← {t.back}</Text>
         </TouchableOpacity>
