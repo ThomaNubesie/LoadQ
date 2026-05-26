@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshControl, Alert, Modal } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshControl, Alert, Modal, Linking, Platform, Share } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { QueueAPI } from "../../services/queue";
@@ -105,6 +106,27 @@ export default function PassengerLoadingScreen() {
   const reachable  = activeZone ? new Set(getDestinationsFrom(activeZone.region, activeDestCodes) as string[]) : new Set<string>();
   const allRegions = activeZone ? getDestinationsFrom(activeZone.region, activeDestCodes) : [];
 
+  const handleAddressTap = () => {
+    if (!activeZone) return;
+    const addr = activeZone.address || activeZone.name;
+    Alert.alert(activeZone.name, addr, [
+      { text: "Get directions", onPress: () => {
+        const q = encodeURIComponent(addr);
+        const url = Platform.OS === "ios"
+          ? `http://maps.apple.com/?daddr=${q}`
+          : `https://www.google.com/maps/dir/?api=1&destination=${q}`;
+        Linking.openURL(url);
+      }},
+      { text: "Copy address", onPress: async () => {
+        try { await Clipboard.setStringAsync(addr); } catch {}
+      }},
+      { text: "Share address", onPress: async () => {
+        try { await Share.share({ message: `${activeZone.name}\n${addr}` }); } catch {}
+      }},
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
@@ -112,6 +134,14 @@ export default function PassengerLoadingScreen() {
         <View style={{ flex: 1 }} />
         <Text style={s.subtitle}>{activeZone?.name}</Text>
       </View>
+
+      {activeZone && (
+        <TouchableOpacity style={s.addressBar} onPress={handleAddressTap} activeOpacity={0.7}>
+          <Text style={s.addressIcon}>📍</Text>
+          <Text style={s.addressText} numberOfLines={2}>{activeZone.address || activeZone.name}</Text>
+          <Text style={s.addressArrow}>›</Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity style={s.destDropdown} onPress={() => setShowDestPicker(true)} activeOpacity={0.85}>
         <Text style={s.destDropdownLabel}>
@@ -291,6 +321,10 @@ const s = StyleSheet.create({
   header:      { flexDirection:"row", alignItems:"center", paddingHorizontal:16, paddingTop:16, paddingBottom:10 },
   title:       { fontSize:18, fontWeight:"800", color:Colors.t1 },
   subtitle:    { fontSize:12, color:Colors.t3, fontWeight:"600" },
+  addressBar:  { flexDirection:"row", alignItems:"center", marginHorizontal:16, marginBottom:10, padding:12, backgroundColor:Colors.card, borderRadius:10, borderWidth:0.5, borderColor:Colors.border, gap:8 },
+  addressIcon: { fontSize:16 },
+  addressText: { flex:1, color:Colors.t2, fontSize:13, fontWeight:"500" },
+  addressArrow:{ color:Colors.t3, fontSize:20, fontWeight:"300" },
   destDropdown:      { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.card, marginHorizontal:16, marginVertical:8, paddingVertical:12, paddingHorizontal:14, borderRadius:12, borderWidth:1, borderColor:Colors.border },
   destDropdownLabel: { fontSize:14, fontWeight:"700", color:Colors.t1 },
   destDropdownArrow: { fontSize:14, color:Colors.accent, fontWeight:"700" },

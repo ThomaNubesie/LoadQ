@@ -6,6 +6,7 @@ export default function PassengerLayout() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>
       <Stack.Screen name="queue" />
       <Stack.Screen name="loading" />
+      <Stack.Screen name="zones" />
       <Stack.Screen name="analytics" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="messages" />

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -81,7 +81,7 @@ export default function PassengerProfileScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.title}>{t.profile}</Text>
+        <Text style={s.title}>ME</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -124,35 +124,51 @@ export default function PassengerProfileScreen() {
           </View>
         </View>
 
-        <Text style={s.sectionLabel}>{t.language.toUpperCase()}</Text>
+        <Text style={s.sectionLabel}>LANGUAGE</Text>
         <View style={s.langRow}>
           {(["en","fr"] as Lang[]).map(l => (
             <TouchableOpacity key={l} style={[s.langBtn, lang===l && s.langBtnActive]} onPress={() => setLang(l)}>
               <Text style={[s.langBtnText, lang===l && { color: Colors.accent }]}>
-                {l === "en" ? "🇨🇦 English" : "🇫🇷 Français"}
+                {l === "en" ? "English" : "Français"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity style={s.messagesBtn} onPress={() => router.push("/(passenger)/messages" as any)} activeOpacity={0.85}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={s.messagesBtnText}>💬  Messages</Text>
+        <Text style={s.sectionLabel}>ACCOUNT</Text>
+        <TouchableOpacity style={s.rowBtn} onPress={() => router.push("/(passenger)/messages" as any)} activeOpacity={0.85}>
+          <Text style={s.rowBtnText}>Messages</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             {unread > 0 && (
               <View style={s.badge}>
                 <Text style={s.badgeText}>{unread > 99 ? "99+" : unread}</Text>
               </View>
             )}
+            <Text style={s.rowBtnChevron}>›</Text>
           </View>
         </TouchableOpacity>
-
-        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
-          <Text style={s.signOutText}>{t.signOut}</Text>
+        <TouchableOpacity style={s.rowBtn} onPress={handleSignOut} activeOpacity={0.85}>
+          <Text style={[s.rowBtnText, { color: Colors.red }]}>Sign out</Text>
+          <Text style={s.rowBtnChevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.rowBtn} onPress={handleDeleteAccount} activeOpacity={0.85}>
+          <Text style={[s.rowBtnText, { color: Colors.t3 }]}>Delete account</Text>
+          <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={s.deleteAccountBtn} onPress={handleDeleteAccount}>
-          <Text style={s.deleteAccountText}>Delete account</Text>
+        <Text style={[s.sectionLabel, { marginTop: 24 }]}>ABOUT</Text>
+        <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("https://loadq.ca/privacy")} activeOpacity={0.85}>
+          <Text style={s.rowBtnText}>Privacy</Text>
+          <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("mailto:support@loadq.ca")} activeOpacity={0.85}>
+          <Text style={s.rowBtnText}>Support</Text>
+          <Text style={s.rowBtnChevron}>›</Text>
+        </TouchableOpacity>
+        <View style={[s.rowBtn, { justifyContent: "space-between" }]}>
+          <Text style={[s.rowBtnText, { color: Colors.t3 }]}>Version</Text>
+          <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>1.0.11</Text>
+        </View>
       </ScrollView>
 
       <PassengerBottomNav />
@@ -177,11 +193,14 @@ const s = StyleSheet.create({
   identRow:          { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:10, borderBottomWidth:0.5, borderBottomColor:Colors.border },
   identKey:          { color:Colors.t3, fontSize:12, fontWeight:"600" },
   identVal:          { color:Colors.t1, fontSize:13, fontWeight:"500", maxWidth:"60%", textAlign:"right" },
-  sectionLabel:      { fontSize:10, fontWeight:"700", color:Colors.t3, letterSpacing:0.8, marginBottom:10 },
+  sectionLabel:      { fontSize:11, fontWeight:"800", color:Colors.t3, letterSpacing:2, marginBottom:10 },
   langRow:           { flexDirection:"row", gap:10, marginBottom:32 },
   langBtn:           { flex:1, backgroundColor:Colors.card, borderRadius:10, padding:12, borderWidth:1, borderColor:Colors.border, alignItems:"center" },
   langBtnActive:     { borderColor:Colors.accent, backgroundColor:Colors.accent+"12" },
   langBtnText:       { fontSize:13, fontWeight:"600", color:Colors.t2 },
+  rowBtn:            { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.card, borderRadius:12, paddingHorizontal:16, paddingVertical:14, borderWidth:0.5, borderColor:Colors.border, marginBottom:8 },
+  rowBtnText:        { color:Colors.t1, fontSize:14, fontWeight:"600" },
+  rowBtnChevron:     { color:Colors.t3, fontSize:20, fontWeight:"300" },
   messagesBtn:       { backgroundColor:Colors.card, borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.border, marginBottom:10 },
   badge:             { marginLeft:8, minWidth:22, height:22, borderRadius:11, backgroundColor:Colors.red, paddingHorizontal:6, alignItems:"center", justifyContent:"center" },
   badgeText:         { color:"#fff", fontSize:11, fontWeight:"800" },
