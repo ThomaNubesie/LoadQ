@@ -117,7 +117,7 @@ export default function MyLoadingScreen() {
   }, [now, entry?.id, entry?.status, entry?.load_start_at]);
 
   const handleSeatTap = async (idx: number) => {
-    if (!entry) return;
+    if (!entry || entry.status === "ended") return;
     const states = normalizeSeatStates(entry.seat_states, seatCountFor(entry));
     // Tap only ADDS a passenger; removing is a long-press (see handleSeatLongPress).
     if (states[idx] !== "empty") return; // already boarded/locked — long-press to remove
@@ -128,7 +128,7 @@ export default function MyLoadingScreen() {
   };
 
   const handleSeatLongPress = (idx: number) => {
-    if (!entry) return;
+    if (!entry || entry.status === "ended") return;
     const states = normalizeSeatStates(entry.seat_states, seatCountFor(entry));
     const wasLocked = states[idx] === "locked";
     if (states[idx] === "empty") return;
@@ -247,11 +247,31 @@ export default function MyLoadingScreen() {
             <Text style={s.emptyEmoji}>🚗</Text>
             <Text style={s.emptyText}>You are not in a queue</Text>
           </View>
+        ) : entry.status === "ended" ? (
+          <View style={s.empty}>
+            <Text style={s.emptyEmoji}>👋</Text>
+            <Text style={s.emptyText}>
+              You left this queue ({entry.end_reason || "ended"})
+            </Text>
+            <Text style={[s.emptyText, { fontSize: 12, color: Colors.t3, marginTop: 8 }]}>
+              Rejoin from the queue screen when you're ready.
+            </Text>
+            <TouchableOpacity style={s.openLoadingBtn} onPress={() => router.replace("/(app)/queue")}>
+              <Text style={s.openLoadingBtnText}>Back to queue</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <>
             <View style={s.carCard}>
               <Text style={s.carName}>{entry.vehicle?.make} {entry.vehicle?.model}</Text>
               <Text style={s.carSub}>{entry.vehicle?.plate} · Slot #{entry.position}</Text>
+              {entry.load_start_at && (
+                <Text style={s.carDate}>
+                  Loading: {new Date(entry.load_start_at).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+                  {"  ·  "}
+                  {new Date(entry.load_start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              )}
             </View>
 
             {pendingClaims.length > 0 && (
@@ -452,9 +472,12 @@ const s = StyleSheet.create({
   empty:       { alignItems:"center", marginTop:80 },
   emptyEmoji:  { fontSize:48, marginBottom:12 },
   emptyText:   { fontSize:16, color:Colors.t2 },
+  openLoadingBtn:     { marginTop:20, paddingHorizontal:24, paddingVertical:12, backgroundColor:Colors.accent, borderRadius:10 },
+  openLoadingBtnText: { color:Colors.accentText, fontSize:14, fontWeight:"800" },
   carCard:     { backgroundColor:Colors.card, borderRadius:12, padding:14, borderWidth:0.5, borderColor:Colors.border, marginBottom:16 },
   carName:     { fontSize:16, fontWeight:"600", color:Colors.t1 },
   carSub:      { fontSize:12, color:Colors.t3, marginTop:3 },
+  carDate:     { fontSize:11, color:Colors.t3, marginTop:6, fontWeight:"600" },
   metaCard:    { backgroundColor:Colors.card, borderRadius:12, padding:4, borderWidth:0.5, borderColor:Colors.border, marginBottom:20 },
   metaRow:     { flexDirection:"row", alignItems:"flex-start", justifyContent:"space-between", paddingVertical:10, paddingHorizontal:10, gap:10, borderBottomWidth:0.5, borderBottomColor:Colors.border },
   metaKey:     { color:Colors.t3, fontSize:11, fontWeight:"600" },

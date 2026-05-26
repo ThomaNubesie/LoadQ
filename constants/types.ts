@@ -56,7 +56,7 @@ export interface Zone {
 }
 
 export type QueueStatus = "loading" | "called_back" | "waiting" | "penalised" | "ended";
-export type QueueEndReason = "departed" | "cancelled" | "expired" | "removed_by_admin" | "eod_close";
+export type QueueEndReason = "departed" | "cancelled" | "expired" | "removed_by_admin" | "eod_close" | "window_closed";
 export type SeatStatus  = "empty" | "boarded" | "locked" | "disputed";
 
 export interface QueueEntry {

@@ -291,7 +291,7 @@ export default function QueueScreen() {
     const isEnded = entry.status === "ended";
     const endLabel: Record<string, string> = {
       departed: "Departed", cancelled: "Cancelled", expired: "Expired",
-      removed_by_admin: "Removed", eod_close: "Closed",
+      removed_by_admin: "Removed", eod_close: "Closed", window_closed: "Window closed",
     };
 
     return (
@@ -328,21 +328,25 @@ export default function QueueScreen() {
           <View style={s.info}>
             <Text style={s.name}>{entry.driver?.full_name || "Driver"}{isMe ? " (you)" : ""}</Text>
             <Text style={s.vehicleName}>{vehicle ? `${vehicle.make} ${vehicle.model}` : "Vehicle"}</Text>
-            <View style={s.miniSeats}>
-              {Array.from({ length: seats }).map((_, i) => (
-                <SeatSvg key={i} size="mini" filled={i < boarded} color={sc} disabled />
-              ))}
-            </View>
-            <Text style={[s.statusText, { color: sc }]}>
-              {boarded}/{required} · {statusLabel(entry.status)}
-              {entry.seats_locked ? ` · ${entry.seats_locked} 🔒` : ""}
-              {lstate && required !== seats ? `  (was ${seats})` : ""}
-            </Text>
-            {lstate && (
-              <Text style={[s.timerText, { color: timerColor }]}>
-                ⏱ {formatRemaining(lstate.remainingMs)}
-                {lstate.showWarning ? "  ⚠ 3-hour close approaching" : ""}
-              </Text>
+            {!isEnded && (
+              <>
+                <View style={s.miniSeats}>
+                  {Array.from({ length: seats }).map((_, i) => (
+                    <SeatSvg key={i} size="mini" filled={i < boarded} color={sc} disabled />
+                  ))}
+                </View>
+                <Text style={[s.statusText, { color: sc }]}>
+                  {boarded}/{required} · {statusLabel(entry.status)}
+                  {entry.seats_locked ? ` · ${entry.seats_locked} 🔒` : ""}
+                  {lstate && required !== seats ? `  (was ${seats})` : ""}
+                </Text>
+                {lstate && (
+                  <Text style={[s.timerText, { color: timerColor }]}>
+                    ⏱ {formatRemaining(lstate.remainingMs)}
+                    {lstate.showWarning ? "  ⚠ 3-hour close approaching" : ""}
+                  </Text>
+                )}
+              </>
             )}
           </View>
           {isEnded && (

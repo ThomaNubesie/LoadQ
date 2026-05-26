@@ -229,48 +229,59 @@ Deno.serve(async () => {
     }
   }
 
-  // EOD purge — NO ROLLOVER for waiting drivers. When a zone's window closes,
-  // wipe everyone EXCEPT a driver who is actively loading with an unexpired
-  // 3-hour clock — they get to finish, even if the clock runs past 8 PM. Those
-  // entries are picked up by the loading-entries loop above once their clock
-  // elapses (next watchdog tick).
-  const TWO_HOURS = TWO_HOURS_MS;
+  // P99: Daily cycle.
+  //   8 PM zone close → 3 AM next day: queue REMAINS visible. Waiting drivers
+  //     are flipped to status='ended' (end_reason='window_closed') so they're
+  //     greyed out in the list but the row sticks around for the day.
+  //   3 AM local time: full purge — delete every queue_entries row for the
+  //     zone. Fresh list starts at 4 AM when the window reopens.
+  //   Loading drivers with an unexpired 3-hour clock are kept until their
+  //     clock elapses (loop 1 above handles them).
   for (const z of (zoneRows as ZoneRow[] ?? [])) {
     if (!isWindowClosedInTz(now, tzFor(z.id))) continue;
-    const { data: leftover } = await supabase
-      .from("queue_entries")
-      .select("id, driver_id, status, load_start_at")
-      .eq("zone_id", z.id);
-    const left = (leftover ?? []) as { id: string; driver_id: string; status: string; load_start_at: string | null }[];
-    if (left.length === 0) continue;
 
-    // Split: keepers (still-running 2h clocks) vs purgees (everyone else).
-    const toRemove: typeof left = [];
-    const keepers:  typeof left = [];
-    for (const l of left) {
-      const isLoadingActive =
-        l.status === "loading" &&
-        l.load_start_at &&
-        (now.getTime() - new Date(l.load_start_at).getTime() < TWO_HOURS);
-      (isLoadingActive ? keepers : toRemove).push(l);
-    }
-    if (toRemove.length === 0) continue;
+    const { hour } = partsInTz(now, tzFor(z.id));
+    const isPurgeHour = hour === 3; // 3:00–3:59 AM local
 
-    const { error: purgeErr } = await supabase
-      .from("queue_entries").delete().in("id", toRemove.map(t => t.id));
-    if (purgeErr) continue;
-    for (const l of toRemove) {
-      removed.push(l.id);
-      // P96: drivers already marked 'ended' earlier in the day (departed,
-      // cancelled, expired) don't need another push at EOD purge.
-      if (l.status === "ended") continue;
-      await recordAndQueue(
-        supabase, l.driver_id, "removed",
-        `removed:${l.id}:${now.toISOString().slice(0, 10)}`,
-        "Loading closed for the day",
-        "Loading is now closed (8:00 PM). The queue resets — rejoin when loading reopens.",
-        pushQueue,
-      );
+    if (isPurgeHour) {
+      // Wipe everything for a fresh 4 AM start. No notifications — drivers
+      // are asleep.
+      const { data: all } = await supabase
+        .from("queue_entries")
+        .select("id")
+        .eq("zone_id", z.id);
+      const ids = ((all ?? []) as { id: string }[]).map(r => r.id);
+      if (ids.length === 0) continue;
+      await supabase.from("queue_entries").delete().in("id", ids);
+      for (const id of ids) removed.push(id);
+    } else {
+      // Window closed (8 PM – 3 AM): flip remaining 'waiting' drivers to
+      // ended('window_closed'). They've been told the window closed and
+      // their row stays visible (greyed) for the rest of the day.
+      const { data: waiters } = await supabase
+        .from("queue_entries")
+        .select("id, driver_id")
+        .eq("zone_id", z.id)
+        .eq("status", "waiting");
+      const waitList = (waiters ?? []) as { id: string; driver_id: string }[];
+      if (waitList.length === 0) continue;
+
+      const { error: updErr } = await supabase
+        .from("queue_entries")
+        .update({ status: "ended", end_reason: "window_closed" })
+        .in("id", waitList.map(w => w.id));
+      if (updErr) continue;
+
+      for (const w of waitList) {
+        removed.push(w.id);
+        await recordAndQueue(
+          supabase, w.driver_id, "removed",
+          `closed:${w.id}:${now.toISOString().slice(0, 10)}`,
+          "Loading closed for the day",
+          "Loading is now closed for today. The queue resets at 4 AM tomorrow.",
+          pushQueue,
+        );
+      }
     }
   }
 
