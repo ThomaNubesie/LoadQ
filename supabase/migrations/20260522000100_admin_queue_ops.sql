@@ -97,9 +97,10 @@ begin
    where driver_id = p_driver_id and is_active = true;
 
   insert into public.vehicles (
-    driver_id, make, model, year, plate, color, seats, is_active
+    driver_id, type, make, model, year, plate, color, seats, is_active
   ) values (
     p_driver_id,
+    'sedan',  -- default; admin can edit later
     nullif(trim(p_make),  ''),
     nullif(trim(p_model), ''),
     coalesce(p_year, extract(year from now())::int),
