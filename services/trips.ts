@@ -48,4 +48,42 @@ export const TripsAPI = {
       .order("day", { ascending: false });
     return (data as NetworkStat[]) ?? [];
   },
+
+  // The passenger's currently active trip, if any. Determined by: confirmed
+  // seat_claim joined to a queue_entry that is still status='loading' or
+  // 'called_back'. Returns null when there's no active trip.
+  async myActiveTrip(): Promise<ActiveTrip | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data: claim } = await supabase
+      .from("seat_claims")
+      .select(`
+        id, queue_entry_id,
+        queue_entry:queue_entries (
+          id, status, destination_region,
+          driver:drivers(id, full_name)
+        )
+      `)
+      .eq("passenger_id", user.id)
+      .eq("status", "confirmed")
+      .order("confirmed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!claim?.queue_entry) return null;
+    const qe: any = claim.queue_entry;
+    if (qe.status !== "loading" && qe.status !== "called_back") return null;
+    return {
+      queue_entry_id:     qe.id,
+      driver_id:          qe.driver?.id ?? null,
+      driver_name:        qe.driver?.full_name ?? "Driver",
+      destination_region: qe.destination_region ?? null,
+    };
+  },
 };
+
+export interface ActiveTrip {
+  queue_entry_id:     string;
+  driver_id:          string | null;
+  driver_name:        string;
+  destination_region: string | null;
+}

@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { Colors } from "../constants/colors";
+import ActiveTripBanner from "./ActiveTripBanner";
 
 interface Tab {
   label: string;
@@ -20,7 +21,9 @@ export default function PassengerBottomNav() {
   const pathname = usePathname();
 
   return (
-    <View style={s.bar}>
+    <View>
+      <ActiveTripBanner />
+      <View style={s.bar}>
       {TABS.map(tab => {
         const active = pathname.startsWith(tab.match);
         return (
@@ -35,6 +38,7 @@ export default function PassengerBottomNav() {
           </TouchableOpacity>
         );
       })}
+      </View>
     </View>
   );
 }

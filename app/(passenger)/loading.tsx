@@ -74,6 +74,13 @@ export default function PassengerLoadingScreen() {
   const inGeo = !!(activeZone && userCoords &&
     getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude) * 1000 <= activeZone.radius_meters);
 
+  // 300m privacy gate: hide individual driver details (name, plate, photo,
+  // contact actions) unless the passenger is within 300m of the loading zone.
+  const distanceM = (activeZone && userCoords)
+    ? Math.round(getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude) * 1000)
+    : null;
+  const within300m = distanceM !== null && distanceM <= 300;
+
   const handleClaim = async (entry: QueueEntry) => {
     if (!inGeo) {
       Alert.alert("Out of range", t.outOfRange);
@@ -177,24 +184,38 @@ export default function PassengerLoadingScreen() {
 
             return (
               <View key={entry.id} style={s.card}>
-                {vehicle && (
+                {within300m && vehicle && (
                   <Image
                     source={{ uri: getVehicleImageUrl(vehicle.make, vehicle.model, vehicle.year, "side", vehicle.color || undefined) }}
                     style={s.vehicleImg}
                     resizeMode="contain"
                   />
                 )}
+                {!within300m && (
+                  <View style={s.gatedBanner}>
+                    <Text style={s.gatedTitle}>Driver details hidden</Text>
+                    <Text style={s.gatedSub}>
+                      You're {distanceM !== null ? `${distanceM}m` : "—"} from the zone. Move within 300m to see driver and vehicle.
+                    </Text>
+                  </View>
+                )}
                 <View style={s.driverRow}>
-                  {entry.driver?.avatar_url ? (
-                    <Image source={{ uri: entry.driver.avatar_url }} style={s.avatar} />
+                  {within300m ? (
+                    entry.driver?.avatar_url ? (
+                      <Image source={{ uri: entry.driver.avatar_url }} style={s.avatar} />
+                    ) : (
+                      <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>👤</Text></View>
+                    )
                   ) : (
-                    <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>👤</Text></View>
+                    <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>·</Text></View>
                   )}
                   <View style={{ flex: 1 }}>
                     <View style={s.driverNameRow}>
-                      <Text style={s.driverName}>{entry.driver?.full_name || "Driver"}</Text>
-                      {entry.driver?.verified && <VerifiedBadge size={15} />}
-                      {entry.driver_id && (
+                      <Text style={s.driverName}>
+                        {within300m ? (entry.driver?.full_name || "Driver") : "Driver (hidden)"}
+                      </Text>
+                      {within300m && entry.driver?.verified && <VerifiedBadge size={15} />}
+                      {within300m && entry.driver_id && (
                         <UserActionMenu
                           userId={entry.driver_id}
                           userName={entry.driver?.full_name || "Driver"}
@@ -204,7 +225,7 @@ export default function PassengerLoadingScreen() {
                     <Text style={s.routeText}>
                       {getRegionName(activeZone?.region)} → {getRegionName(entry.destination_region)}
                     </Text>
-                    {vehicle && (
+                    {within300m && vehicle && (
                       <Text style={s.vehicleInfoText}>
                         {vehicle.year} {vehicle.make} {vehicle.model}
                         {vehicle.color ? `  ·  ${vehicle.color}` : ""}
@@ -340,6 +361,9 @@ const s = StyleSheet.create({
   scroll:      { flex:1, paddingHorizontal:16, paddingTop:12 },
   card:        { backgroundColor:Colors.card, borderRadius:16, borderWidth:0.5, borderColor:Colors.border, marginBottom:12, overflow:"hidden" },
   vehicleImg:  { width:"100%", height:130, backgroundColor:Colors.cardAlt },
+  gatedBanner: { padding:14, backgroundColor:Colors.cardAlt, borderRadius:10, marginBottom:10, alignItems:"center" },
+  gatedTitle:  { color:Colors.t1, fontSize:13, fontWeight:"800", letterSpacing:0.5 },
+  gatedSub:    { color:Colors.t3, fontSize:11, marginTop:4, textAlign:"center", paddingHorizontal:16 },
   driverRow:   { flexDirection:"row", alignItems:"center", gap:10, padding:12, borderBottomWidth:0.3, borderBottomColor:Colors.border },
   avatar:      { width:44, height:44, borderRadius:22, backgroundColor:Colors.cardAlt },
   avatarFallback: { width:44, height:44, borderRadius:22, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center", borderWidth:0.5, borderColor:Colors.border },
