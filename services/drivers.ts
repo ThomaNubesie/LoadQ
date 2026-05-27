@@ -53,6 +53,14 @@ export const DriversAPI = {
   async addVehicle(vehicle: { type: VehicleType; make: string; model: string; year: number; plate: string; color?: string }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Not authenticated" };
+    // P108: enforce max 2 vehicles per driver. DB trigger is the source of
+    // truth, but check client-side too for a friendlier message.
+    const { count } = await supabase
+      .from("vehicles").select("id", { count: "exact", head: true })
+      .eq("driver_id", user.id);
+    if ((count ?? 0) >= 2) {
+      return { error: "You already have the maximum of 2 vehicles. Contact admin to change a vehicle." };
+    }
     const modelSeats = getSeatsForModel(vehicle.make, vehicle.model);
     const seats = modelSeats || getSeatsForType(vehicle.type);
     const { data, error } = await supabase

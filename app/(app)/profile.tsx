@@ -191,13 +191,6 @@ export default function ProfileScreen() {
                     <Text style={s.vehicleType}>{VEHICLE_TYPES[v.type]?.label || v.type}</Text>
                     <Text style={s.vehicleSeats}>· {v.seats} {t.seats}</Text>
                   </View>
-                  <TouchableOpacity
-                    style={s.editVehicleBtn}
-                    onPress={() => router.push({ pathname: "/(app)/edit-vehicle", params: { vehicleId: v.id } })}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={s.editVehicleText}>✎ Edit</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             ))}

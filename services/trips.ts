@@ -69,15 +69,34 @@ export const TripsAPI = {
       .order("confirmed_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!claim?.queue_entry) return null;
-    const qe: any = claim.queue_entry;
-    if (qe.status !== "loading" && qe.status !== "called_back") return null;
-    return {
-      queue_entry_id:     qe.id,
-      driver_id:          qe.driver?.id ?? null,
-      driver_name:        qe.driver?.full_name ?? "Driver",
-      destination_region: qe.destination_region ?? null,
-    };
+    if (claim?.queue_entry) {
+      const qe: any = claim.queue_entry;
+      if (qe.status === "loading" || qe.status === "called_back") {
+        return {
+          queue_entry_id:     qe.id,
+          driver_id:          qe.driver?.id ?? null,
+          driver_name:        qe.driver?.full_name ?? "Driver",
+          destination_region: qe.destination_region ?? null,
+          source:             "reservation",
+        };
+      }
+    }
+
+    // No reservation match — fall back to GPS proximity (P105). The
+    // match_my_active_trip RPC compares the passenger's last position to
+    // currently-loading drivers and returns the closest within 100m.
+    const { data: gps } = await supabase.rpc("match_my_active_trip");
+    if (Array.isArray(gps) && gps.length > 0) {
+      const m: any = gps[0];
+      return {
+        queue_entry_id:     m.queue_entry_id,
+        driver_id:          m.driver_id,
+        driver_name:        m.driver_name ?? "Driver",
+        destination_region: m.destination_region ?? null,
+        source:             "gps",
+      };
+    }
+    return null;
   },
 };
 
@@ -86,4 +105,5 @@ export interface ActiveTrip {
   driver_id:          string | null;
   driver_name:        string;
   destination_region: string | null;
+  source:             "reservation" | "gps";
 }
