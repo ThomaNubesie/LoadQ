@@ -100,6 +100,10 @@ export default function MessageThreadView({ otherId, otherName }: Props) {
           placeholder={`Message ${otherName}…`}
           placeholderTextColor={Colors.t3}
           multiline
+          textAlignVertical="top"
+          selectionColor={Colors.accent}
+          cursorColor={Colors.accent}
+          underlineColorAndroid="transparent"
         />
         <TouchableOpacity style={[s.sendBtn, !body.trim() && s.sendBtnOff]} onPress={send} disabled={!body.trim() || sending} activeOpacity={0.85}>
           <Text style={s.sendBtnText}>{sending ? "…" : "Send"}</Text>
@@ -125,7 +129,7 @@ const s = StyleSheet.create({
   textMine:    { color: Colors.accentText },
   textTheirs:  { color: Colors.t1 },
   composer:    { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: 0.5, borderTopColor: Colors.border, backgroundColor: Colors.bg },
-  input:       { flex: 1, backgroundColor: Colors.card, borderRadius: 18, borderWidth: 0.5, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 10, color: Colors.t1, maxHeight: 110, fontSize: 14 },
+  input:       { flex: 1, backgroundColor: Colors.card, borderRadius: 18, borderWidth: 0.5, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 10, color: Colors.t1, minHeight: 42, maxHeight: 110, fontSize: 14, includeFontPadding: false },
   sendBtn:     { backgroundColor: Colors.accent, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 11, alignItems: "center" },
   sendBtnOff:  { opacity: 0.4 },
   sendBtnText: { color: Colors.accentText, fontSize: 14, fontWeight: "800" },

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
+import { MessagesAPI } from "../../services/messages";
 import * as Location from "expo-location";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -46,6 +47,11 @@ export default function QueueScreen() {
   const [myEntry,      setMyEntry]      = useState<QueueEntry|null>(null);
   const [showDestPicker, setShowDestPicker] = useState(false);
   const [expandedId,     setExpandedId]     = useState<string | null>(null);
+  const [unread,         setUnread]         = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    MessagesAPI.unreadCount().then(setUnread);
+  }, []));
 
   // Resolve active zone from params or GPS
   const resolveZone = (lat: number, lon: number): ZoneLocation | null => {
@@ -470,6 +476,19 @@ export default function QueueScreen() {
             </View>
           )}
         </View>
+        <TouchableOpacity
+          onPress={() => router.push("/(app)/messages" as any)}
+          style={s.msgBtn}
+          activeOpacity={0.7}
+          hitSlop={8}
+        >
+          <Text style={s.msgBtnText}>💬</Text>
+          {unread > 0 && (
+            <View style={s.msgBadge}>
+              <Text style={s.msgBadgeText}>{unread > 9 ? "9+" : unread}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* ── My vehicle card ── */}
@@ -768,6 +787,10 @@ export default function QueueScreen() {
 const s = StyleSheet.create({
   container:          { flex:1, backgroundColor:Colors.bg },
   header:             { flexDirection:"row", alignItems:"center", paddingHorizontal:16, paddingTop:8, paddingBottom:10, gap:10 },
+  msgBtn:             { width:36, height:36, alignItems:"center", justifyContent:"center" },
+  msgBtnText:         { fontSize:20 },
+  msgBadge:           { position:"absolute", top:-2, right:-4, minWidth:18, height:18, borderRadius:9, backgroundColor:Colors.red, paddingHorizontal:4, alignItems:"center", justifyContent:"center" },
+  msgBadgeText:       { color:"#fff", fontSize:10, fontWeight:"800" },
   zonePicker:         { flexDirection:"row", alignItems:"center", gap:8 },
   zonePickerName:     { fontSize:16, fontWeight:"700", color:Colors.t1 },
   zonePickerRegion:   { fontSize:13, color:Colors.accent, fontWeight:"600" },
