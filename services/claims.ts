@@ -73,6 +73,20 @@ export const ClaimsAPI = {
     return (data as SeatClaim[]) ?? [];
   },
 
+  // Driver: list confirmed claims on a queue entry, ordered by confirmation
+  // time. Index N in this array corresponds to seat index N on the car —
+  // first passenger to confirm gets seat 0, etc. Used by my-loading to overlay
+  // each filled seat with the passenger's initials.
+  async listConfirmedFor(queueEntryId: string): Promise<SeatClaim[]> {
+    const { data } = await supabase
+      .from("seat_claims")
+      .select("*, passenger:passengers(id, full_name, avatar_url)")
+      .eq("queue_entry_id", queueEntryId)
+      .eq("status", "confirmed")
+      .order("confirmed_at", { ascending: true });
+    return (data as SeatClaim[]) ?? [];
+  },
+
   // Driver confirms a claim:
   //   - mark claim status='confirmed'
   //   - increment queue_entries.seats_boarded and seats_locked
@@ -85,15 +99,31 @@ export const ClaimsAPI = {
       .eq("id", claim.id);
     if (upd) return { error: upd.message };
 
-    // 2. Bump seat counts on the queue entry.
+    // 2. Bump seat counts on the queue entry AND assign the passenger to the
+    //    first empty seat slot. Keeping seat_states in sync with the counts
+    //    means the driver's my-loading view shows the reservation immediately
+    //    (filled seat with passenger initials) — they don't have to manually
+    //    tap a seat to mirror what just happened in the DB.
     const { data: entry } = await supabase
       .from("queue_entries")
-      .select("seats_boarded, seats_locked, driver_id")
+      .select("seats_boarded, seats_locked, driver_id, seat_states, vehicle:vehicles(seats)")
       .eq("id", claim.queue_entry_id).single();
     if (entry) {
+      const cap = ((entry as any).vehicle?.seats ?? 4) - 1; // exclude driver
+      const len = Math.max(cap, 1);
+      const raw = (entry as any).seat_states;
+      let arr: string[];
+      if (Array.isArray(raw)) arr = raw as string[];
+      else if (typeof raw === "string") { try { const p = JSON.parse(raw); arr = Array.isArray(p) ? p : []; } catch { arr = []; } }
+      else arr = [];
+      const states: string[] = Array.from({ length: len }, (_, i) =>
+        (arr[i] === "boarded" || arr[i] === "locked" || arr[i] === "disputed") ? arr[i] : "empty");
+      const firstEmpty = states.indexOf("empty");
+      if (firstEmpty >= 0) states[firstEmpty] = "locked";
       await supabase.from("queue_entries").update({
         seats_boarded: (entry.seats_boarded ?? 0) + 1,
         seats_locked:  (entry.seats_locked  ?? 0) + 1,
+        seat_states:   states,
       }).eq("id", claim.queue_entry_id);
 
       // 3. Record the trip for analytics.

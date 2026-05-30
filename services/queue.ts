@@ -38,7 +38,11 @@ export const QueueAPI = {
     return { ok: true };
   },
 
-  // The signed-in user's current queue entry, across ALL zones.
+  // The signed-in user's current ACTIVE queue entry, across ALL zones. We
+  // exclude status='ended' because those are yesterday's greyed-out rows kept
+  // for the daily history view (P96) — they must NOT count as "I'm already in
+  // queue", otherwise the driver is permanently blocked from rejoining the
+  // next day until the 3 AM purge fires.
   async getMyEntry(): Promise<QueueEntry | null> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
@@ -46,7 +50,8 @@ export const QueueAPI = {
       .from("queue_entries")
       .select("*, driver:drivers(*), vehicle:vehicles(*)")
       .eq("driver_id", user.id)
-      .order("joined_at", { ascending: false })
+      .neq("status", "ended")
+      .order("position", { ascending: false })
       .limit(1)
       .maybeSingle();
     return data;
@@ -72,7 +77,13 @@ export const QueueAPI = {
     const gate = await this.canJoin();
     if (!gate.ok) return { error: gate.reason };
 
-    // Position is scoped to this specific route (zone + destination).
+    // Position is scoped to this specific route (zone + destination) and
+    // tracks the day's chronological progression — we INCLUDE status='ended'
+    // rows when computing max+1 so the numbers reflect the order of arrival
+    // across the whole day. Example: if A=1, B=2, C=3 (current loader) and
+    // A+B have departed, a new joiner is #4, not #2. The departed rows stay
+    // visible in the list (greyed) with their original numbers so the daily
+    // history is intact. Reset happens via the 3 AM purge.
     const { data: entries } = await supabase
       .from("queue_entries").select("position")
       .eq("zone_id", zoneId)

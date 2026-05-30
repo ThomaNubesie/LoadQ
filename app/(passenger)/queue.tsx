@@ -12,6 +12,7 @@ import { getRegionName } from "../../constants/pricing";
 import { loadingState } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 
 export default function PassengerBoardScreen() {
   const router = useRouter();
@@ -24,32 +25,34 @@ export default function PassengerBoardScreen() {
   const [activeZone, setActiveZone] = useState(zones[0] || null);
 
   // Resolve active zone: param → GPS-nearest → first available.
-  useEffect(() => {
-    (async () => {
-      if (zones.length === 0) return;
-      if (paramZoneId) {
-        const z = zones.find(z => z.id === paramZoneId);
-        if (z) { setActiveZone(z); return; }
+  // Runs on every screen focus (not just mount) so a passenger who reopens
+  // the app from a different city lands on their current zone automatically
+  // instead of staying on whatever was selected last session.
+  const resolveActiveZone = useCallback(async () => {
+    if (zones.length === 0) return;
+    if (paramZoneId) {
+      const z = zones.find(z => z.id === paramZoneId);
+      if (z) { setActiveZone(z); return; }
+    }
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status === "granted") {
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const { latitude, longitude } = loc.coords;
+        const region = detectUserRegion(latitude, longitude);
+        const inRegion = region ? zones.filter(z => z.region === region) : zones;
+        const nearest = (inRegion.length ? inRegion : zones)
+          .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
+          .sort((a, b) => a.d - b.d)[0]?.z;
+        if (nearest) { setActiveZone(nearest); return; }
+      } catch {
+        /* fall through to default */
       }
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          const { latitude, longitude } = loc.coords;
-          const region = detectUserRegion(latitude, longitude);
-          const inRegion = region ? zones.filter(z => z.region === region) : zones;
-          const nearest = (inRegion.length ? inRegion : zones)
-            .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
-            .sort((a, b) => a.d - b.d)[0]?.z;
-          if (nearest) setActiveZone(nearest);
-        } catch {
-          /* fall through */
-        }
-      }
-      if (!activeZone) setActiveZone(zones[0]);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }
+    setActiveZone(prev => prev ?? zones[0]);
   }, [zones, paramZoneId]);
+
+  useFocusAndForeground(resolveActiveZone);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!activeZone) return;

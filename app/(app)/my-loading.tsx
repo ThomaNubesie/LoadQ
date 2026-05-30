@@ -11,6 +11,7 @@ import { Colors } from "../../constants/colors";
 import { QueueEntry, SeatStatus } from "../../constants/types";
 import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
+import PassengerProfileModal from "../../components/PassengerProfileModal";
 import { loadingState, formatRemaining } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
 import { supabase } from "../../services/supabase";
@@ -46,16 +47,28 @@ export default function MyLoadingScreen() {
   const [entry,         setEntry]         = useState<QueueEntry|null>(null);
   const [loading,       setLoading]       = useState(true);
   const [pendingClaims, setPendingClaims] = useState<SeatClaim[]>([]);
+  // Confirmed (locked-seat) claims, ordered by confirmation time. Index N
+  // corresponds to seat N on the car — used to overlay each filled seat with
+  // the passenger's initials so the driver knows who reserved which seat.
+  const [confirmedClaims, setConfirmedClaims] = useState<SeatClaim[]>([]);
   const [showDestPicker, setShowDestPicker] = useState(false);
+  // Which passenger's profile is currently open in the popup, if any.
+  // Set by tapping a locked seat's avatar.
+  const [openPassengerId, setOpenPassengerId] = useState<string | null>(null);
 
   const refreshAll = async () => {
     const mine = await QueueAPI.getMyEntry();
     setEntry(mine || null);
     if (mine) {
-      const pend = await ClaimsAPI.listPending(mine.id);
+      const [pend, conf] = await Promise.all([
+        ClaimsAPI.listPending(mine.id),
+        ClaimsAPI.listConfirmedFor(mine.id),
+      ]);
       setPendingClaims(pend);
+      setConfirmedClaims(conf);
     } else {
       setPendingClaims([]);
+      setConfirmedClaims([]);
     }
     setLoading(false);
   };
@@ -358,18 +371,67 @@ export default function MyLoadingScreen() {
             <Text style={s.hint}>{t.tapToBoard}</Text>
 
             <View style={s.seatGrid}>
-              {Array.from({ length: seats }).map((_, i) => (
-                <SeatSvg
-                  key={i}
-                  filled={states[i] === "boarded" || states[i] === "locked"}
-                  locked={states[i] === "locked"}
-                  color={Colors.accent}
-                  size="full"
-                  onPress={() => handleSeatTap(i)}
-                  onLongPress={() => handleSeatLongPress(i)}
-                />
-              ))}
+              {Array.from({ length: seats }).map((_, i) => {
+                const isFilled = states[i] === "boarded" || states[i] === "locked";
+                const isLocked = states[i] === "locked";
+                // Per-seat passenger: confirmed claims are mapped to locked
+                // seats in confirmation order. Avatar overlays the SeatSvg
+                // only on locked seats. Driver-tapped 'boarded' seats have
+                // no passenger row, so no avatar.
+                const lockedIndexSoFar = states
+                  .slice(0, i)
+                  .filter(st => st === "locked").length;
+                const claim = isLocked ? confirmedClaims[lockedIndexSoFar] : null;
+                const passenger = claim?.passenger;
+                const initials = passenger?.full_name
+                  ? passenger.full_name
+                      .split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join("")
+                  : null;
+                // Seats beyond `required` are timer-expired (loading window
+                // shrank). X out visually but keep clickable so the driver
+                // can still re-offer the seat if a passenger walks up.
+                const isExpired = i >= required;
+                return (
+                  <View key={i} style={s.seatSlot}>
+                    <SeatSvg
+                      filled={isFilled}
+                      locked={isLocked}
+                      color={Colors.accent}
+                      size="full"
+                      onPress={() => handleSeatTap(i)}
+                      onLongPress={() => handleSeatLongPress(i)}
+                    />
+                    {passenger && (
+                      <TouchableOpacity
+                        style={s.seatAvatarWrap}
+                        activeOpacity={0.7}
+                        onPress={() => setOpenPassengerId(passenger.id)}
+                        hitSlop={6}
+                      >
+                        {passenger.avatar_url ? (
+                          <Image source={{ uri: passenger.avatar_url }} style={s.seatAvatar} />
+                        ) : (
+                          <View style={[s.seatAvatar, s.seatAvatarFallback]}>
+                            <Text style={s.seatInitials}>{initials || "?"}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    {isExpired && !isFilled && (
+                      <View pointerEvents="none" style={s.seatExpiredX}>
+                        <Text style={s.seatExpiredText}>✕</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
             </View>
+
+            <PassengerProfileModal
+              passengerId={openPassengerId}
+              confirmed={true}
+              onClose={() => setOpenPassengerId(null)}
+            />
 
             <View style={s.legend}>
               <View style={s.legendItem}>
@@ -487,6 +549,16 @@ const s = StyleSheet.create({
   countLabel:  { fontSize:13, color:Colors.t2, marginTop:2 },
   hint:        { color:Colors.t3, fontSize:12, textAlign:"center", marginBottom:20 },
   seatGrid:    { flexDirection:"row", flexWrap:"wrap", gap:10, justifyContent:"center", marginBottom:24 },
+  seatSlot:    { position:"relative" },
+  // Avatar floats over the centre of the SeatSvg. The TouchableOpacity is
+  // the only thing here that takes touch — the SeatSvg underneath stays
+  // long-pressable around it.
+  seatAvatarWrap:    { position:"absolute", top:5, left:0, right:0, alignItems:"center" },
+  seatAvatar:        { width:26, height:26, borderRadius:13, borderWidth:1.5, borderColor:Colors.bg, backgroundColor:Colors.cardAlt },
+  seatAvatarFallback:{ alignItems:"center", justifyContent:"center" },
+  seatInitials:      { color:Colors.bg, fontSize:11, fontWeight:"900", letterSpacing:0.5 },
+  seatExpiredX:      { position:"absolute", top:0, left:0, right:0, bottom:0, alignItems:"center", justifyContent:"center" },
+  seatExpiredText:   { color:Colors.red, fontSize:32, fontWeight:"900", opacity:0.85 },
   legend:      { flexDirection:"row", gap:16, justifyContent:"center", marginBottom:20 },
   legendItem:  { flexDirection:"row", alignItems:"center", gap:6 },
   legendText:  { color:Colors.t3, fontSize:11 },

@@ -90,6 +90,21 @@ export const MessagesAPI = {
     return count ?? 0;
   },
 
+  // Unread count grouped by sender_id. Used by the queue page to show a per-
+  // driver red dot badge over each card's chat icon.
+  async unreadBySender(): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return out;
+    const { data } = await supabase
+      .from("messages").select("sender_id")
+      .eq("recipient_id", user.id).is("read_at", null);
+    for (const row of (data ?? []) as { sender_id: string }[]) {
+      out.set(row.sender_id, (out.get(row.sender_id) ?? 0) + 1);
+    }
+    return out;
+  },
+
   // Admin-only: every conversation the admin has had, newest first. The admin
   // is always one side of every message, so each "other_id" identifies the
   // user on the far end. We fetch all messages where admin is sender or

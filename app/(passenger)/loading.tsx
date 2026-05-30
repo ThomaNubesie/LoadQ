@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshControl, Alert, Modal, Linking, Platform, Share } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
+import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 import * as Location from "expo-location";
 import { QueueAPI } from "../../services/queue";
 import { ClaimsAPI } from "../../services/claims";
@@ -34,6 +35,10 @@ export default function PassengerLoadingScreen() {
   const [destFilter, setDestFilter] = useState<string | null>(null);
   const [userCoords, setUserCoords] = useState<{lat:number,lon:number}|null>(null);
   const [openClaims, setOpenClaims] = useState<Record<string, string>>({}); // entryId -> claimId
+  // entryIds where the passenger's claim is CONFIRMED (not just pending).
+  // Drives the Call / Message buttons in the driver row — both sides can
+  // contact each other only after the driver has accepted the reservation.
+  const [confirmedEntries, setConfirmedEntries] = useState<Set<string>>(new Set());
   const [claiming,   setClaiming]   = useState<string | null>(null);
   const [showDestPicker, setShowDestPicker] = useState(false);
 
@@ -60,13 +65,20 @@ export default function PassengerLoadingScreen() {
       const q = await QueueAPI.getZoneQueue(zone.id);
       const loadingEntries = q.filter(e => e.status === "loading");
       setEntries(loadingEntries);
-      // Check each entry to see if we already have a claim on it.
+      // Check each entry to see if we already have a claim on it. Track
+      // confirmed claims separately so we know whether to show contact
+      // buttons (call / message) on that driver's card.
       const openMap: Record<string, string> = {};
+      const confirmedSet = new Set<string>();
       await Promise.all(loadingEntries.map(async e => {
         const c = await ClaimsAPI.findOpenClaim(e.id);
-        if (c) openMap[e.id] = c.id;
+        if (c) {
+          openMap[e.id] = c.id;
+          if (c.status === "confirmed") confirmedSet.add(e.id);
+        }
       }));
       setOpenClaims(openMap);
+      setConfirmedEntries(confirmedSet);
     }
     setLoading(false); setRefreshing(false);
   }, [activeZone?.id, zones]);
@@ -93,7 +105,10 @@ export default function PassengerLoadingScreen() {
     if (data) setOpenClaims(prev => ({ ...prev, [entry.id]: data.id }));
   };
 
-  useEffect(() => { load(); }, [load]);
+  // Re-run GPS + nearest-zone detection on every focus AND every time the
+  // app returns from background, so the passenger lands on their current
+  // zone whenever they reopen the app, even if they last viewed another.
+  useFocusAndForeground(load);
 
   useEffect(() => {
     if (!activeZone) return;
@@ -182,16 +197,30 @@ export default function PassengerLoadingScreen() {
               ? Colors.red
               : lstate?.phase === "reduced3" ? Colors.yellow : Colors.accent;
 
+            // 300m privacy gate is LIFTED for any entry the passenger has
+            // already reserved with — once confirmed, they need to see the
+            // driver and vehicle they're traveling with even if they walk
+            // outside the zone (going to a coffee shop, parking lot, etc).
+            const isMyReservation = confirmedEntries.has(entry.id);
+            const revealDriver    = within300m || isMyReservation;
+
             return (
               <View key={entry.id} style={s.card}>
-                {within300m && vehicle && (
+                {revealDriver && vehicle && (
                   <Image
                     source={{ uri: getVehicleImageUrl(vehicle.make, vehicle.model, vehicle.year, "side", vehicle.color || undefined) }}
                     style={s.vehicleImg}
                     resizeMode="contain"
                   />
                 )}
-                {!within300m && (
+                {isMyReservation && !within300m && (
+                  <View style={s.yourTripBanner}>
+                    <Text style={s.yourTripText}>
+                      Your reservation · {distanceM !== null ? `${distanceM}m from zone` : "outside zone"}
+                    </Text>
+                  </View>
+                )}
+                {!revealDriver && (
                   <View style={s.gatedBanner}>
                     <Text style={s.gatedTitle}>Driver details hidden</Text>
                     <Text style={s.gatedSub}>
@@ -200,7 +229,7 @@ export default function PassengerLoadingScreen() {
                   </View>
                 )}
                 <View style={s.driverRow}>
-                  {within300m ? (
+                  {revealDriver ? (
                     entry.driver?.avatar_url ? (
                       <Image source={{ uri: entry.driver.avatar_url }} style={s.avatar} />
                     ) : (
@@ -212,10 +241,10 @@ export default function PassengerLoadingScreen() {
                   <View style={{ flex: 1 }}>
                     <View style={s.driverNameRow}>
                       <Text style={s.driverName}>
-                        {within300m ? (entry.driver?.full_name || "Driver") : "Driver (hidden)"}
+                        {revealDriver ? (entry.driver?.full_name || "Driver") : "Driver (hidden)"}
                       </Text>
-                      {within300m && entry.driver?.verified && <VerifiedBadge size={15} />}
-                      {within300m && entry.driver_id && (
+                      {revealDriver && entry.driver?.verified && <VerifiedBadge size={15} />}
+                      {revealDriver && entry.driver_id && (
                         <UserActionMenu
                           userId={entry.driver_id}
                           userName={entry.driver?.full_name || "Driver"}
@@ -225,7 +254,7 @@ export default function PassengerLoadingScreen() {
                     <Text style={s.routeText}>
                       {getRegionName(activeZone?.region)} → {getRegionName(entry.destination_region)}
                     </Text>
-                    {within300m && vehicle && (
+                    {revealDriver && vehicle && (
                       <Text style={s.vehicleInfoText}>
                         {vehicle.year} {vehicle.make} {vehicle.model}
                         {vehicle.color ? `  ·  ${vehicle.color}` : ""}
@@ -241,10 +270,51 @@ export default function PassengerLoadingScreen() {
                   )}
                 </View>
 
+                {confirmedEntries.has(entry.id) && entry.driver && (
+                  <View style={s.passengerContactRow}>
+                    {entry.driver.phone && (
+                      <TouchableOpacity
+                        style={s.passengerContactBtn}
+                        onPress={() => Linking.openURL(`tel:${entry.driver!.phone}`)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={s.passengerContactEmoji}>📞</Text>
+                        <Text style={s.passengerContactLabel}>Call driver</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[s.passengerContactBtn, s.passengerContactBtnPrimary]}
+                      onPress={() => router.push({
+                        pathname: "/(app)/thread" as any,
+                        params: {
+                          id:    entry.driver_id,
+                          name:  entry.driver?.full_name || "Driver",
+                          phone: entry.driver?.phone || "",
+                        },
+                      })}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={s.passengerContactEmoji}>💬</Text>
+                      <Text style={[s.passengerContactLabel, { color: Colors.accentText }]}>Message</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={s.seatGrid}>
-                  {Array.from({ length: seats }).map((_, i) => (
-                    <SeatSvg key={i} size="full" filled={i < boarded} locked={i < (entry.seats_locked || 0)} color={Colors.accent} disabled />
-                  ))}
+                  {Array.from({ length: seats }).map((_, i) => {
+                    const isFilled  = i < boarded;
+                    const isExpired = i >= required; // shrunk by timer
+                    return (
+                      <View key={i} style={{ position: "relative" }}>
+                        <SeatSvg size="full" filled={isFilled} locked={i < (entry.seats_locked || 0)} color={Colors.accent} disabled />
+                        {isExpired && !isFilled && (
+                          <View pointerEvents="none" style={s.passengerExpiredX}>
+                            <Text style={s.passengerExpiredText}>✕</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
 
                 <View style={s.statsRow}>
@@ -364,6 +434,8 @@ const s = StyleSheet.create({
   gatedBanner: { padding:14, backgroundColor:Colors.cardAlt, borderRadius:10, marginBottom:10, alignItems:"center" },
   gatedTitle:  { color:Colors.t1, fontSize:13, fontWeight:"800", letterSpacing:0.5 },
   gatedSub:    { color:Colors.t3, fontSize:11, marginTop:4, textAlign:"center", paddingHorizontal:16 },
+  yourTripBanner: { paddingVertical:8, paddingHorizontal:12, backgroundColor:Colors.accent+"22", borderTopWidth:1.5, borderTopColor:Colors.accent, alignItems:"center" },
+  yourTripText:   { color:Colors.accent, fontSize:11, fontWeight:"800", letterSpacing:1 },
   driverRow:   { flexDirection:"row", alignItems:"center", gap:10, padding:12, borderBottomWidth:0.3, borderBottomColor:Colors.border },
   avatar:      { width:44, height:44, borderRadius:22, backgroundColor:Colors.cardAlt },
   avatarFallback: { width:44, height:44, borderRadius:22, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center", borderWidth:0.5, borderColor:Colors.border },
@@ -375,6 +447,13 @@ const s = StyleSheet.create({
   priceText:   { fontSize:18, fontWeight:"800", color:Colors.accent },
   priceSub:    { fontSize:10, color:Colors.t3 },
   seatGrid:    { flexDirection:"row", flexWrap:"wrap", justifyContent:"center", gap:8, padding:14, borderBottomWidth:0.3, borderBottomColor:Colors.border },
+  passengerExpiredX:    { position:"absolute", top:0, left:0, right:0, bottom:0, alignItems:"center", justifyContent:"center" },
+  passengerExpiredText: { color:Colors.red, fontSize:30, fontWeight:"900", opacity:0.85 },
+  passengerContactRow:        { flexDirection:"row", gap:8, paddingHorizontal:12, paddingVertical:10, borderBottomWidth:0.3, borderBottomColor:Colors.border },
+  passengerContactBtn:        { flex:1, flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6, paddingVertical:10, borderRadius:10, backgroundColor:Colors.cardAlt, borderWidth:0.5, borderColor:Colors.border },
+  passengerContactBtnPrimary: { backgroundColor:Colors.accent, borderColor:Colors.accent },
+  passengerContactEmoji:      { fontSize:14 },
+  passengerContactLabel:      { color:Colors.t1, fontSize:13, fontWeight:"700" },
   statsRow:    { flexDirection:"row", padding:12 },
   statBox:     { flex:1, alignItems:"center" },
   statVal:     { fontSize:16, fontWeight:"800", color:Colors.t1 },

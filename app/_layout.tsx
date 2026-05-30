@@ -7,6 +7,7 @@ import { initLang } from "../hooks/useStrings";
 import { BillingAPI } from "../services/billing";
 import { PushAPI } from "../services/push";
 import { LocationAPI } from "../services/location";
+import { MessageEvents } from "../services/messageEvents";
 import { supabase } from "../services/supabase";
 import { Colors } from "../constants/colors";
 
@@ -17,13 +18,13 @@ export default function RootLayout() {
     // Init RevenueCat, then tie purchases to the signed-in user if any.
     BillingAPI.configure();
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) { BillingAPI.identify(data.user.id); PushAPI.register(); LocationAPI.start(); }
+      if (data.user) { BillingAPI.identify(data.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) { BillingAPI.identify(session.user.id); PushAPI.register(); LocationAPI.start(); }
-      else { LocationAPI.stop(); }
+      if (session?.user) { BillingAPI.identify(session.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
+      else { LocationAPI.stop(); MessageEvents.stop(); }
     });
-    return () => { sub.subscription.unsubscribe(); LocationAPI.stop(); };
+    return () => { sub.subscription.unsubscribe(); LocationAPI.stop(); MessageEvents.stop(); };
   }, []);
 
   if (!ready) return (

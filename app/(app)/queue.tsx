@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, I
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { MessagesAPI } from "../../services/messages";
+import { MessageEvents } from "../../services/messageEvents";
 import * as Location from "expo-location";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
@@ -20,6 +21,7 @@ import {
 } from "../../constants/zones";
 import { useZones, getZoneTimezone } from "../../hooks/useZones";
 import { useDestinations } from "../../hooks/useDestinations";
+import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../constants/pricing";
 
@@ -48,10 +50,47 @@ export default function QueueScreen() {
   const [showDestPicker, setShowDestPicker] = useState(false);
   const [expandedId,     setExpandedId]     = useState<string | null>(null);
   const [unread,         setUnread]         = useState(0);
+  // Per-sender unread count (sender_id → count). Drives the red dot badge
+  // on each driver card's 💬 chat icon.
+  const [unreadBySender, setUnreadBySender] = useState<Map<string, number>>(new Map());
+  // Set of driver_ids whose card is currently flashing orange in response
+  // to an incoming message. We add on receipt and remove ~2s later.
+  const [flashIds,       setFlashIds]       = useState<Set<string>>(new Set());
 
   useFocusEffect(useCallback(() => {
     MessagesAPI.unreadCount().then(setUnread);
+    MessagesAPI.unreadBySender().then(setUnreadBySender);
   }, []));
+
+  // Subscribe to inbound messages globally. On every new message we:
+  //   1. Flash the sender's card for 2s (set add + timeout remove)
+  //   2. Bump the per-sender unread count + the header total
+  // This works even when the chat is closed — the chime fires from the
+  // global MessageEvents service, the UI here just reacts.
+  useEffect(() => {
+    const off = MessageEvents.on((m) => {
+      setFlashIds(prev => {
+        const next = new Set(prev);
+        next.add(m.sender_id);
+        return next;
+      });
+      setUnreadBySender(prev => {
+        const next = new Map(prev);
+        next.set(m.sender_id, (next.get(m.sender_id) ?? 0) + 1);
+        return next;
+      });
+      setUnread(u => u + 1);
+      setTimeout(() => {
+        setFlashIds(prev => {
+          if (!prev.has(m.sender_id)) return prev;
+          const next = new Set(prev);
+          next.delete(m.sender_id);
+          return next;
+        });
+      }, 2000);
+    });
+    return off;
+  }, []);
 
   // Resolve active zone from params or GPS
   const resolveZone = (lat: number, lon: number): ZoneLocation | null => {
@@ -99,7 +138,12 @@ export default function QueueScreen() {
     setRefreshing(false);
   }, [paramZoneId, zones]);
 
-  useEffect(() => { load(); }, []);
+  // Re-detect zone every time the screen focuses AND every time the app
+  // returns from background. load() does GPS lookup and resolves to the
+  // nearest zone — so a driver who drove from Ottawa to Montréal will land
+  // in the Montréal queue the moment they reopen the app, no manual picker
+  // tap needed.
+  useFocusAndForeground(load);
 
   // Poll GPS every 5s so the Join button flips green the moment the driver
   // walks into the zone radius (without needing a manual refresh).
@@ -300,10 +344,13 @@ export default function QueueScreen() {
       removed_by_admin: "Removed", eod_close: "Closed", window_closed: "Window closed",
     };
 
+    const unreadFromThis = unreadBySender.get(entry.driver_id) ?? 0;
+    const isFlashing     = flashIds.has(entry.driver_id);
+
     return (
       <View key={entry.id}>
         <TouchableOpacity
-          style={[s.row, isMe && s.rowMe, entry.status === "loading" && s.rowLoading, isEnded && s.rowEnded]}
+          style={[s.row, isMe && s.rowMe, entry.status === "loading" && s.rowLoading, isEnded && s.rowEnded, isFlashing && s.rowFlash]}
           onPress={() => {
             if (isEnded) return;
             if (isExpandable) {
@@ -373,6 +420,16 @@ export default function QueueScreen() {
               <TouchableOpacity
                 onPress={(e) => {
                   e.stopPropagation?.();
+                  // Opening the thread will mark messages read; clear locally
+                  // so the badge disappears immediately instead of waiting
+                  // for the next focus tick.
+                  setUnreadBySender(prev => {
+                    if (!prev.has(entry.driver_id)) return prev;
+                    const next = new Map(prev);
+                    next.delete(entry.driver_id);
+                    return next;
+                  });
+                  setUnread(u => Math.max(0, u - unreadFromThis));
                   router.push({
                     pathname: "/(app)/thread" as any,
                     params: {
@@ -387,6 +444,13 @@ export default function QueueScreen() {
                 hitSlop={8}
               >
                 <Text style={s.contactBtnText}>💬</Text>
+                {unreadFromThis > 0 && (
+                  <View style={s.contactBtnBadge}>
+                    <Text style={s.contactBtnBadgeText}>
+                      {unreadFromThis > 9 ? "9+" : unreadFromThis}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -470,7 +534,7 @@ export default function QueueScreen() {
           {activeZone && (
             <View style={s.liveRow}>
               <View style={s.liveDot} />
-              <Text style={s.liveText}>Live · {entries.length} in queue</Text>
+              <Text style={s.liveText}>Live · {entries.filter(e => e.status !== "ended").length} in queue</Text>
               {userCoords && !isMyRegion && <Text style={s.watchTag}> · Watching only</Text>}
               {!userCoords && <Text style={s.watchTag}> · Locating…</Text>}
             </View>
@@ -816,6 +880,7 @@ const s = StyleSheet.create({
   rowMe:              { borderColor:Colors.accent+"60", backgroundColor:Colors.accent+"08" },
   rowLoading:         { borderColor:Colors.accent+"40" },
   rowEnded:           { opacity:0.45 },
+  rowFlash:           { borderColor:Colors.accent, backgroundColor:Colors.accent+"22", borderWidth:1.5 },
   endedBadge:         { color:Colors.t3, fontSize:10, fontWeight:"800", letterSpacing:0.8, paddingHorizontal:6, paddingVertical:3, borderRadius:5, borderWidth:0.5, borderColor:Colors.border },
   pos:                { width:26, height:26, borderRadius:13, alignItems:"center", justifyContent:"center", flexShrink:0 },
   posText:            { fontSize:11, fontWeight:"700" },
@@ -832,6 +897,8 @@ const s = StyleSheet.create({
   contactRow:         { flexDirection:"row", alignItems:"center", gap:6, marginRight:4 },
   contactBtn:         { width:32, height:32, alignItems:"center", justifyContent:"center", borderRadius:16, backgroundColor:Colors.card },
   contactBtnText:     { fontSize:14 },
+  contactBtnBadge:    { position:"absolute", top:-3, right:-3, minWidth:16, height:16, paddingHorizontal:3, borderRadius:8, backgroundColor:Colors.red, alignItems:"center", justifyContent:"center" },
+  contactBtnBadgeText:{ color:"#fff", fontSize:9, fontWeight:"800" },
   expandPanel:        { backgroundColor:Colors.card, borderLeftWidth:3, borderRadius:12, padding:12, marginBottom:8, marginTop:-6, marginLeft:8 },
   expandVehicle:      { width:"100%", height:90, marginBottom:10, backgroundColor:Colors.cardAlt, borderRadius:8 },
   expandRow:          { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:6, borderBottomWidth:0.3, borderBottomColor:Colors.border },
