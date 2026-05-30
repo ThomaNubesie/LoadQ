@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, AppState } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { QueueAPI } from "../../services/queue";
 import { Colors } from "../../constants/colors";
 import { QueueEntry } from "../../constants/types";
-import { detectUserRegion, getDistanceKm, REGIONS } from "../../constants/zones";
+import { getDistanceKm, REGIONS, ZoneLocation } from "../../constants/zones";
 import { useZones } from "../../hooks/useZones";
 import { getRegionName } from "../../constants/pricing";
 import { loadingState } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
+import { getCurrentLocationWithTimeout } from "../../utils/gpsTimeout";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
-import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 
 export default function PassengerBoardScreen() {
   const router = useRouter();
@@ -22,37 +22,77 @@ export default function PassengerBoardScreen() {
   const [entries, setEntries]       = useState<QueueEntry[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeZone, setActiveZone] = useState(zones[0] || null);
+  const [activeZone, setActiveZone] = useState<ZoneLocation | null>(null);
 
-  // Resolve active zone: param → GPS-nearest → first available.
-  // Runs on every screen focus (not just mount) so a passenger who reopens
-  // the app from a different city lands on their current zone automatically
-  // instead of staying on whatever was selected last session.
-  const resolveActiveZone = useCallback(async () => {
+  // Once the passenger has explicitly chosen a zone (via Zones tab "View
+  // board" or the in-page Use-my-location flow), we stop auto-overriding
+  // their pick on tab switches and app foregrounds. They reclaim control
+  // by tapping "📍" (re-detect) or picking another zone.
+  const manualPickRef = useRef(false);
+
+  // GPS-detect with timeout. Falls back to the first zone only if there is
+  // no current selection — never clobbers an existing pick.
+  const detectViaGPS = useCallback(async () => {
     if (zones.length === 0) return;
-    if (paramZoneId) {
-      const z = zones.find(z => z.id === paramZoneId);
-      if (z) { setActiveZone(z); return; }
-    }
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === "granted") {
-      try {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const { latitude, longitude } = loc.coords;
-        const region = detectUserRegion(latitude, longitude);
-        const inRegion = region ? zones.filter(z => z.region === region) : zones;
-        const nearest = (inRegion.length ? inRegion : zones)
-          .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
-          .sort((a, b) => a.d - b.d)[0]?.z;
-        if (nearest) { setActiveZone(nearest); return; }
-      } catch {
-        /* fall through to default */
-      }
+    if (status !== "granted") {
+      setActiveZone(prev => prev ?? zones[0]);
+      return;
     }
-    setActiveZone(prev => prev ?? zones[0]);
-  }, [zones, paramZoneId]);
+    const loc = await getCurrentLocationWithTimeout(8000);
+    if (!loc) {
+      setActiveZone(prev => prev ?? zones[0]);
+      return;
+    }
+    const { latitude, longitude } = loc.coords;
+    const nearest = zones
+      .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
+      .sort((a, b) => a.d - b.d)[0]?.z;
+    if (nearest) {
+      setActiveZone(nearest);
+      manualPickRef.current = false;
+    } else {
+      setActiveZone(prev => prev ?? zones[0]);
+    }
+  }, [zones]);
 
-  useFocusAndForeground(resolveActiveZone);
+  // First-mount zone resolution. If we arrived with a zoneId param (from
+  // the Zones tab), the focus effect below handles it. Otherwise, GPS-detect
+  // exactly once on first render.
+  const didInitialDetect = useRef(false);
+  useEffect(() => {
+    if (didInitialDetect.current) return;
+    if (zones.length === 0) return;
+    didInitialDetect.current = true;
+    if (paramZoneId) return; // focus handler will resolve it
+    detectViaGPS();
+  }, [zones.length, paramZoneId, detectViaGPS]);
+
+  // Param-driven zone changes: fires on every focus, but only acts when a
+  // zoneId param is present (i.e., the user just picked a zone via Zones
+  // tab). Bottom-nav re-entry without params is a no-op, so the user's
+  // pick survives tab switches.
+  useFocusEffect(useCallback(() => {
+    if (!paramZoneId || zones.length === 0) return;
+    const z = zones.find(z => z.id === paramZoneId);
+    if (z) {
+      setActiveZone(z);
+      manualPickRef.current = true;
+    }
+  }, [paramZoneId, zones]));
+
+  // App foreground re-detect — only when the user hasn't pinned a zone.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", state => {
+      if (state === "active" && !manualPickRef.current) detectViaGPS();
+    });
+    return () => sub.remove();
+  }, [detectViaGPS]);
+
+  const handleUseMyLocation = () => {
+    manualPickRef.current = false;
+    detectViaGPS();
+  };
 
   const load = useCallback(async (isRefresh = false) => {
     if (!activeZone) return;
@@ -116,6 +156,9 @@ export default function PassengerBoardScreen() {
           </Text>
           <Text style={s.activeCount}>{activeCount} active</Text>
         </View>
+        <TouchableOpacity onPress={handleUseMyLocation} style={s.locBtn} activeOpacity={0.7}>
+          <Text style={s.locBtnText}>📍</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/(passenger)/zones" as any)}>
           <Text style={s.changeZone}>Change ›</Text>
         </TouchableOpacity>
@@ -146,7 +189,7 @@ export default function PassengerBoardScreen() {
               <TouchableOpacity
                 key={r.dest}
                 style={s.routeCard}
-                onPress={() => router.push({ pathname: "/(passenger)/loading", params: { dest: r.dest } })}
+                onPress={() => router.push({ pathname: "/(passenger)/loading", params: { dest: r.dest, zoneId: activeZone?.id } })}
                 activeOpacity={0.85}
               >
                 <View style={{ flex: 1 }}>
@@ -180,6 +223,8 @@ const s = StyleSheet.create({
   zoneName:      { fontSize: 14, fontWeight: "700", color: Colors.t1 },
   activeCount:   { fontSize: 12, color: Colors.t3, marginTop: 3, fontWeight: "600" },
   changeZone:    { fontSize: 12, color: Colors.accent, fontWeight: "700" },
+  locBtn:        { paddingHorizontal: 8, paddingVertical: 4, marginRight: 4 },
+  locBtnText:    { fontSize: 16 },
   scroll:        { padding: 16, paddingBottom: 24 },
   routeCard:     { flexDirection: "row", alignItems: "center", padding: 14, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, borderRadius: 12, marginBottom: 10 },
   routeName:     { fontSize: 14, fontWeight: "700", color: Colors.t1 },

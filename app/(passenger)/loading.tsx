@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshControl, Alert, Modal, Linking, Platform, Share } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 import * as Location from "expo-location";
 import { QueueAPI } from "../../services/queue";
@@ -16,6 +16,7 @@ import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../const
 import { useDestinations } from "../../hooks/useDestinations";
 import { loadingState, formatRemaining } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
+import { getCurrentLocationWithTimeout } from "../../utils/gpsTimeout";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import SeatSvg from "../../components/SeatSvg";
 import VerifiedBadge from "../../components/VerifiedBadge";
@@ -27,12 +28,15 @@ export default function PassengerLoadingScreen() {
   const { t }  = useStrings();
   const { zones } = useZones();
   const { activeCodes: activeDestCodes } = useDestinations();
+  // Navigation context from Board tab: zoneId pins the loading view to the
+  // zone the user was looking at, dest pre-applies the destination filter.
+  const { dest: destParam, zoneId: zoneIdParam } = useLocalSearchParams<{ dest?: string; zoneId?: string }>();
 
   const [entries,    setEntries]    = useState<QueueEntry[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeZone, setActiveZone] = useState(zones[0] || null);
-  const [destFilter, setDestFilter] = useState<string | null>(null);
+  const [destFilter, setDestFilter] = useState<string | null>(destParam ?? null);
   const [userCoords, setUserCoords] = useState<{lat:number,lon:number}|null>(null);
   const [openClaims, setOpenClaims] = useState<Record<string, string>>({}); // entryId -> claimId
   // entryIds where the passenger's claim is CONFIRMED (not just pending).
@@ -45,19 +49,27 @@ export default function PassengerLoadingScreen() {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     let zone = activeZone;
+    // If the Board tab handed us a zoneId, pin to it instead of GPS-detecting.
+    // Keeps the loading view consistent with what the passenger saw on Board.
+    if (zoneIdParam) {
+      const pinned = zones.find(z => z.id === zoneIdParam);
+      if (pinned) { zone = pinned; setActiveZone(pinned); }
+    }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const { latitude, longitude } = loc.coords;
-        setUserCoords({ lat: latitude, lon: longitude });
-        // Auto-localize to nearest zone (the passenger loading view always
-        // follows GPS — there's no manual zone picker on this screen).
-        if (zones.length > 0) {
-          const nearest = zones
-            .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
-            .sort((a, b) => a.d - b.d)[0]?.z;
-          if (nearest) { zone = nearest; setActiveZone(nearest); }
+        const loc = await getCurrentLocationWithTimeout(8000);
+        if (loc) {
+          const { latitude, longitude } = loc.coords;
+          setUserCoords({ lat: latitude, lon: longitude });
+          // Only auto-localize when no zone was pinned via param — otherwise
+          // honour the caller's choice.
+          if (!zoneIdParam && zones.length > 0) {
+            const nearest = zones
+              .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
+              .sort((a, b) => a.d - b.d)[0]?.z;
+            if (nearest) { zone = nearest; setActiveZone(nearest); }
+          }
         }
       }
     } catch {}
@@ -81,7 +93,7 @@ export default function PassengerLoadingScreen() {
       setConfirmedEntries(confirmedSet);
     }
     setLoading(false); setRefreshing(false);
-  }, [activeZone?.id, zones]);
+  }, [activeZone?.id, zones, zoneIdParam]);
 
   const inGeo = !!(activeZone && userCoords &&
     getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude) * 1000 <= activeZone.radius_meters);

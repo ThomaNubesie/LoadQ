@@ -82,6 +82,15 @@ export default function MyLoadingScreen() {
 
   const handleConfirmClaim = async (claim: SeatClaim) => {
     if (!entry) return;
+    // Time-shrunk cap: never confirm past the timer's effectiveRequired,
+    // even if there are still empty seat slots on the car.
+    if (boarded >= required) {
+      Alert.alert(
+        "Seats unavailable",
+        `Only ${required} of ${seats} seats are available right now — the loading timer has reduced your allocation. Reject pending claims or depart.`,
+      );
+      return;
+    }
     const price = getPricePerSeat(zone?.region, entry.destination_region) ?? 0;
     const { error } = await ClaimsAPI.confirm(
       claim,
@@ -131,13 +140,22 @@ export default function MyLoadingScreen() {
 
   const handleSeatTap = async (idx: number) => {
     if (!entry || entry.status === "ended") return;
+    // Time-shrunk seats are off-limits — once the loading timer cuts the
+    // allocation, the driver can't fill the surplus slots even manually.
+    if (idx >= required) {
+      Alert.alert(
+        "Seat unavailable",
+        `Only ${required} of ${seats} seats are available right now — the loading timer has reduced your allocation.`,
+      );
+      return;
+    }
     const states = normalizeSeatStates(entry.seat_states, seatCountFor(entry));
     // Tap only ADDS a passenger; removing is a long-press (see handleSeatLongPress).
     if (states[idx] !== "empty") return; // already boarded/locked — long-press to remove
     states[idx] = "boarded";
-    const boarded = states.filter(s => s === "boarded" || s === "locked").length;
-    await QueueAPI.updateSeatStates(entry.id, states, boarded);
-    setEntry({ ...entry, seat_states: states, seats_boarded: boarded });
+    const boardedNext = states.filter(s => s === "boarded" || s === "locked").length;
+    await QueueAPI.updateSeatStates(entry.id, states, boardedNext);
+    setEntry({ ...entry, seat_states: states, seats_boarded: boardedNext });
   };
 
   const handleSeatLongPress = (idx: number) => {
@@ -290,30 +308,42 @@ export default function MyLoadingScreen() {
             {pendingClaims.length > 0 && (
               <View style={s.claimsCard}>
                 <Text style={s.claimsTitle}>🛎 {t.pendingClaims} · {pendingClaims.length}</Text>
-                {pendingClaims.map(claim => (
-                  <View key={claim.id} style={s.claimRow}>
-                    {claim.passenger?.avatar_url ? (
-                      <Image source={{ uri: claim.passenger.avatar_url }} style={s.claimAvatar} />
-                    ) : (
-                      <View style={s.claimAvatarFallback}><Text style={{ fontSize: 18 }}>👤</Text></View>
-                    )}
-                    <Text style={s.claimName} numberOfLines={1}>
-                      {claim.passenger?.full_name || "Passenger"}
-                    </Text>
-                    {claim.passenger_id && (
-                      <UserActionMenu
-                        userId={claim.passenger_id}
-                        userName={claim.passenger?.full_name || "Passenger"}
-                      />
-                    )}
-                    <TouchableOpacity style={s.rejectBtn} onPress={() => handleRejectClaim(claim)}>
-                      <Text style={s.rejectBtnText}>{t.rejectClaim}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.confirmBtn} onPress={() => handleConfirmClaim(claim)}>
-                      <Text style={s.confirmBtnText}>{t.confirmClaim}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                {boarded >= required && (
+                  <Text style={s.claimsCap}>
+                    Capped at {required} seat{required === 1 ? "" : "s"} by timer — reject these or depart.
+                  </Text>
+                )}
+                {pendingClaims.map(claim => {
+                  const capped = boarded >= required;
+                  return (
+                    <View key={claim.id} style={s.claimRow}>
+                      {claim.passenger?.avatar_url ? (
+                        <Image source={{ uri: claim.passenger.avatar_url }} style={s.claimAvatar} />
+                      ) : (
+                        <View style={s.claimAvatarFallback}><Text style={{ fontSize: 18 }}>👤</Text></View>
+                      )}
+                      <Text style={s.claimName} numberOfLines={1}>
+                        {claim.passenger?.full_name || "Passenger"}
+                      </Text>
+                      {claim.passenger_id && (
+                        <UserActionMenu
+                          userId={claim.passenger_id}
+                          userName={claim.passenger?.full_name || "Passenger"}
+                        />
+                      )}
+                      <TouchableOpacity style={s.rejectBtn} onPress={() => handleRejectClaim(claim)}>
+                        <Text style={s.rejectBtnText}>{t.rejectClaim}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.confirmBtn, capped && s.confirmBtnDisabled]}
+                        onPress={() => handleConfirmClaim(claim)}
+                        disabled={capped}
+                      >
+                        <Text style={s.confirmBtnText}>{t.confirmClaim}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -388,9 +418,11 @@ export default function MyLoadingScreen() {
                       .split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join("")
                   : null;
                 // Seats beyond `required` are timer-expired (loading window
-                // shrank). X out visually but keep clickable so the driver
-                // can still re-offer the seat if a passenger walks up.
+                // shrank). Empty + expired slots are fully disabled — the
+                // driver can't fill them. Filled + expired slots stay
+                // long-pressable so a passenger can still be removed.
                 const isExpired = i >= required;
+                const seatDisabled = isExpired && !isFilled;
                 return (
                   <View key={i} style={s.seatSlot}>
                     <SeatSvg
@@ -398,6 +430,7 @@ export default function MyLoadingScreen() {
                       locked={isLocked}
                       color={Colors.accent}
                       size="full"
+                      disabled={seatDisabled}
                       onPress={() => handleSeatTap(i)}
                       onLongPress={() => handleSeatLongPress(i)}
                     />
@@ -601,5 +634,7 @@ const s = StyleSheet.create({
   rejectBtn:   { backgroundColor:Colors.red+"18", paddingHorizontal:10, paddingVertical:6, borderRadius:8, borderWidth:0.5, borderColor:Colors.red+"50" },
   rejectBtnText:{ color:Colors.red, fontSize:11, fontWeight:"700" },
   confirmBtn:  { backgroundColor:"#22C55E", paddingHorizontal:10, paddingVertical:6, borderRadius:8 },
+  confirmBtnDisabled:{ backgroundColor:Colors.cardAlt, opacity:0.5 },
   confirmBtnText:{ color:"#fff", fontSize:11, fontWeight:"700" },
+  claimsCap:   { color:Colors.red, fontSize:11, fontWeight:"700", marginBottom:8, textAlign:"center" },
 });

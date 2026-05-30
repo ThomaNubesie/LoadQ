@@ -14,6 +14,7 @@ import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
 import ZoneMap from "../../components/ZoneMap";
 import { loadingState, formatRemaining, isWithinLoadingWindow, nextWindowOpen } from "../../utils/loadingTimer";
+import { getCurrentLocationWithTimeout } from "../../utils/gpsTimeout";
 import { useNow } from "../../hooks/useNow";
 import {
   REGIONS, detectUserRegion, getDistanceKm,
@@ -110,15 +111,21 @@ export default function QueueScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const lat = loc.coords.latitude;
-        const lon = loc.coords.longitude;
-        setUserCoords({ lat, lon });
-        const region = detectUserRegion(lat, lon);
-        setUserRegion(region);
-        if (region) setDropRegion(region);
-        const zone = resolveZone(lat, lon);
-        setActiveZone(zone);
+        const loc = await getCurrentLocationWithTimeout(8000);
+        if (loc) {
+          const lat = loc.coords.latitude;
+          const lon = loc.coords.longitude;
+          setUserCoords({ lat, lon });
+          const region = detectUserRegion(lat, lon);
+          setUserRegion(region);
+          if (region) setDropRegion(region);
+          const zone = resolveZone(lat, lon);
+          setActiveZone(zone);
+        } else {
+          // GPS timed out — keep current zone or fall back to param/first.
+          const z = paramZoneId ? zones.find(z => z.id === paramZoneId) : null;
+          setActiveZone(prev => prev ?? z ?? zones[0] ?? null);
+        }
       } else {
         // No GPS — use param or first zone
         const z = paramZoneId ? zones.find(z => z.id === paramZoneId) : zones[0];
