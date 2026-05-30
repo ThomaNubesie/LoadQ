@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, Act
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import Constants from "expo-constants";
 import { AuthAPI } from "../../services/auth";
 import { PassengersAPI, Passenger } from "../../services/passengers";
 import { MessagesAPI } from "../../services/messages";
@@ -167,7 +168,7 @@ export default function PassengerProfileScreen() {
         </TouchableOpacity>
         <View style={[s.rowBtn, { justifyContent: "space-between" }]}>
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>Version</Text>
-          <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>1.0.11</Text>
+          <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>{Constants.expoConfig?.version ?? "—"}</Text>
         </View>
       </ScrollView>
 
