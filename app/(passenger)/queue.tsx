@@ -11,6 +11,7 @@ import { getRegionName } from "../../constants/pricing";
 import { loadingState } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
+import { saveActiveZone, loadActiveZone } from "../../utils/zoneStore";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 
 export default function PassengerBoardScreen() {
@@ -46,21 +47,37 @@ export default function PassengerBoardScreen() {
     if (nearest) {
       setActiveZone(nearest);
       manualPickRef.current = false;
+      saveActiveZone(nearest.id, false);
     } else {
       setActiveZone(prev => prev ?? zones[0]);
     }
   }, [zones]);
 
-  // First-mount zone resolution. If we arrived with a zoneId param (from
-  // the Zones tab), the focus effect below handles it. Otherwise, GPS-detect
-  // exactly once on first render.
+  // First-mount zone resolution. Priority order:
+  //   1. zoneId param (handled by useFocusEffect below)
+  //   2. Persisted zone from AsyncStorage (within TTL)
+  //   3. GPS-detect
+  // Persistence means after a crash/restart the user returns to their last
+  // zone instead of defaulting to Saint-Raymond McDonald's (zones[0]).
   const didInitialDetect = useRef(false);
   useEffect(() => {
     if (didInitialDetect.current) return;
     if (zones.length === 0) return;
     didInitialDetect.current = true;
     if (paramZoneId) return; // focus handler will resolve it
-    detectViaGPS();
+    (async () => {
+      const stored = await loadActiveZone();
+      if (stored) {
+        const z = zones.find(z => z.id === stored.zoneId);
+        if (z) {
+          setActiveZone(z);
+          manualPickRef.current = stored.manual;
+          // If the user explicitly picked, don't auto-override with GPS now.
+          if (stored.manual) return;
+        }
+      }
+      detectViaGPS();
+    })();
   }, [zones.length, paramZoneId, detectViaGPS]);
 
   // Param-driven zone changes: fires on every focus, but only acts when a
@@ -73,6 +90,7 @@ export default function PassengerBoardScreen() {
     if (z) {
       setActiveZone(z);
       manualPickRef.current = true;
+      saveActiveZone(z.id, true);
     }
   }, [paramZoneId, zones]));
 
