@@ -12,7 +12,7 @@ interface Tab {
 const TABS: Tab[] = [
   { label: "BOARD",  route: "/(passenger)/queue",   match: "/queue"   },
   { label: "ZONES",  route: "/(passenger)/zones",   match: "/zones"   },
-  { label: "ALERTS", route: "/(passenger)/analytics", match: "/analytics" },
+  { label: "HIST",   route: "/(passenger)/history",   match: "/history"   },
   { label: "ME",     route: "/(passenger)/profile", match: "/profile" },
 ];
 

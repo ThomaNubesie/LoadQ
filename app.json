@@ -2,7 +2,7 @@
   "expo": {
     "name": "LoadQ",
     "slug": "loadq",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "loadq",
@@ -41,7 +41,7 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 20
+      "versionCode": 21
     },
     "plugins": [
       "expo-router",

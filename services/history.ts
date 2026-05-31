@@ -39,4 +39,20 @@ export const HistoryAPI = {
       .limit(500);
     return (data as LoadingHistoryRow[]) ?? [];
   },
+
+  // Passenger-facing zone activity feed: every session that ended in this
+  // zone since `sinceMs`, with driver display info. RLS allows
+  // authenticated users to read these rows (events are public once a
+  // driver's loading window has closed).
+  async listForZone(zoneId: string, sinceMs: number): Promise<LoadingHistoryRow[]> {
+    const sinceIso = new Date(sinceMs).toISOString();
+    const { data } = await supabase
+      .from("loading_history")
+      .select("*, driver:drivers(id, full_name, avatar_url)")
+      .eq("zone_id", zoneId)
+      .gte("ended_at", sinceIso)
+      .order("ended_at", { ascending: false })
+      .limit(200);
+    return (data as LoadingHistoryRow[]) ?? [];
+  },
 };
