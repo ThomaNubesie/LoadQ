@@ -4,7 +4,6 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshCon
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
-import * as Location from "expo-location";
 import { QueueAPI } from "../../services/queue";
 import { ClaimsAPI } from "../../services/claims";
 import { useStrings } from "../../hooks/useStrings";
@@ -16,7 +15,7 @@ import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../const
 import { useDestinations } from "../../hooks/useDestinations";
 import { loadingState, formatRemaining } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
-import { getCurrentLocationWithTimeout } from "../../utils/gpsTimeout";
+import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import SeatSvg from "../../components/SeatSvg";
 import VerifiedBadge from "../../components/VerifiedBadge";
@@ -55,24 +54,23 @@ export default function PassengerLoadingScreen() {
       const pinned = zones.find(z => z.id === zoneIdParam);
       if (pinned) { zone = pinned; setActiveZone(pinned); }
     }
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        const loc = await getCurrentLocationWithTimeout(8000);
-        if (loc) {
-          const { latitude, longitude } = loc.coords;
-          setUserCoords({ lat: latitude, lon: longitude });
-          // Only auto-localize when no zone was pinned via param — otherwise
-          // honour the caller's choice.
-          if (!zoneIdParam && zones.length > 0) {
-            const nearest = zones
-              .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
-              .sort((a, b) => a.d - b.d)[0]?.z;
-            if (nearest) { zone = nearest; setActiveZone(nearest); }
-          }
-        }
+    // GPS read races against an 8s top-level timeout that covers BOTH the
+    // permission request AND the position read — Android can hang on
+    // either when the system is in a weird state, and we never want this
+    // screen to freeze on "chargement".
+    const loc = await tryGetUserLocation(8000);
+    if (loc) {
+      const { latitude, longitude } = loc.coords;
+      setUserCoords({ lat: latitude, lon: longitude });
+      // Only auto-localize when no zone was pinned via param — otherwise
+      // honour the caller's choice.
+      if (!zoneIdParam && zones.length > 0) {
+        const nearest = zones
+          .map(z => ({ z, d: getDistanceKm(latitude, longitude, z.latitude, z.longitude) }))
+          .sort((a, b) => a.d - b.d)[0]?.z;
+        if (nearest) { zone = nearest; setActiveZone(nearest); }
       }
-    } catch {}
+    }
     if (zone) {
       const q = await QueueAPI.getZoneQueue(zone.id);
       const loadingEntries = q.filter(e => e.status === "loading");

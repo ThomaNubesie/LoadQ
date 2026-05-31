@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, AppState } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import * as Location from "expo-location";
 import { QueueAPI } from "../../services/queue";
 import { Colors } from "../../constants/colors";
 import { QueueEntry } from "../../constants/types";
@@ -11,7 +10,7 @@ import { useZones } from "../../hooks/useZones";
 import { getRegionName } from "../../constants/pricing";
 import { loadingState } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
-import { getCurrentLocationWithTimeout } from "../../utils/gpsTimeout";
+import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 
 export default function PassengerBoardScreen() {
@@ -30,16 +29,12 @@ export default function PassengerBoardScreen() {
   // by tapping "📍" (re-detect) or picking another zone.
   const manualPickRef = useRef(false);
 
-  // GPS-detect with timeout. Falls back to the first zone only if there is
-  // no current selection — never clobbers an existing pick.
+  // GPS-detect with a single top-level timeout that covers permission +
+  // location. Falls back to the first zone only if there is no current
+  // selection — never clobbers an existing pick.
   const detectViaGPS = useCallback(async () => {
     if (zones.length === 0) return;
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      setActiveZone(prev => prev ?? zones[0]);
-      return;
-    }
-    const loc = await getCurrentLocationWithTimeout(8000);
+    const loc = await tryGetUserLocation(8000);
     if (!loc) {
       setActiveZone(prev => prev ?? zones[0]);
       return;
