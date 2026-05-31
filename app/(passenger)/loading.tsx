@@ -6,6 +6,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 import { QueueAPI } from "../../services/queue";
 import { ClaimsAPI } from "../../services/claims";
+import { MessagesAPI } from "../../services/messages";
+import { MessageEvents } from "../../services/messageEvents";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { QueueEntry } from "../../constants/types";
@@ -44,6 +46,8 @@ export default function PassengerLoadingScreen() {
   const [confirmedEntries, setConfirmedEntries] = useState<Set<string>>(new Set());
   const [claiming,   setClaiming]   = useState<string | null>(null);
   const [showDestPicker, setShowDestPicker] = useState(false);
+  // Per-driver unread message count. Drives the badge on each card's 💬 button.
+  const [unreadByDriver, setUnreadByDriver] = useState<Map<string, number>>(new Map());
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -90,18 +94,23 @@ export default function PassengerLoadingScreen() {
       setOpenClaims(openMap);
       setConfirmedEntries(confirmedSet);
     }
+    // Unread DMs per driver — drives the badge on each card's chat icon.
+    setUnreadByDriver(await MessagesAPI.unreadBySender());
     setLoading(false); setRefreshing(false);
   }, [activeZone?.id, zones, zoneIdParam]);
 
   const inGeo = !!(activeZone && userCoords &&
     getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude) * 1000 <= activeZone.radius_meters);
 
-  // 300m privacy gate: hide individual driver details (name, plate, photo,
-  // contact actions) unless the passenger is within 300m of the loading zone.
+  // Driver details (name, vehicle, plate) are now always visible — the
+  // earlier 300m privacy gate was lifted per UX feedback. Only the Call /
+  // Message buttons need a proximity check, gated at 500m. Confirmed
+  // reservations also unlock contact regardless of distance (passenger
+  // may be walking around mid-board).
   const distanceM = (activeZone && userCoords)
     ? Math.round(getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude) * 1000)
     : null;
-  const within300m = distanceM !== null && distanceM <= 300;
+  const within500m = distanceM !== null && distanceM <= 500;
 
   const handleClaim = async (entry: QueueEntry) => {
     if (!inGeo) {
@@ -119,6 +128,19 @@ export default function PassengerLoadingScreen() {
   // app returns from background, so the passenger lands on their current
   // zone whenever they reopen the app, even if they last viewed another.
   useFocusAndForeground(load);
+
+  // Live unread badge: bump the per-driver counter whenever a new message
+  // arrives from one of the loading drivers, without waiting for a poll.
+  useEffect(() => {
+    const off = MessageEvents.on(msg => {
+      setUnreadByDriver(prev => {
+        const next = new Map(prev);
+        next.set(msg.sender_id, (next.get(msg.sender_id) ?? 0) + 1);
+        return next;
+      });
+    });
+    return off;
+  }, []);
 
   useEffect(() => {
     if (!activeZone) return;
@@ -207,54 +229,41 @@ export default function PassengerLoadingScreen() {
               ? Colors.red
               : lstate?.phase === "reduced3" ? Colors.yellow : Colors.accent;
 
-            // 300m privacy gate is LIFTED for any entry the passenger has
-            // already reserved with — once confirmed, they need to see the
-            // driver and vehicle they're traveling with even if they walk
-            // outside the zone (going to a coffee shop, parking lot, etc).
+            // Driver details are ALWAYS visible now. The earlier 300m privacy
+            // gate has been lifted — passengers need to see who's loading
+            // before deciding to claim. Only Call / Message remain gated, at
+            // 500m proximity OR an existing confirmed reservation.
             const isMyReservation = confirmedEntries.has(entry.id);
-            const revealDriver    = within300m || isMyReservation;
+            const canContact      = within500m || isMyReservation;
+            const unreadFromThis  = entry.driver_id ? (unreadByDriver.get(entry.driver_id) ?? 0) : 0;
 
             return (
               <View key={entry.id} style={s.card}>
-                {revealDriver && vehicle && (
+                {vehicle && (
                   <Image
                     source={{ uri: getVehicleImageUrl(vehicle.make, vehicle.model, vehicle.year, "side", vehicle.color || undefined) }}
                     style={s.vehicleImg}
                     resizeMode="contain"
                   />
                 )}
-                {isMyReservation && !within300m && (
+                {isMyReservation && !within500m && (
                   <View style={s.yourTripBanner}>
                     <Text style={s.yourTripText}>
                       Your reservation · {distanceM !== null ? `${distanceM}m from zone` : "outside zone"}
                     </Text>
                   </View>
                 )}
-                {!revealDriver && (
-                  <View style={s.gatedBanner}>
-                    <Text style={s.gatedTitle}>Driver details hidden</Text>
-                    <Text style={s.gatedSub}>
-                      You're {distanceM !== null ? `${distanceM}m` : "—"} from the zone. Move within 300m to see driver and vehicle.
-                    </Text>
-                  </View>
-                )}
                 <View style={s.driverRow}>
-                  {revealDriver ? (
-                    entry.driver?.avatar_url ? (
-                      <Image source={{ uri: entry.driver.avatar_url }} style={s.avatar} />
-                    ) : (
-                      <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>👤</Text></View>
-                    )
+                  {entry.driver?.avatar_url ? (
+                    <Image source={{ uri: entry.driver.avatar_url }} style={s.avatar} />
                   ) : (
-                    <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>·</Text></View>
+                    <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>👤</Text></View>
                   )}
                   <View style={{ flex: 1 }}>
                     <View style={s.driverNameRow}>
-                      <Text style={s.driverName}>
-                        {revealDriver ? (entry.driver?.full_name || "Driver") : "Driver (hidden)"}
-                      </Text>
-                      {revealDriver && entry.driver?.verified && <VerifiedBadge size={15} />}
-                      {revealDriver && entry.driver_id && (
+                      <Text style={s.driverName}>{entry.driver?.full_name || "Driver"}</Text>
+                      {entry.driver?.verified && <VerifiedBadge size={15} />}
+                      {entry.driver_id && (
                         <UserActionMenu
                           userId={entry.driver_id}
                           userName={entry.driver?.full_name || "Driver"}
@@ -264,7 +273,7 @@ export default function PassengerLoadingScreen() {
                     <Text style={s.routeText}>
                       {getRegionName(activeZone?.region)} → {getRegionName(entry.destination_region)}
                     </Text>
-                    {revealDriver && vehicle && (
+                    {vehicle && (
                       <Text style={s.vehicleInfoText}>
                         {vehicle.year} {vehicle.make} {vehicle.model}
                         {vehicle.color ? `  ·  ${vehicle.color}` : ""}
@@ -280,32 +289,67 @@ export default function PassengerLoadingScreen() {
                   )}
                 </View>
 
-                {confirmedEntries.has(entry.id) && entry.driver && (
+                {entry.driver && (
                   <View style={s.passengerContactRow}>
                     {entry.driver.phone && (
                       <TouchableOpacity
-                        style={s.passengerContactBtn}
-                        onPress={() => Linking.openURL(`tel:${entry.driver!.phone}`)}
+                        style={[s.passengerContactBtn, !canContact && s.passengerContactBtnLocked]}
+                        onPress={() => {
+                          if (!canContact) {
+                            Alert.alert(
+                              "Move closer to call",
+                              `Get within 500m of ${activeZone?.name || "the zone"} or claim a seat first.`,
+                            );
+                            return;
+                          }
+                          Linking.openURL(`tel:${entry.driver!.phone}`);
+                        }}
                         activeOpacity={0.85}
                       >
-                        <Text style={s.passengerContactEmoji}>📞</Text>
+                        <Text style={s.passengerContactEmoji}>{canContact ? "📞" : "🔒"}</Text>
                         <Text style={s.passengerContactLabel}>Call driver</Text>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                      style={[s.passengerContactBtn, s.passengerContactBtnPrimary]}
-                      onPress={() => router.push({
-                        pathname: "/(app)/thread" as any,
-                        params: {
-                          id:    entry.driver_id,
-                          name:  entry.driver?.full_name || "Driver",
-                          phone: entry.driver?.phone || "",
-                        },
-                      })}
+                      style={[s.passengerContactBtn, s.passengerContactBtnPrimary, !canContact && s.passengerContactBtnLocked]}
+                      onPress={() => {
+                        if (!canContact) {
+                          Alert.alert(
+                            "Move closer to message",
+                            `Get within 500m of ${activeZone?.name || "the zone"} or claim a seat first.`,
+                          );
+                          return;
+                        }
+                        // Opening the thread will mark messages read; clear
+                        // locally so the badge disappears instantly.
+                        if (entry.driver_id) {
+                          setUnreadByDriver(prev => {
+                            if (!prev.has(entry.driver_id!)) return prev;
+                            const next = new Map(prev);
+                            next.delete(entry.driver_id!);
+                            return next;
+                          });
+                        }
+                        router.push({
+                          pathname: "/(app)/thread" as any,
+                          params: {
+                            id:    entry.driver_id,
+                            name:  entry.driver?.full_name || "Driver",
+                            phone: entry.driver?.phone || "",
+                          },
+                        });
+                      }}
                       activeOpacity={0.85}
                     >
-                      <Text style={s.passengerContactEmoji}>💬</Text>
+                      <Text style={s.passengerContactEmoji}>{canContact ? "💬" : "🔒"}</Text>
                       <Text style={[s.passengerContactLabel, { color: Colors.accentText }]}>Message</Text>
+                      {unreadFromThis > 0 && (
+                        <View style={s.passengerContactBadge}>
+                          <Text style={s.passengerContactBadgeText}>
+                            {unreadFromThis > 9 ? "9+" : unreadFromThis}
+                          </Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   </View>
                 )}
@@ -441,9 +485,6 @@ const s = StyleSheet.create({
   scroll:      { flex:1, paddingHorizontal:16, paddingTop:12 },
   card:        { backgroundColor:Colors.card, borderRadius:16, borderWidth:0.5, borderColor:Colors.border, marginBottom:12, overflow:"hidden" },
   vehicleImg:  { width:"100%", height:130, backgroundColor:Colors.cardAlt },
-  gatedBanner: { padding:14, backgroundColor:Colors.cardAlt, borderRadius:10, marginBottom:10, alignItems:"center" },
-  gatedTitle:  { color:Colors.t1, fontSize:13, fontWeight:"800", letterSpacing:0.5 },
-  gatedSub:    { color:Colors.t3, fontSize:11, marginTop:4, textAlign:"center", paddingHorizontal:16 },
   yourTripBanner: { paddingVertical:8, paddingHorizontal:12, backgroundColor:Colors.accent+"22", borderTopWidth:1.5, borderTopColor:Colors.accent, alignItems:"center" },
   yourTripText:   { color:Colors.accent, fontSize:11, fontWeight:"800", letterSpacing:1 },
   driverRow:   { flexDirection:"row", alignItems:"center", gap:10, padding:12, borderBottomWidth:0.3, borderBottomColor:Colors.border },
@@ -462,8 +503,11 @@ const s = StyleSheet.create({
   passengerContactRow:        { flexDirection:"row", gap:8, paddingHorizontal:12, paddingVertical:10, borderBottomWidth:0.3, borderBottomColor:Colors.border },
   passengerContactBtn:        { flex:1, flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6, paddingVertical:10, borderRadius:10, backgroundColor:Colors.cardAlt, borderWidth:0.5, borderColor:Colors.border },
   passengerContactBtnPrimary: { backgroundColor:Colors.accent, borderColor:Colors.accent },
+  passengerContactBtnLocked:  { opacity:0.5 },
   passengerContactEmoji:      { fontSize:14 },
   passengerContactLabel:      { color:Colors.t1, fontSize:13, fontWeight:"700" },
+  passengerContactBadge:      { position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:9, backgroundColor:Colors.red, paddingHorizontal:4, alignItems:"center", justifyContent:"center" },
+  passengerContactBadgeText:  { color:"#fff", fontSize:10, fontWeight:"800" },
   statsRow:    { flexDirection:"row", padding:12 },
   statBox:     { flex:1, alignItems:"center" },
   statVal:     { fontSize:16, fontWeight:"800", color:Colors.t1 },
