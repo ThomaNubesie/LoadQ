@@ -77,6 +77,28 @@ export const QueueAPI = {
     const gate = await this.canJoin();
     if (!gate.ok) return { error: gate.reason };
 
+    // 60-minute depart cooldown per zone: after a driver Departs from a
+    // zone, they can't rejoin THAT zone for 60 minutes. Prevents
+    // queue-jumping where a driver picks up one passenger, drops them at
+    // an arbitrary nearby spot, and immediately rejoins the front of the
+    // line. Loading-history.end_reason='departed' is the source of truth.
+    const sixtyMinAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: recentDepart } = await supabase
+      .from("loading_history")
+      .select("ended_at")
+      .eq("driver_id", user.id)
+      .eq("zone_id", zoneId)
+      .eq("end_reason", "departed")
+      .gte("ended_at", sixtyMinAgo)
+      .order("ended_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (recentDepart?.ended_at) {
+      const elapsed   = Date.now() - new Date(recentDepart.ended_at).getTime();
+      const remaining = Math.ceil((60 * 60 * 1000 - elapsed) / 60_000);
+      return { error: `You departed this zone recently. Wait ${remaining} min before rejoining.` };
+    }
+
     // Position is scoped to this specific route (zone + destination) and
     // tracks the day's chronological progression — we INCLUDE status='ended'
     // rows when computing max+1 so the numbers reflect the order of arrival

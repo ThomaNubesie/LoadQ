@@ -45,13 +45,22 @@ export default function ZoneSelectScreen() {
   }, []);
 
   const zonesInTab  = getZonesByRegion(zones, activeTab);
-  const isMyRegion  = activeTab === userRegion;
 
   const getDistance = (zone: ZoneLocation): string => {
     if (userLat === null || userLon === null) return "";
     const km = getDistanceKm(userLat, userLon, zone.latitude, zone.longitude);
     if (km < 1) return `${Math.round(km * 1000)}m away`;
     return `${km.toFixed(1)}km away`;
+  };
+
+  // Hard zone lock: driver can only Join a zone they're physically inside
+  // (within the zone's geofence radius). Lets drivers still WATCH any zone
+  // they want, but Join is gated by GPS so remote queue-jumping is blocked
+  // even before queue.tsx runs its own validateJoin check.
+  const isInsideZone = (zone: ZoneLocation): boolean => {
+    if (userLat === null || userLon === null) return false;
+    const dist = getDistanceKm(userLat, userLon, zone.latitude, zone.longitude) * 1000;
+    return dist <= zone.radius_meters;
   };
 
   const handleJoin = (zone: ZoneLocation) => {
@@ -97,13 +106,11 @@ export default function ZoneSelectScreen() {
       </ScrollView>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollInner}>
-        {!isMyRegion && (
-          <View style={s.watchingBanner}>
-            <Text style={s.watchingText}>
-              👁 Viewing {REGIONS.find(r => r.code === activeTab)?.name} — you can watch but not join from here
-            </Text>
-          </View>
-        )}
+        <View style={s.watchingBanner}>
+          <Text style={s.watchingText}>
+            🔒 You can only Join zones you're physically inside. Watch any zone to see its board.
+          </Text>
+        </View>
 
         {zonesInTab.length === 0 ? (
           <View style={s.empty}>
@@ -112,18 +119,23 @@ export default function ZoneSelectScreen() {
           </View>
         ) : (
           zonesInTab.map(zone => {
-            const dist = getDistance(zone);
+            const dist     = getDistance(zone);
+            const inside   = isInsideZone(zone);
             return (
               <View key={zone.id} style={s.zoneCard}>
                 <View style={s.zoneInfo}>
                   <Text style={s.zoneName}>{zone.name}</Text>
                   <Text style={s.zoneAddr}>{zone.address}</Text>
-                  {dist ? <Text style={s.zoneDist}>📍 {dist}</Text> : null}
+                  {dist ? (
+                    <Text style={[s.zoneDist, !inside && { color: Colors.t3 }]}>
+                      📍 {dist}{inside ? "  ·  Inside zone" : ""}
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={s.zoneRight}>
                   <View style={s.liveDot} />
                   <Text style={s.liveText}>Live</Text>
-                  {isMyRegion ? (
+                  {inside ? (
                     <TouchableOpacity style={s.joinBtn} onPress={() => handleJoin(zone)} activeOpacity={0.85}>
                       <Text style={s.joinBtnText}>Join →</Text>
                     </TouchableOpacity>

@@ -2,7 +2,7 @@
   "expo": {
     "name": "LoadQ",
     "slug": "loadq",
-    "version": "1.1.6",
+    "version": "1.1.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "loadq",
@@ -32,6 +32,7 @@
         "backgroundColor": "#0F0A00"
       },
       "package": "ca.loadq.app",
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
@@ -41,7 +42,7 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 22
+      "versionCode": 23
     },
     "plugins": [
       "expo-router",

@@ -51,7 +51,7 @@ export default function SignInScreen() {
     <SafeAreaView style={s.container}>
       <KeyboardAvoidingView
         style={s.inner}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
         <TouchableOpacity onPress={() => router.replace("/(auth)/welcome")} style={s.backBtn}>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, AppState } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, AppState, ActivityIndicator } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { Colors } from "../../constants/colors";
@@ -183,7 +183,10 @@ export default function PassengerBoardScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
       >
         {loading ? (
-          <Text style={s.empty}>Loading…</Text>
+          <View style={s.loadingBlock}>
+            <ActivityIndicator color={Colors.accent} size="large" />
+            <Text style={s.empty}>Loading…</Text>
+          </View>
         ) : routes.length === 0 ? (
           <View style={s.emptyBlock}>
             <Text style={s.emptyHeading}>No cars in this zone</Text>
@@ -245,6 +248,7 @@ const s = StyleSheet.create({
   routeCount:    { fontSize: 28, fontWeight: "900", color: Colors.t2, letterSpacing: -0.5, minWidth: 56, textAlign: "right" },
   routeCountHot: { color: Colors.accent },
   empty:         { color: Colors.t3, textAlign: "center", marginTop: 40 },
+  loadingBlock:  { alignItems: "center", marginTop: 60, gap: 12 },
   emptyBlock:    { alignItems: "center", marginTop: 40 },
   emptyHeading:  { color: Colors.t1, fontSize: 16, fontWeight: "700", marginBottom: 8 },
 });

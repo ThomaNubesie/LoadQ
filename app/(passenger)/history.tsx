@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
 import { Colors } from "../../constants/colors";
 import { HistoryAPI, LoadingHistoryRow } from "../../services/history";
 import { QueueAPI } from "../../services/queue";
@@ -166,7 +166,10 @@ export default function PassengerHistoryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
       >
         {loading ? (
-          <Text style={s.empty}>Loading…</Text>
+          <View style={s.loadingBlock}>
+            <ActivityIndicator color={Colors.accent} size="large" />
+            <Text style={s.empty}>Loading…</Text>
+          </View>
         ) : rows.length === 0 ? (
           <View style={s.emptyBlock}>
             <Text style={s.emptyEmoji}>📭</Text>
@@ -219,6 +222,7 @@ const s = StyleSheet.create({
   chipTextActive:   { color: Colors.accentText },
   scroll:           { padding: 16, paddingBottom: 32 },
   empty:            { color: Colors.t3, textAlign: "center", marginTop: 40 },
+  loadingBlock:     { alignItems: "center", marginTop: 60, gap: 12 },
   emptyBlock:       { alignItems: "center", marginTop: 60 },
   emptyEmoji:       { fontSize: 40, marginBottom: 10 },
   emptyText:        { fontSize: 13, color: Colors.t3, textAlign: "center" },

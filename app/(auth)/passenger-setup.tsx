@@ -87,7 +87,7 @@ export default function PassengerSetupScreen() {
     <SafeAreaView style={s.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">

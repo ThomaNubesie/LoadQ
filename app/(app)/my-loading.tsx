@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, ActivityIndicator } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { ClaimsAPI, SeatClaim } from "../../services/claims";
@@ -272,7 +272,10 @@ export default function MyLoadingScreen() {
 
       <ScrollView contentContainerStyle={s.inner}>
         {loading ? (
-          <Text style={s.loadingText}>{t.loading}</Text>
+          <View style={s.loadingBlock}>
+            <ActivityIndicator color={Colors.accent} size="large" />
+            <Text style={s.loadingText}>{t.loading}</Text>
+          </View>
         ) : !entry ? (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🚗</Text>
@@ -563,7 +566,8 @@ const s = StyleSheet.create({
   msgBadge:    { position:"absolute", top:-2, right:-4, minWidth:18, height:18, borderRadius:9, backgroundColor:Colors.red, paddingHorizontal:4, alignItems:"center", justifyContent:"center" },
   msgBadgeText:{ color:"#fff", fontSize:10, fontWeight:"800" },
   inner:       { padding:20, paddingBottom:60 },
-  loadingText: { color:Colors.t2, textAlign:"center", marginTop:40 },
+  loadingText: { color:Colors.t2, textAlign:"center" },
+  loadingBlock:{ alignItems:"center", marginTop:60, gap:12 },
   empty:       { alignItems:"center", marginTop:80 },
   emptyEmoji:  { fontSize:48, marginBottom:12 },
   emptyText:   { fontSize:16, color:Colors.t2 },

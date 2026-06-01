@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking, ActivityIndicator } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { MessagesAPI } from "../../services/messages";
@@ -278,20 +278,27 @@ export default function QueueScreen() {
   // window-open/closed banner flips at the boundary.
   const now           = useNow(loadingCount > 0 ? 1000 : 30_000, true);
 
-  // The instant any loading entry crosses the 2h mark, ping the watchdog so
-  // the driver is moved out immediately (don't wait up to 60s for cron).
+  // The instant any loading entry hits the 3h cap (timer reads 0:00 on
+  // every driver's card), ping the watchdog so the expired driver is
+  // moved to the back AND the next driver is promoted to loading right
+  // away — don't wait up to 60s for the server cron tick. Then refetch
+  // twice so both the eviction and the promotion show up reliably.
   const firedExpiry = useRef<Set<string>>(new Set());
   useEffect(() => {
     for (const e of entries) {
       if (e.status !== "loading" || !e.load_start_at) continue;
       const elapsed = now - new Date(e.load_start_at).getTime();
-      if (elapsed >= 2 * 60 * 60 * 1000 && !firedExpiry.current.has(e.id)) {
+      if (elapsed >= 3 * 60 * 60 * 1000 && !firedExpiry.current.has(e.id)) {
         firedExpiry.current.add(e.id);
         QueueAPI.triggerWatchdog();
-        // Re-pull the queue shortly after so the UI reflects the removal.
+        // Re-pull the queue twice — first to catch the eviction, second
+        // to catch the next driver being promoted to loading.
         setTimeout(() => {
           if (activeZone) QueueAPI.getZoneQueue(activeZone.id).then(setEntries);
-        }, 2500);
+        }, 1500);
+        setTimeout(() => {
+          if (activeZone) QueueAPI.getZoneQueue(activeZone.id).then(setEntries);
+        }, 4000);
       }
     }
   }, [now, entries, activeZone?.id]);
@@ -640,7 +647,10 @@ export default function QueueScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
       >
         {loading ? (
-          <Text style={s.loadingText}>{t.loading}</Text>
+          <View style={s.loadingBlock}>
+            <ActivityIndicator color={Colors.accent} size="large" />
+            <Text style={s.loadingText}>{t.loading}</Text>
+          </View>
         ) : entries.length === 0 ? (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🚗</Text>
@@ -909,7 +919,8 @@ const s = StyleSheet.create({
   leaveBtnText:       { color:Colors.red, fontSize:12, fontWeight:"700" },
   leaveChip:          { width:28, height:28, borderRadius:14, alignItems:"center", justifyContent:"center", backgroundColor:Colors.red+"18", borderWidth:0.5, borderColor:Colors.red+"40" },
   leaveChipText:      { color:Colors.red, fontSize:12, fontWeight:"800" },
-  loadingText:        { color:Colors.t2, textAlign:"center", marginTop:40 },
+  loadingText:        { color:Colors.t2, textAlign:"center" },
+  loadingBlock:       { alignItems:"center", marginTop:60, gap:12 },
   empty:              { alignItems:"center", marginTop:80 },
   emptyEmoji:         { fontSize:48, marginBottom:12 },
   emptyText:          { fontSize:18, fontWeight:"700", color:Colors.t1 },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshControl, Alert, Modal, Linking, Platform, Share } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshControl, Alert, Modal, Linking, Platform, Share, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
@@ -209,7 +209,10 @@ export default function PassengerLoadingScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
       >
         {loading ? (
-          <Text style={s.loadingText}>{t.loading}</Text>
+          <View style={s.loadingBlock}>
+            <ActivityIndicator color={Colors.accent} size="large" />
+            <Text style={s.loadingText}>{t.loading}</Text>
+          </View>
         ) : filtered.length === 0 ? (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>⏸</Text>
@@ -518,7 +521,8 @@ const s = StyleSheet.create({
   claimBtnText:{ color:"#fff", fontSize:14, fontWeight:"800" },
   claimBtnClaimed:  { backgroundColor:Colors.accent },
   claimBtnDisabled: { backgroundColor:Colors.card, opacity:0.7 },
-  loadingText: { color:Colors.t2, textAlign:"center", marginTop:40 },
+  loadingBlock: { alignItems:"center", marginTop:60, gap:12 },
+  loadingText: { color:Colors.t2, textAlign:"center" },
   empty:       { alignItems:"center", marginTop:80, paddingHorizontal:24 },
   emptyEmoji:  { fontSize:48, marginBottom:12 },
   emptyText:   { fontSize:15, color:Colors.t2, textAlign:"center", lineHeight:22 },
