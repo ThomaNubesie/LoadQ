@@ -1,39 +1,65 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Linking } from "react-native";
 import { useRouter } from "expo-router";
-import type { PurchasesPackage, PurchasesOffering } from "react-native-purchases";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { DriversAPI } from "../../services/drivers";
-import { BillingAPI } from "../../services/billing";
+import { StripeWebCheckoutAPI } from "../../services/billing";
 import { Driver } from "../../constants/types";
 
+// Apple-compliant 3.1.5(a) flow: the in-app button opens system Safari to
+// the public checkout page on loadq.ca. Stripe processes the card on the
+// web. The Stripe webhook updates drivers.subscription_status server-side.
+// When checkout finishes, Stripe's success_url is loadq://subscribe/done
+// which deep-links back here and we refresh the driver row.
+//
+// We keep the look-and-feel of the previous RevenueCat paywall so the
+// experience is familiar; only the underlying payment mechanism changed.
 export default function SubscribeScreen() {
-  const router     = useRouter();
-  const { t }  = useStrings();
-  // v1 ships monthly-only (no annual product in the stores yet).
-  const [plan, setPlan] = useState<"annual"|"monthly">("monthly");
-  const [driver, setDriver] = useState<Driver | null>(null);
-  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
-  const [loadingOffer, setLoadingOffer] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const router    = useRouter();
+  const { t }     = useStrings();
+  const [plan, setPlan]               = useState<"annual"|"monthly">("monthly");
+  const [driver, setDriver]           = useState<Driver | null>(null);
+  const [busy, setBusy]               = useState(false);
 
-  useEffect(() => {
-    DriversAPI.getMe().then(setDriver);
-    BillingAPI.getCurrentOffering().then(o => { setOffering(o); setLoadingOffer(false); });
+  const refreshDriver = useCallback(async () => {
+    const d = await DriversAPI.getMe();
+    setDriver(d);
+    return d;
   }, []);
 
-  const pkgMonthly: PurchasesPackage | null = offering?.monthly ?? null;
-  const pkgAnnual:  PurchasesPackage | null = offering?.annual  ?? null;
-  const selectedPkg = plan === "annual" ? pkgAnnual : pkgMonthly;
+  useEffect(() => { refreshDriver(); }, [refreshDriver]);
+
+  // When Safari hands us back via loadq://subscribe/done, refresh the
+  // driver row — the webhook should have flipped subscription_status to
+  // 'active' by then. If it has, leave the paywall.
+  useEffect(() => {
+    const sub = Linking.addEventListener("url", async ({ url }) => {
+      if (!url.includes("subscribe/done")) return;
+      // Webhook propagation can take a second or two; refresh a few times.
+      for (let i = 0; i < 5; i++) {
+        const d = await refreshDriver();
+        if (d?.subscription_status === "active") {
+          router.replace("/(app)/zone-select");
+          return;
+        }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      // Webhook didn't land within ~7s — let the user retry. The Stripe
+      // session might still be processing; status check on next focus
+      // will catch it.
+      Alert.alert(
+        "Almost there",
+        "Your payment is being confirmed. This screen will refresh in a moment.",
+      );
+    });
+    return () => sub.remove();
+  }, [refreshDriver, router]);
 
   const trialEnded = driver?.subscription_status === "trialing"
     && driver?.trial_ends_at
     && new Date(driver.trial_ends_at).getTime() < Date.now();
-  // Only treat as "on hold" if the driver actually had access before
-  // (a started trial or a past subscription). A brand-new driver who has
-  // never subscribed must see the trial offer, NOT "your trial has ended".
   const hadHistory = !!(driver?.trial_ends_at || driver?.subscription_ends_at);
   const onHold = !!driver && hadHistory && (
     driver.subscription_status === "expired"
@@ -42,33 +68,26 @@ export default function SubscribeScreen() {
   );
 
   const handleSubscribe = async () => {
-    if (!selectedPkg) {
-      Alert.alert("Unavailable", "Subscription products aren't available right now. Try again shortly.");
+    if (!driver?.id) {
+      Alert.alert("Sign in required", "Please sign in before subscribing.");
       return;
     }
     setBusy(true);
-    const { ok, error } = await BillingAPI.purchase(selectedPkg);
-    setBusy(false);
-    if (ok) { router.replace("/(app)/zone-select"); return; }
-    if (error && error !== "cancelled") Alert.alert("Purchase failed", error);
+    try {
+      await StripeWebCheckoutAPI.openCheckout(driver.id, plan);
+      // Safari is now showing the checkout page. We leave busy=true so the
+      // button stays disabled until Linking returns the user — at which
+      // point the listener above refreshes the driver row and navigates.
+    } catch (e: any) {
+      setBusy(false);
+      Alert.alert("Couldn't open checkout", e?.message ?? "Please try again.");
+    }
   };
 
-  const handleRestore = async () => {
-    setBusy(true);
-    const { ok, error } = await BillingAPI.restore();
-    setBusy(false);
-    if (ok) { router.replace("/(app)/zone-select"); return; }
-    Alert.alert("Restore", error ? error : "No active subscription found for this account.");
-  };
-
-  // Prices come from the store (localized). Fall back to static labels if the
-  // offering hasn't loaded (dev without RC keys).
-  const monthlyPrice = pkgMonthly?.product.priceString ?? "C$34.99";
-  const annualPrice  = pkgAnnual?.product.priceString  ?? "C$349.99";
-
-  // Monthly-only for v1. (Annual returns when an annual store product exists.)
+  // Static prices for now — the web page handles real billing and Stripe
+  // is the source of truth. These labels are informational only.
   const PLANS = [
-    { key:"monthly" as const, name:t.monthly, price:monthlyPrice, full:null, per:t.perMonth, desc:t.billedMonthly, badge:null, perks:["Full queue access","Seat tracking + peer confirm","Priority queue on join","Loading history","14-day free trial"], popular:true },
+    { key:"monthly" as const, name:t.monthly, price:"C$34.99", full:null, per:t.perMonth, desc:t.billedMonthly, badge:null, perks:["Full queue access","Seat tracking + peer confirm","Priority queue on join","Loading history","30-day free trial"], popular:true },
   ];
 
   return (
@@ -127,22 +146,23 @@ export default function SubscribeScreen() {
         ))}
 
         <TouchableOpacity
-          style={[s.btn, (busy || loadingOffer) && { opacity: 0.5 }]}
+          style={[s.btn, busy && { opacity: 0.5 }]}
           onPress={handleSubscribe}
-          disabled={busy || loadingOffer}
+          disabled={busy}
           activeOpacity={0.85}
         >
-          {busy || loadingOffer
+          {busy
             ? <ActivityIndicator color={Colors.accentText} />
-            : <Text style={s.btnText}>{t.startTrial} — {plan==="annual" ? t.annual : t.monthly} →</Text>}
+            : <Text style={s.btnText}>Continue on the web →</Text>}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleRestore} disabled={busy} style={{ alignItems:"center", paddingVertical:10 }}>
-          <Text style={{ color:Colors.t2, fontSize:13, fontWeight:"600" }}>Restore purchases</Text>
-        </TouchableOpacity>
+        <Text style={s.disclaimer}>
+          Subscriptions are processed on our website at loadq.ca. You'll be
+          redirected to Safari to complete the secure Stripe checkout.
+        </Text>
 
         <View style={s.secureRow}>
-          <Text style={s.secureBadge}>🔒 14-day free trial</Text>
+          <Text style={s.secureBadge}>🔒 30-day free trial</Text>
           <Text style={s.secureBadge}>{t.cancelAnytime}</Text>
         </View>
       </ScrollView>
@@ -184,6 +204,7 @@ const s = StyleSheet.create({
   radioDot:    { width:8, height:8, borderRadius:4, backgroundColor:Colors.accent },
   btn:         { backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center", marginTop:8, marginBottom:12 },
   btnText:     { fontSize:15, fontWeight:"700", color:Colors.accentText },
+  disclaimer:  { color:Colors.t3, fontSize:11, textAlign:"center", lineHeight:16, paddingHorizontal:8, marginBottom:14 },
   secureRow:   { flexDirection:"row", justifyContent:"center", gap:12 },
   secureBadge: { color:Colors.t3, fontSize:11 },
 });

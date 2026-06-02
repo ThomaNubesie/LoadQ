@@ -27,9 +27,9 @@ export const DriversAPI = {
       return { data, error: error?.message };
     }
 
-    // Every new driver starts a 14-day app-managed free trial. Explicit
+    // Every new driver starts a 30-day app-managed free trial. Explicit
     // values in `fields` still win (spread last).
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from("drivers")
       .insert({
@@ -107,7 +107,7 @@ export const DriversAPI = {
     if (entitled === true) return true;
 
     // App-managed access grants entry even when RevenueCat reports no
-    // entitlement or isn't reachable. This is what makes the 14-day trial
+    // entitlement or isn't reachable. This is what makes the 30-day trial
     // the way in for the soft launch, before App Store billing is set up.
     // "trialing" is valid only while trial_ends_at is still in the future.
     if (driver.subscription_status === "trialing") {

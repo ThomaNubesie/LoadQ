@@ -1,5 +1,12 @@
-import { Platform } from "react-native";
+import { Platform, Linking } from "react-native";
 import Purchases, { PurchasesOffering, PurchasesPackage, CustomerInfo } from "react-native-purchases";
+
+// Where the Stripe Checkout page is hosted. Public site, no secrets here.
+// The page reads ?driver_id=X and ?plan=monthly|annual from the query
+// string, creates a Stripe Checkout Session via a Netlify function, and
+// redirects to Stripe. Stripe's success_url deep-links back to the app via
+// loadq://subscribe/done so we can refresh the driver row immediately.
+const WEB_CHECKOUT_URL = "https://loadq.ca/subscribe";
 
 // RevenueCat public API keys (safe to ship in the client).
 // Fill these from RevenueCat dashboard → Project → API keys.
@@ -71,5 +78,33 @@ export const BillingAPI = {
     } catch {
       return null;
     }
+  },
+};
+
+// External web-checkout API. Used for the Apple-compliant 3.1.5(a)
+// real-world service flow: the app opens Safari to the public checkout
+// page on loadq.ca, the page creates a Stripe Checkout Session via a
+// Netlify function (which holds the Stripe secret), and Stripe handles
+// the card form. The webhook (Supabase Edge Function stripe-webhook)
+// flips drivers.subscription_status to 'active' when payment completes.
+//
+// Keep StripeWebCheckoutAPI separate from BillingAPI so RevenueCat code
+// can be removed in a future cleanup without touching the web flow.
+export const StripeWebCheckoutAPI = {
+  // Build the URL Safari opens. plan is 'monthly' or 'annual' — the web
+  // page maps that to the configured Stripe Price.
+  buildCheckoutUrl(driverId: string, plan: "monthly" | "annual" = "monthly"): string {
+    const u = new URL(WEB_CHECKOUT_URL);
+    u.searchParams.set("driver_id", driverId);
+    u.searchParams.set("plan", plan);
+    return u.toString();
+  },
+
+  // Open the URL in the system browser. Apple flags in-app browsers
+  // (WebViews, SFSafariViewController) for payment processing — only
+  // the system Safari counts as truly "external" under 3.1.5(a).
+  async openCheckout(driverId: string, plan: "monthly" | "annual" = "monthly"): Promise<void> {
+    const url = StripeWebCheckoutAPI.buildCheckoutUrl(driverId, plan);
+    await Linking.openURL(url);
   },
 };
