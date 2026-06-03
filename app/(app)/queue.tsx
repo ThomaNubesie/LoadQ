@@ -598,7 +598,7 @@ export default function QueueScreen() {
               >
                 <Text style={[s.joinBtnText, { color: Colors.accentText }]}>
                   {!windowOpen
-                    ? t.queueClosed
+                    ? t.queueClosedShort
                     : joining
                       ? t.joining
                       : inGeo
