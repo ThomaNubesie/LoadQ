@@ -86,8 +86,8 @@ export default function MyLoadingScreen() {
     // even if there are still empty seat slots on the car.
     if (boarded >= required) {
       Alert.alert(
-        "Seats unavailable",
-        `Only ${required} of ${seats} seats are available right now — the loading timer has reduced your allocation. Reject pending claims or depart.`,
+        t.seatsUnavailable,
+        t("seatsUnavailableBody", { required: String(required), seats: String(seats) }),
       );
       return;
     }
@@ -104,10 +104,10 @@ export default function MyLoadingScreen() {
 
   const handleRejectClaim = async (claim: SeatClaim) => {
     Alert.alert(
-      "Reject passenger?",
-      `Reject ${claim.passenger?.full_name || "this passenger"}'s claim. They can try again or claim with another driver.`,
+      t.rejectPassenger,
+      t("rejectPassengerBody", { name: claim.passenger?.full_name || "" }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t.cancel, style: "cancel" },
         {
           text: t.rejectClaim,
           style: "destructive",
@@ -133,7 +133,7 @@ export default function MyLoadingScreen() {
     if (elapsed >= 3 * 60 * 60 * 1000 && !expiredFired.current) {
       expiredFired.current = true;
       QueueAPI.triggerWatchdog();
-      Alert.alert("Time's up", "Your 3-hour loading window has ended. You've been moved to the back of the queue.");
+      Alert.alert(t.timesUp, t.threeHourWindowEnded);
       setTimeout(() => router.replace("/(app)/queue"), 1500);
     }
   }, [now, entry?.id, entry?.status, entry?.load_start_at]);
@@ -144,8 +144,8 @@ export default function MyLoadingScreen() {
     // allocation, the driver can't fill the surplus slots even manually.
     if (idx >= required) {
       Alert.alert(
-        "Seat unavailable",
-        `Only ${required} of ${seats} seats are available right now — the loading timer has reduced your allocation.`,
+        t.seatUnavailable,
+        t("seatUnavailableBody", { required: String(required), seats: String(seats) }),
       );
       return;
     }
@@ -164,14 +164,12 @@ export default function MyLoadingScreen() {
     const wasLocked = states[idx] === "locked";
     if (states[idx] === "empty") return;
     Alert.alert(
-      wasLocked ? "Remove confirmed passenger?" : "Remove passenger?",
-      wasLocked
-        ? "This seat is locked (passenger confirmed). Removing them will reopen the seat."
-        : "This passenger will be removed and the seat will reopen.",
+      wasLocked ? t.removeConfirmed : t.removePassenger,
+      wasLocked ? t.removeConfirmedBody : t.removePassengerBody,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t.cancel, style: "cancel" },
         {
-          text: "Remove",
+          text: t.remove,
           style: "destructive",
           onPress: async () => {
             const newStates = [...states];
@@ -206,16 +204,16 @@ export default function MyLoadingScreen() {
   const handleDepart = () => {
     if (!entry) return;
     Alert.alert(
-      "Depart now?",
-      `You're leaving with ${boarded} of ${seats} seats filled. The next driver in your queue will be promoted to loading.`,
+      t.departNow,
+      t("departNowBody", { boarded: String(boarded), seats: String(seats) }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t.cancel, style: "cancel" },
         {
-          text: "Depart",
+          text: t.depart,
           style: "destructive",
           onPress: async () => {
             const { error } = await QueueAPI.depart(entry.id);
-            if (error) { Alert.alert("Error", error); return; }
+            if (error) { Alert.alert(t.error, error); return; }
             router.replace("/(app)/queue");
           },
         },
@@ -279,19 +277,19 @@ export default function MyLoadingScreen() {
         ) : !entry ? (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🚗</Text>
-            <Text style={s.emptyText}>You are not in a queue</Text>
+            <Text style={s.emptyText}>{t.youAreNotInQueue}</Text>
           </View>
         ) : entry.status === "ended" ? (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>👋</Text>
             <Text style={s.emptyText}>
-              You left this queue ({entry.end_reason || "ended"})
+              {t("youLeftQueue", { reason: entry.end_reason || "ended" })}
             </Text>
             <Text style={[s.emptyText, { fontSize: 12, color: Colors.t3, marginTop: 8 }]}>
-              Rejoin from the queue screen when you're ready.
+              {t.rejoinFromQueue}
             </Text>
             <TouchableOpacity style={s.openLoadingBtn} onPress={() => router.replace("/(app)/queue")}>
-              <Text style={s.openLoadingBtnText}>Back to queue</Text>
+              <Text style={s.openLoadingBtnText}>{t.backToQueue}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -313,7 +311,7 @@ export default function MyLoadingScreen() {
                 <Text style={s.claimsTitle}>🛎 {t.pendingClaims} · {pendingClaims.length}</Text>
                 {boarded >= required && (
                   <Text style={s.claimsCap}>
-                    Capped at {required} seat{required === 1 ? "" : "s"} by timer — reject these or depart.
+                    {t("cappedByTimer", { n: String(required) })}
                   </Text>
                 )}
                 {pendingClaims.map(claim => {
@@ -326,12 +324,12 @@ export default function MyLoadingScreen() {
                         <View style={s.claimAvatarFallback}><Text style={{ fontSize: 18 }}>👤</Text></View>
                       )}
                       <Text style={s.claimName} numberOfLines={1}>
-                        {claim.passenger?.full_name || "Passenger"}
+                        {claim.passenger?.full_name || t.passengerLabel}
                       </Text>
                       {claim.passenger_id && (
                         <UserActionMenu
                           userId={claim.passenger_id}
-                          userName={claim.passenger?.full_name || "Passenger"}
+                          userName={claim.passenger?.full_name || t.passengerLabel}
                         />
                       )}
                       <TouchableOpacity style={s.rejectBtn} onPress={() => handleRejectClaim(claim)}>

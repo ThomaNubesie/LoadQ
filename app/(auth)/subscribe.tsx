@@ -49,10 +49,7 @@ export default function SubscribeScreen() {
       // Webhook didn't land within ~7s — let the user retry. The Stripe
       // session might still be processing; status check on next focus
       // will catch it.
-      Alert.alert(
-        "Almost there",
-        "Your payment is being confirmed. This screen will refresh in a moment.",
-      );
+      Alert.alert(t.almostThere, t.paymentBeingConfirmed);
     });
     return () => sub.remove();
   }, [refreshDriver, router]);
@@ -69,7 +66,7 @@ export default function SubscribeScreen() {
 
   const handleSubscribe = async () => {
     if (!driver?.id) {
-      Alert.alert("Sign in required", "Please sign in before subscribing.");
+      Alert.alert(t.signInRequired, t.signInBeforeSubscribe);
       return;
     }
     setBusy(true);
@@ -80,14 +77,14 @@ export default function SubscribeScreen() {
       // point the listener above refreshes the driver row and navigates.
     } catch (e: any) {
       setBusy(false);
-      Alert.alert("Couldn't open checkout", e?.message ?? "Please try again.");
+      Alert.alert(t.cantOpenCheckout, e?.message ?? t.pleaseTryAgain);
     }
   };
 
   // Static prices for now — the web page handles real billing and Stripe
   // is the source of truth. These labels are informational only.
   const PLANS = [
-    { key:"monthly" as const, name:t.monthly, price:"C$34.99", full:null, per:t.perMonth, desc:t.billedMonthly, badge:null, perks:["Full queue access","Seat tracking + peer confirm","Priority queue on join","Loading history","30-day free trial"], popular:true },
+    { key:"monthly" as const, name:t.monthly, price:"C$34.99", full:null, per:t.perMonth, desc:t.billedMonthly, badge:null, perks:[t.fullQueueAccess, t.seatTrackingPeer, t.priorityQueueOnJoin, t.loadingHistory, t.thirtyDayFreeTrial], popular:true },
   ];
 
   return (
@@ -99,7 +96,7 @@ export default function SubscribeScreen() {
 
         <View style={s.logoBox}>
           <Text style={s.logo}>LOADQ</Text>
-          <Text style={s.logoSub}>Driver subscription</Text>
+          <Text style={s.logoSub}>{t.driverSubscription}</Text>
         </View>
 
         {onHold ? (
@@ -153,16 +150,13 @@ export default function SubscribeScreen() {
         >
           {busy
             ? <ActivityIndicator color={Colors.accentText} />
-            : <Text style={s.btnText}>Continue on the web →</Text>}
+            : <Text style={s.btnText}>{t.continueOnWeb}</Text>}
         </TouchableOpacity>
 
-        <Text style={s.disclaimer}>
-          Subscriptions are processed on our website at loadq.ca. You'll be
-          redirected to Safari to complete the secure Stripe checkout.
-        </Text>
+        <Text style={s.disclaimer}>{t.subscribeDisclaimer}</Text>
 
         <View style={s.secureRow}>
-          <Text style={s.secureBadge}>🔒 30-day free trial</Text>
+          <Text style={s.secureBadge}>🔒 {t.thirtyDayFreeTrial}</Text>
           <Text style={s.secureBadge}>{t.cancelAnytime}</Text>
         </View>
       </ScrollView>
