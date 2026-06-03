@@ -1,24 +1,26 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { Colors } from "../constants/colors";
+import { useStrings } from "../hooks/useStrings";
 import ActiveTripBanner from "./ActiveTripBanner";
 
 interface Tab {
-  label: string;
-  route: string;
-  match: string;
+  labelKey: "tabBoard" | "tabZones" | "tabHistory" | "tabMe";
+  route:    string;
+  match:    string;
 }
 
 const TABS: Tab[] = [
-  { label: "BOARD",  route: "/(passenger)/queue",   match: "/queue"   },
-  { label: "ZONES",  route: "/(passenger)/zones",   match: "/zones"   },
-  { label: "HIST",   route: "/(passenger)/history",   match: "/history"   },
-  { label: "ME",     route: "/(passenger)/profile", match: "/profile" },
+  { labelKey: "tabBoard",   route: "/(passenger)/queue",   match: "/queue"   },
+  { labelKey: "tabZones",   route: "/(passenger)/zones",   match: "/zones"   },
+  { labelKey: "tabHistory", route: "/(passenger)/history", match: "/history" },
+  { labelKey: "tabMe",      route: "/(passenger)/profile", match: "/profile" },
 ];
 
 export default function PassengerBottomNav() {
   const router   = useRouter();
   const pathname = usePathname();
+  const { t }    = useStrings();
 
   return (
     <View>
@@ -33,7 +35,7 @@ export default function PassengerBottomNav() {
             onPress={() => { if (!active) router.replace(tab.route as any); }}
             activeOpacity={0.7}
           >
-            <Text style={[s.label, active && s.labelActive]} numberOfLines={1}>{tab.label}</Text>
+            <Text style={[s.label, active && s.labelActive]} numberOfLines={1}>{t[tab.labelKey]}</Text>
             {active && <View style={s.underline} />}
           </TouchableOpacity>
         );

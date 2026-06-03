@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useZones } from "../../hooks/useZones";
+import { useStrings } from "../../hooks/useStrings";
 import { REGIONS, RegionCode, ZoneLocation } from "../../constants/zones";
 import { Colors } from "../../constants/colors";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -12,6 +13,7 @@ const REGION_ORDER: RegionCode[] = ["ottawa", "gatineau", "montreal", "quebec", 
 
 export default function PassengerZonesScreen() {
   const router = useRouter();
+  const { t } = useStrings();
   const { zones } = useZones();
   const [selected, setSelected] = useState<ZoneLocation | null>(null);
 
@@ -36,7 +38,7 @@ export default function PassengerZonesScreen() {
 
   const onCopy = async (z: ZoneLocation) => {
     try { await Clipboard.setStringAsync(z.address || z.name); } catch {}
-    Alert.alert("Copied", "Address copied to clipboard.");
+    Alert.alert(t.copied, t.addressCopied);
   };
 
   const onShare = async (z: ZoneLocation) => {
@@ -51,7 +53,7 @@ export default function PassengerZonesScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.title}>LOADING ZONES</Text>
+        <Text style={s.title}>{t.loadingZones}</Text>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll}>
@@ -80,7 +82,7 @@ export default function PassengerZonesScreen() {
           );
         })}
         {zones.length === 0 && (
-          <Text style={s.empty}>No zones available yet.</Text>
+          <Text style={s.empty}>{t.noZones}</Text>
         )}
       </ScrollView>
 
@@ -103,21 +105,21 @@ export default function PassengerZonesScreen() {
             </View>
 
             {selected?.radius_meters && (
-              <Text style={s.modalMeta}>{selected.radius_meters}m geofence radius</Text>
+              <Text style={s.modalMeta}>{t("geofenceRadius", { m: String(selected.radius_meters) })}</Text>
             )}
 
             <TouchableOpacity style={s.modalAction} onPress={() => selected && onGetDirections(selected)} activeOpacity={0.85}>
-              <Text style={s.modalActionText}>Get directions</Text>
+              <Text style={s.modalActionText}>{t.getDirections}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.modalAction} onPress={() => selected && onCopy(selected)} activeOpacity={0.85}>
-              <Text style={s.modalActionText}>Copy address</Text>
+              <Text style={s.modalActionText}>{t.copyAddress}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.modalAction} onPress={() => selected && onShare(selected)} activeOpacity={0.85}>
-              <Text style={s.modalActionText}>Share</Text>
+              <Text style={s.modalActionText}>{t.share}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={s.modalViewBoard} onPress={() => selected && onViewBoard(selected)} activeOpacity={0.85}>
-              <Text style={s.modalViewBoardText}>View board for this zone →</Text>
+              <Text style={s.modalViewBoardText}>{t.viewBoardForZone}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
