@@ -162,12 +162,12 @@ export default function QueueScreen() {
   // Pre-flight checks: window open, geo-fence, not already in queue.
   // Returns null on success, or an error message string.
   const validateJoin = (): string | null => {
-    if (!activeZone || !myVehicle) return "Missing zone or vehicle";
+    if (!activeZone || !myVehicle) return t.missingZoneOrVehicle;
     if (!isWithinLoadingWindow(new Date(), getZoneTimezone(activeZone.id))) {
       return `${t.queueClosed} — ${t.queueClosedSub}`;
     }
-    if (myEntry) return "You are already in this queue";
-    if (!userCoords) return "Location required to join. Please enable GPS.";
+    if (myEntry) return t.alreadyInQueue;
+    if (!userCoords) return t.locationRequiredJoin;
     const dist = getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude);
     const allowedRadius = activeZone.radius_meters / 1000;
     if (dist > allowedRadius) {
@@ -186,12 +186,12 @@ export default function QueueScreen() {
   const handleLeaveQueue = () => {
     if (!myEntry) return;
     Alert.alert(
-      "Leave the queue?",
-      "Are you sure you want to remove yourself from the queue? You'll lose your position and have to rejoin at the back.",
+      t.leaveQueueTitle,
+      t.leaveQueueBody,
       [
-        { text: "Stay in queue", style: "cancel" },
+        { text: t.stayInQueue, style: "cancel" },
         {
-          text: "Leave queue",
+          text: t.leaveQueue,
           style: "destructive",
           onPress: async () => {
             const { error } = await QueueAPI.leaveQueue(myEntry.id);
@@ -345,8 +345,8 @@ export default function QueueScreen() {
 
     const isEnded = entry.status === "ended";
     const endLabel: Record<string, string> = {
-      departed: "Departed", cancelled: "Cancelled", expired: "Expired",
-      removed_by_admin: "Removed", eod_close: "Closed", window_closed: "Window closed",
+      departed: t.endReasonDeparted, cancelled: t.endReasonCancelled, expired: t.endReasonExpired,
+      removed_by_admin: t.endReasonRemoved, eod_close: t.endReasonClosed, window_closed: t.endReasonWindowClosed,
     };
 
     const unreadFromThis = unreadBySender.get(entry.driver_id) ?? 0;
@@ -384,8 +384,8 @@ export default function QueueScreen() {
             )}
           </TouchableOpacity>
           <View style={s.info}>
-            <Text style={s.name}>{entry.driver?.full_name || "Driver"}{isMe ? " (you)" : ""}</Text>
-            <Text style={s.vehicleName}>{vehicle ? `${vehicle.make} ${vehicle.model}` : "Vehicle"}</Text>
+            <Text style={s.name}>{entry.driver?.full_name || t.driverLabel}{isMe ? ` ${t.youSuffix}` : ""}</Text>
+            <Text style={s.vehicleName}>{vehicle ? `${vehicle.make} ${vehicle.model}` : t.vehicleFallback}</Text>
             {!isEnded && (
               <>
                 <View style={s.miniSeats}>
@@ -408,7 +408,7 @@ export default function QueueScreen() {
             )}
           </View>
           {isEnded && (
-            <Text style={s.endedBadge}>{endLabel[entry.end_reason || ""] || "Ended"}</Text>
+            <Text style={s.endedBadge}>{endLabel[entry.end_reason || ""] || t.endReasonGeneric}</Text>
           )}
           {!isMe && !isEnded && entry.driver && (
             <View style={s.contactRow}>
@@ -533,7 +533,7 @@ export default function QueueScreen() {
         <View style={{ flex:1 }}>
           {/* Zone picker */}
           <TouchableOpacity style={s.zonePicker} onPress={() => setShowDropdown(true)} activeOpacity={0.8}>
-            <Text style={s.zonePickerName}>{activeZone?.name || "Select zone"}</Text>
+            <Text style={s.zonePickerName}>{activeZone?.name || t.selectZone}</Text>
             <Text style={s.zonePickerRegion}>{activeZone ? REGIONS.find(r => r.code === activeZone.region)?.name : ""} ▾</Text>
           </TouchableOpacity>
           {activeZone && (
@@ -577,7 +577,7 @@ export default function QueueScreen() {
               <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
                 <TouchableOpacity style={s.joinBtn} onPress={() => router.replace("/(app)/my-loading")} activeOpacity={0.85}>
                   <Text style={s.joinBtnText}>
-                    #{myEntry.position} · {myEntry.status === "loading" ? "Loading" : getRegionName(myEntry.destination_region)} →
+                    #{myEntry.position} · {myEntry.status === "loading" ? t.loadingNow : getRegionName(myEntry.destination_region)} →
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.leaveChip} onPress={handleLeaveQueue} activeOpacity={0.7}>
@@ -598,14 +598,14 @@ export default function QueueScreen() {
               >
                 <Text style={[s.joinBtnText, { color: Colors.accentText }]}>
                   {!windowOpen
-                    ? "Closed"
+                    ? t.queueClosed
                     : joining
-                      ? "Joining..."
+                      ? t.joining
                       : inGeo
                         ? "✓ Join queue"
                         : distanceMeters !== null
                           ? `Join (${distanceMeters}m away)`
-                          : "Join queue"}
+                          : t.joinQueue}
                 </Text>
               </TouchableOpacity>
             )
@@ -665,7 +665,7 @@ export default function QueueScreen() {
               <View key={destKey} style={{ marginTop:14 }}>
                 <View style={s.destHeader}>
                   <Text style={s.destHeaderName}>
-                    → {destKey === "_unknown" ? "Destination not set" : getRegionName(destKey)}
+                    → {destKey === "_unknown" ? t.destinationNotSet : getRegionName(destKey)}
                   </Text>
                   <View style={{ flexDirection:"row", alignItems:"center", gap:8 }}>
                     <Text style={s.destHeaderCount}>{list.length}</Text>
