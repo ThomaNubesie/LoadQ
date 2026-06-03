@@ -114,7 +114,7 @@ export default function PassengerLoadingScreen() {
 
   const handleClaim = async (entry: QueueEntry) => {
     if (!inGeo) {
-      Alert.alert("Out of range", t.outOfRange);
+      Alert.alert(t.outOfRangeTitle, t.outOfRange);
       return;
     }
     setClaiming(entry.id);
@@ -164,20 +164,20 @@ export default function PassengerLoadingScreen() {
     if (!activeZone) return;
     const addr = activeZone.address || activeZone.name;
     Alert.alert(activeZone.name, addr, [
-      { text: "Get directions", onPress: () => {
+      { text: t.getDirections, onPress: () => {
         const q = encodeURIComponent(addr);
         const url = Platform.OS === "ios"
           ? `http://maps.apple.com/?daddr=${q}`
           : `https://www.google.com/maps/dir/?api=1&destination=${q}`;
         Linking.openURL(url);
       }},
-      { text: "Copy address", onPress: async () => {
+      { text: t.copyAddress, onPress: async () => {
         try { await Clipboard.setStringAsync(addr); } catch {}
       }},
-      { text: "Share address", onPress: async () => {
+      { text: t.shareAddress, onPress: async () => {
         try { await Share.share({ message: `${activeZone.name}\n${addr}` }); } catch {}
       }},
-      { text: "Cancel", style: "cancel" },
+      { text: t.cancel, style: "cancel" },
     ]);
   };
 
@@ -252,7 +252,7 @@ export default function PassengerLoadingScreen() {
                 {isMyReservation && !within500m && (
                   <View style={s.yourTripBanner}>
                     <Text style={s.yourTripText}>
-                      Your reservation · {distanceM !== null ? `${distanceM}m from zone` : "outside zone"}
+                      {t("yourReservation", { distance: distanceM !== null ? t("metersFromZone", { m: String(distanceM) }) : t.outsideZone })}
                     </Text>
                   </View>
                 )}
@@ -264,12 +264,12 @@ export default function PassengerLoadingScreen() {
                   )}
                   <View style={{ flex: 1 }}>
                     <View style={s.driverNameRow}>
-                      <Text style={s.driverName}>{entry.driver?.full_name || "Driver"}</Text>
+                      <Text style={s.driverName}>{entry.driver?.full_name || t.driverLabel}</Text>
                       {entry.driver?.verified && <VerifiedBadge size={15} />}
                       {entry.driver_id && (
                         <UserActionMenu
                           userId={entry.driver_id}
-                          userName={entry.driver?.full_name || "Driver"}
+                          userName={entry.driver?.full_name || t.driverLabel}
                         />
                       )}
                     </View>
@@ -300,8 +300,8 @@ export default function PassengerLoadingScreen() {
                         onPress={() => {
                           if (!canContact) {
                             Alert.alert(
-                              "Move closer to call",
-                              `Get within 500m of ${activeZone?.name || "the zone"} or claim a seat first.`,
+                              t.moveCloserToCall,
+                              t("moveCloserBody", { zone: activeZone?.name || "" }),
                             );
                             return;
                           }
@@ -310,7 +310,7 @@ export default function PassengerLoadingScreen() {
                         activeOpacity={0.85}
                       >
                         <Text style={s.passengerContactEmoji}>{canContact ? "📞" : "🔒"}</Text>
-                        <Text style={s.passengerContactLabel}>Call driver</Text>
+                        <Text style={s.passengerContactLabel}>{t.callDriver}</Text>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
@@ -318,8 +318,8 @@ export default function PassengerLoadingScreen() {
                       onPress={() => {
                         if (!canContact) {
                           Alert.alert(
-                            "Move closer to message",
-                            `Get within 500m of ${activeZone?.name || "the zone"} or claim a seat first.`,
+                            t.moveCloserToMessage,
+                            t("moveCloserBody", { zone: activeZone?.name || "" }),
                           );
                           return;
                         }
@@ -337,7 +337,7 @@ export default function PassengerLoadingScreen() {
                           pathname: "/(app)/thread" as any,
                           params: {
                             id:    entry.driver_id,
-                            name:  entry.driver?.full_name || "Driver",
+                            name:  entry.driver?.full_name || t.driverLabel,
                             phone: entry.driver?.phone || "",
                           },
                         });
@@ -345,7 +345,7 @@ export default function PassengerLoadingScreen() {
                       activeOpacity={0.85}
                     >
                       <Text style={s.passengerContactEmoji}>{canContact ? "💬" : "🔒"}</Text>
-                      <Text style={[s.passengerContactLabel, { color: Colors.accentText }]}>Message</Text>
+                      <Text style={[s.passengerContactLabel, { color: Colors.accentText }]}>{t.messageLabel}</Text>
                       {unreadFromThis > 0 && (
                         <View style={s.passengerContactBadge}>
                           <Text style={s.passengerContactBadgeText}>

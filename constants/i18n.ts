@@ -323,6 +323,12 @@ export const STRINGS = {
     // Generic role fallbacks (used when full_name is missing)
     passengerLabel:        "Passenger",
     driverLabel:           "Driver",
+    outOfRangeTitle:       "Out of range",
+    getDirections:         "Get directions",
+    copyAddress:           "Copy address",
+    shareAddress:          "Share address",
+    metersFromZone:        "{m}m from zone",
+    outsideZone:           "outside zone",
 
     // UserActionMenu / Reports / Blocks
     reportUser:            "Report",
@@ -662,6 +668,12 @@ export const STRINGS = {
     // Generic role fallbacks
     passengerLabel:        "Passager",
     driverLabel:           "Conducteur",
+    outOfRangeTitle:       "Hors de portée",
+    getDirections:         "Obtenir l'itinéraire",
+    copyAddress:           "Copier l'adresse",
+    shareAddress:          "Partager l'adresse",
+    metersFromZone:        "à {m} m de la zone",
+    outsideZone:           "hors de la zone",
 
     // UserActionMenu / Reports / Blocks
     reportUser:            "Signaler",
