@@ -44,13 +44,13 @@ export default function ProfileScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Delete account?",
-      "This permanently deletes your profile, vehicles, queue history, messages, and trip records. This cannot be undone.",
+      t.deleteAccount,
+      t.deleteAccountDriverBody,
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete forever", style: "destructive", onPress: async () => {
+        { text: t.cancel, style: "cancel" },
+        { text: t.deleteForever, style: "destructive", onPress: async () => {
           const { error } = await supabase.rpc("delete_my_account");
-          if (error) { Alert.alert("Could not delete", error.message); return; }
+          if (error) { Alert.alert(t.couldNotDelete, error.message); return; }
           await AuthAPI.signOut();
           router.replace("/(auth)/language");
         }},
@@ -123,7 +123,7 @@ export default function ProfileScreen() {
             </View>
           </TouchableOpacity>
           <View style={s.nameRow}>
-            <Text style={s.name}>{driver?.full_name || "Driver"}</Text>
+            <Text style={s.name}>{driver?.full_name || t.driverLabel}</Text>
             {driver?.verified && <VerifiedBadge size={20} />}
           </View>
           <TouchableOpacity onPress={handlePickAvatar} disabled={uploading}>
@@ -152,12 +152,12 @@ export default function ProfileScreen() {
         {/* Subscription */}
         <View style={s.card}>
           <View style={s.cardRow}>
-            <Text style={s.cardTitle}>Subscription</Text>
+            <Text style={s.cardTitle}>{t.subscriptionTitle}</Text>
             <View style={[s.badge, { backgroundColor:subColor+"20", borderColor:subColor+"40" }]}>
               <Text style={[s.badgeText, { color:subColor }]}>{subLabel}</Text>
             </View>
           </View>
-          <Text style={s.cardSub}>{driver?.subscription_plan === "annual" ? t.annual : t.monthly} plan</Text>
+          <Text style={s.cardSub}>{driver?.subscription_plan === "annual" ? t.annual : t.monthly} {t.planSuffix}</Text>
           {driver?.subscription_ends_at && (
             <Text style={s.cardNote}>{t.renewsOn} {new Date(driver.subscription_ends_at).toLocaleDateString()}</Text>
           )}
@@ -167,7 +167,7 @@ export default function ProfileScreen() {
         <Text style={s.sectionLabel}>{t.myVehicles.toUpperCase()}</Text>
         {vehicles.length === 0 ? (
           <View style={s.emptyVehicle}>
-            <Text style={s.emptyText}>No vehicles added yet</Text>
+            <Text style={s.emptyText}>{t.noVehiclesYet}</Text>
             <TouchableOpacity style={s.addBtn} onPress={() => router.push("/(auth)/vehicle-setup")}>
               <Text style={s.addBtnText}>+ {t.addVehicle}</Text>
             </TouchableOpacity>
@@ -184,7 +184,7 @@ export default function ProfileScreen() {
                 <View style={s.vehicleInfo}>
                   <View style={s.vehicleRow}>
                     <Text style={s.vehicleName}>{v.year} {v.make} {v.model}</Text>
-                    {v.is_active && <View style={s.activeDot}><Text style={s.activeDotText}>Active</Text></View>}
+                    {v.is_active && <View style={s.activeDot}><Text style={s.activeDotText}>{t.activeBadge}</Text></View>}
                   </View>
                   <Text style={s.vehiclePlate}>{v.plate}{v.color ? ` · ${v.color}` : ""}</Text>
                   <View style={s.vehicleMeta}>
@@ -213,16 +213,16 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/loading-history")} activeOpacity={0.85}>
-          <Text style={s.historyBtnText}>📋  Loading history</Text>
+          <Text style={s.historyBtnText}>📋  {t.loadingHistoryLabel}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/referral")} activeOpacity={0.85}>
-          <Text style={s.historyBtnText}>🎁  Refer & earn a free month</Text>
+          <Text style={s.historyBtnText}>🎁  {t.referAndEarn}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/messages" as any)} activeOpacity={0.85}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={s.historyBtnText}>💬  Messages</Text>
+            <Text style={s.historyBtnText}>💬  {t.messagesLabel}</Text>
             {unread > 0 && (
               <View style={s.unreadBadge}>
                 <Text style={s.unreadBadgeText}>{unread > 99 ? "99+" : unread}</Text>
@@ -234,16 +234,16 @@ export default function ProfileScreen() {
         {driver?.is_admin && (
           <>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-zones")} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>🛠  Admin · Zones</Text>
+              <Text style={s.adminBtnText}>🛠  {t.adminZones}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-destinations")} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>🗺  Admin · Destinations</Text>
+              <Text style={s.adminBtnText}>🗺  {t.adminDestinations}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-verify")} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>👥  Admin · Users</Text>
+              <Text style={s.adminBtnText}>👥  {t.adminUsers}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-inbox" as any)} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>📨  Admin · Inbox</Text>
+              <Text style={s.adminBtnText}>📨  {t.adminInbox}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -253,7 +253,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={s.deleteAccountBtn} onPress={handleDeleteAccount}>
-          <Text style={s.deleteAccountText}>Delete account</Text>
+          <Text style={s.deleteAccountText}>{t.deleteAccountAction}</Text>
         </TouchableOpacity>
       </ScrollView>
       <BottomNav />

@@ -38,13 +38,13 @@ export default function PassengerProfileScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Delete account?",
-      "This permanently deletes your profile, trip records, and messages. This cannot be undone.",
+      t.deleteAccount,
+      t.deleteAccountBody,
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete forever", style: "destructive", onPress: async () => {
+        { text: t.cancel, style: "cancel" },
+        { text: t.deleteForever, style: "destructive", onPress: async () => {
           const { error } = await supabase.rpc("delete_my_account");
-          if (error) { Alert.alert("Could not delete", error.message); return; }
+          if (error) { Alert.alert(t.couldNotDelete, error.message); return; }
           await AuthAPI.signOut();
           router.replace("/(auth)/language");
         }},
@@ -102,7 +102,7 @@ export default function PassengerProfileScreen() {
               </View>
             </View>
           </TouchableOpacity>
-          <Text style={s.name}>{passenger?.full_name || "Passenger"}</Text>
+          <Text style={s.name}>{passenger?.full_name || t.passengerLabel}</Text>
           <TouchableOpacity onPress={handlePickAvatar} disabled={uploading}>
             <Text style={s.avatarHint}>
               {uploading ? t.loading : (passenger?.avatar_url ? t.changePhoto : t.addPhoto)}
@@ -125,7 +125,7 @@ export default function PassengerProfileScreen() {
           </View>
         </View>
 
-        <Text style={s.sectionLabel}>LANGUAGE</Text>
+        <Text style={s.sectionLabel}>{t.languageLabel}</Text>
         <View style={s.langRow}>
           {(["en","fr"] as Lang[]).map(l => (
             <TouchableOpacity key={l} style={[s.langBtn, lang===l && s.langBtnActive]} onPress={() => setLang(l)}>
@@ -136,9 +136,9 @@ export default function PassengerProfileScreen() {
           ))}
         </View>
 
-        <Text style={s.sectionLabel}>ACCOUNT</Text>
+        <Text style={s.sectionLabel}>{t.accountLabel}</Text>
         <TouchableOpacity style={s.rowBtn} onPress={() => router.push("/(passenger)/messages" as any)} activeOpacity={0.85}>
-          <Text style={s.rowBtnText}>Messages</Text>
+          <Text style={s.rowBtnText}>{t.messagesLabel}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             {unread > 0 && (
               <View style={s.badge}>
@@ -149,25 +149,25 @@ export default function PassengerProfileScreen() {
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={handleSignOut} activeOpacity={0.85}>
-          <Text style={[s.rowBtnText, { color: Colors.red }]}>Sign out</Text>
+          <Text style={[s.rowBtnText, { color: Colors.red }]}>{t.signOutLabel}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={handleDeleteAccount} activeOpacity={0.85}>
-          <Text style={[s.rowBtnText, { color: Colors.t3 }]}>Delete account</Text>
+          <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.deleteAccountAction}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
 
-        <Text style={[s.sectionLabel, { marginTop: 24 }]}>ABOUT</Text>
+        <Text style={[s.sectionLabel, { marginTop: 24 }]}>{t.aboutLabel}</Text>
         <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("https://loadq.ca/privacy")} activeOpacity={0.85}>
-          <Text style={s.rowBtnText}>Privacy</Text>
+          <Text style={s.rowBtnText}>{t.privacy}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("mailto:support@loadq.ca")} activeOpacity={0.85}>
-          <Text style={s.rowBtnText}>Support</Text>
+          <Text style={s.rowBtnText}>{t.support}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
         <View style={[s.rowBtn, { justifyContent: "space-between" }]}>
-          <Text style={[s.rowBtnText, { color: Colors.t3 }]}>Version</Text>
+          <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.versionLabel}</Text>
           <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>{Constants.expoConfig?.version ?? "—"}</Text>
         </View>
       </ScrollView>
