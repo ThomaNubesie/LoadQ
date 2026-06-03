@@ -375,6 +375,13 @@ export const STRINGS = {
     reported:              "Reported. Thanks for the heads-up.",
     couldNotBlock:         "Could not block",
     couldNotReport:        "Could not report",
+    chooseAnAction:        "Choose an action",
+    reportThisUser:        "Report this user?",
+    reportThisUserBody:    "An admin will review your report and take action if needed.",
+    blockThisUser:         "Block this user?",
+    blockThisUserBody:     "You won't see their content or receive messages from them.",
+    reportedBody:          "Thanks. An admin will review.",
+    blockedBody:           "You won't see content from {name}.",
   },
 
   fr: {
@@ -751,6 +758,13 @@ export const STRINGS = {
     reported:              "Signalé. Merci pour l'information.",
     couldNotBlock:         "Impossible de bloquer",
     couldNotReport:        "Impossible de signaler",
+    chooseAnAction:        "Choisir une action",
+    reportThisUser:        "Signaler cet utilisateur ?",
+    reportThisUserBody:    "Un administrateur examinera votre signalement et prendra les mesures nécessaires.",
+    blockThisUser:         "Bloquer cet utilisateur ?",
+    blockThisUserBody:     "Vous ne verrez plus son contenu et ne recevrez plus ses messages.",
+    reportedBody:          "Merci. Un administrateur examinera.",
+    blockedBody:           "Vous ne verrez plus le contenu de {name}.",
   },
 };
 

@@ -1,6 +1,7 @@
 import { TouchableOpacity, Alert, Text, StyleSheet } from "react-native";
 import { UserActions } from "../services/userActions";
 import { Colors } from "../constants/colors";
+import { useStrings } from "../hooks/useStrings";
 
 type Props = {
   userId:    string;
@@ -9,24 +10,26 @@ type Props = {
 };
 
 export default function UserActionMenu({ userId, userName, onBlocked }: Props) {
+  const { t } = useStrings();
+
   const openMenu = () => {
-    Alert.alert(userName, "Choose an action", [
+    Alert.alert(userName, t.chooseAnAction, [
       {
-        text: "Report",
+        text: t.reportUser,
         onPress: () => {
           Alert.alert(
-            "Report this user?",
-            "An admin will review your report and take action if needed.",
+            t.reportThisUser,
+            t.reportThisUserBody,
             [
-              { text: "Cancel", style: "cancel" },
+              { text: t.cancel, style: "cancel" },
               {
-                text: "Report",
+                text: t.reportUser,
                 style: "destructive",
                 onPress: async () => {
                   const { error } = await UserActions.report(userId);
                   Alert.alert(
-                    error ? "Couldn't report" : "Reported",
-                    error || "Thanks. An admin will review.",
+                    error ? t.couldNotReport : t.reported,
+                    error || t.reportedBody,
                   );
                 },
               },
@@ -35,21 +38,21 @@ export default function UserActionMenu({ userId, userName, onBlocked }: Props) {
         },
       },
       {
-        text: "Block",
+        text: t.blockUser,
         style: "destructive",
         onPress: () => {
           Alert.alert(
-            "Block this user?",
-            "You won't see their content or receive messages from them.",
+            t.blockThisUser,
+            t.blockThisUserBody,
             [
-              { text: "Cancel", style: "cancel" },
+              { text: t.cancel, style: "cancel" },
               {
-                text: "Block",
+                text: t.blockUser,
                 style: "destructive",
                 onPress: async () => {
                   const { error } = await UserActions.block(userId);
-                  if (error) { Alert.alert("Couldn't block", error); return; }
-                  Alert.alert("Blocked", `You won't see content from ${userName}.`);
+                  if (error) { Alert.alert(t.couldNotBlock, error); return; }
+                  Alert.alert(t.blocked, t("blockedBody", { name: userName }));
                   onBlocked?.();
                 },
               },
@@ -57,7 +60,7 @@ export default function UserActionMenu({ userId, userName, onBlocked }: Props) {
           );
         },
       },
-      { text: "Cancel", style: "cancel" },
+      { text: t.cancel, style: "cancel" },
     ]);
   };
 
