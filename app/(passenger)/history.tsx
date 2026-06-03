@@ -8,6 +8,7 @@ import { TripsAPI, Trip } from "../../services/trips";
 import { getRegionName } from "../../constants/pricing";
 import { QueueEntry } from "../../constants/types";
 import { useZones } from "../../hooks/useZones";
+import { useStrings } from "../../hooks/useStrings";
 import { loadActiveZone } from "../../utils/zoneStore";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 
@@ -61,6 +62,7 @@ function relativeTime(ms: number): string {
 }
 
 export default function PassengerHistoryScreen() {
+  const { t } = useStrings();
   const { zones } = useZones();
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
   const [chip, setChip]                 = useState<Chip>("today");
@@ -114,7 +116,7 @@ export default function PassengerHistoryScreen() {
       kind:         (r.end_reason === "departed" ? "departed"
                    : r.end_reason === "timeout_2h" ? "timeout_2h"
                    : "eod_close") as ActivityRow["kind"],
-      driverName:   r.driver?.full_name || "Driver",
+      driverName:   r.driver?.full_name || t.driverLabel,
       driverId:     r.driver?.id || null,
       destination:  r.destination_region,
       seatsFilled:  r.seats_filled ?? 0,
@@ -142,7 +144,7 @@ export default function PassengerHistoryScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.title}>BOARD HISTORY{zone ? ` · ${zone.name.toUpperCase()}` : ""}</Text>
+        <Text style={s.title}>{t.boardHistory}{zone ? ` · ${zone.name.toUpperCase()}` : ""}</Text>
       </View>
 
       <View style={s.chipRow}>
@@ -154,7 +156,7 @@ export default function PassengerHistoryScreen() {
             activeOpacity={0.85}
           >
             <Text style={[s.chipText, chip === c && s.chipTextActive]}>
-              {c === "now" ? "Now" : c === "today" ? "Today" : c === "week" ? "7d" : "All"}
+              {c === "now" ? t.nowChip : c === "today" ? t.todayChip : c === "week" ? t.sevenDaysChip : t.allChip}
             </Text>
           </TouchableOpacity>
         ))}
@@ -168,12 +170,12 @@ export default function PassengerHistoryScreen() {
         {loading ? (
           <View style={s.loadingBlock}>
             <ActivityIndicator color={Colors.accent} size="large" />
-            <Text style={s.empty}>Loading…</Text>
+            <Text style={s.empty}>{t.loading}</Text>
           </View>
         ) : rows.length === 0 ? (
           <View style={s.emptyBlock}>
             <Text style={s.emptyEmoji}>📭</Text>
-            <Text style={s.emptyText}>No board activity yet for this window.</Text>
+            <Text style={s.emptyText}>{t.boardActivityEmpty}</Text>
           </View>
         ) : (
           rows.map(r => {
@@ -195,13 +197,13 @@ export default function PassengerHistoryScreen() {
         )}
 
         <View style={s.tripsFooter}>
-          <Text style={s.tripsFooterLabel}>YOUR TRIPS THIS WEEK</Text>
+          <Text style={s.tripsFooterLabel}>{t.yourTripsThisWeek}</Text>
           <View style={s.tripsFooterStats}>
-            <Text style={s.tripsFooterStat}>Trips <Text style={s.tripsFooterVal}>{weekTrips.length}</Text></Text>
+            <Text style={s.tripsFooterStat}>{t.trips} <Text style={s.tripsFooterVal}>{weekTrips.length}</Text></Text>
             <Text style={s.tripsFooterDot}>·</Text>
-            <Text style={s.tripsFooterStat}>Spent <Text style={s.tripsFooterVal}>C${weekSpent.toFixed(0)}</Text></Text>
+            <Text style={s.tripsFooterStat}>{t.spent} <Text style={s.tripsFooterVal}>C${weekSpent.toFixed(0)}</Text></Text>
             <Text style={s.tripsFooterDot}>·</Text>
-            <Text style={s.tripsFooterStat}>Saved <Text style={s.tripsFooterVal}>C${weekSaved.toFixed(0)}</Text></Text>
+            <Text style={s.tripsFooterStat}>{t.saved} <Text style={s.tripsFooterVal}>C${weekSaved.toFixed(0)}</Text></Text>
           </View>
         </View>
       </ScrollView>
