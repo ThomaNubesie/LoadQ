@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, AppState, ActivityIndicator } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useStrings } from "../../hooks/useStrings";
 import { QueueAPI } from "../../services/queue";
 import { Colors } from "../../constants/colors";
 import { QueueEntry } from "../../constants/types";
@@ -16,6 +17,7 @@ import PassengerBottomNav from "../../components/PassengerBottomNav";
 
 export default function PassengerBoardScreen() {
   const router = useRouter();
+  const { t } = useStrings();
   const { zones } = useZones();
   const { zoneId: paramZoneId } = useLocalSearchParams<{ zoneId?: string }>();
 
@@ -158,22 +160,22 @@ export default function PassengerBoardScreen() {
         <Text style={s.brand}>LoadQ</Text>
         <View style={s.liveTag}>
           <View style={s.liveDot} />
-          <Text style={s.liveText}>LIVE</Text>
+          <Text style={s.liveText}>{t.liveLabel}</Text>
         </View>
       </View>
 
       <View style={s.zoneRow}>
         <View style={{ flex: 1 }}>
           <Text style={s.zoneName} numberOfLines={1}>
-            {activeZone ? `${REGIONS.find(r => r.code === activeZone.region)?.name ?? activeZone.region} · ${activeZone.name}` : "Detecting zone…"}
+            {activeZone ? `${REGIONS.find(r => r.code === activeZone.region)?.name ?? activeZone.region} · ${activeZone.name}` : t.detectingZone}
           </Text>
-          <Text style={s.activeCount}>{activeCount} active</Text>
+          <Text style={s.activeCount}>{activeCount} {t.activeShort}</Text>
         </View>
         <TouchableOpacity onPress={handleUseMyLocation} style={s.locBtn} activeOpacity={0.7}>
           <Text style={s.locBtnText}>📍</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/(passenger)/zones" as any)}>
-          <Text style={s.changeZone}>Change ›</Text>
+          <Text style={s.changeZone}>{t.changeShort}</Text>
         </TouchableOpacity>
       </View>
 
@@ -185,12 +187,12 @@ export default function PassengerBoardScreen() {
         {loading ? (
           <View style={s.loadingBlock}>
             <ActivityIndicator color={Colors.accent} size="large" />
-            <Text style={s.empty}>Loading…</Text>
+            <Text style={s.empty}>{t.loading}</Text>
           </View>
         ) : routes.length === 0 ? (
           <View style={s.emptyBlock}>
-            <Text style={s.emptyHeading}>No cars in this zone</Text>
-            <Text style={s.empty}>Pull down to refresh, or check another zone.</Text>
+            <Text style={s.emptyHeading}>{t.noCarsInZone}</Text>
+            <Text style={s.empty}>{t.pullToRefresh}</Text>
           </View>
         ) : (
           routes.map(r => {
