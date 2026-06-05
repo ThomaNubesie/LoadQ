@@ -57,6 +57,9 @@ export default function QueueScreen() {
   // Set of driver_ids whose card is currently flashing orange in response
   // to an incoming message. We add on receipt and remove ~2s later.
   const [flashIds,       setFlashIds]       = useState<Set<string>>(new Set());
+  // True once the first load() completes — lets focus/foreground re-detects
+  // refresh silently instead of flashing the full-screen spinner.
+  const loadedOnceRef = useRef(false);
 
   useFocusEffect(useCallback(() => {
     MessagesAPI.unreadCount().then(setUnread);
@@ -106,8 +109,12 @@ export default function QueueScreen() {
     return sorted[0] || zones[0];
   };
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true); else setLoading(true);
+  // `silent` re-detects in the background without flashing the full-screen
+  // spinner — used by the focus/foreground re-detect so reopening the app
+  // doesn't blank the queue. The first load always shows the spinner.
+  const load = useCallback(async (isRefresh = false, silent = false) => {
+    if (isRefresh) setRefreshing(true);
+    else if (!silent || !loadedOnceRef.current) setLoading(true);
     // Single top-level timeout covers permission + location read so
     // neither call can hang this screen on weird Android states.
     const loc = await tryGetUserLocation(8000);
@@ -132,6 +139,7 @@ export default function QueueScreen() {
     ]);
     setMyId(driver?.id || null);
     setMyVehicle(vehicles.find(v => v.is_active) || vehicles[0] || null);
+    loadedOnceRef.current = true;
     setLoading(false);
     setRefreshing(false);
   }, [paramZoneId, zones]);
@@ -140,24 +148,32 @@ export default function QueueScreen() {
   // returns from background. load() does GPS lookup and resolves to the
   // nearest zone — so a driver who drove from Ottawa to Montréal will land
   // in the Montréal queue the moment they reopen the app, no manual picker
-  // tap needed.
-  useFocusAndForeground(load);
+  // tap needed. Debounced (8s) + silent so the focus+foreground double-fire
+  // doesn't re-run GPS several times or blank the screen on every reopen.
+  const refocusDetect = useCallback(() => { load(false, true); }, [load]);
+  useFocusAndForeground(refocusDetect, 8000);
 
-  // Poll GPS every 5s so the Join button flips green the moment the driver
-  // walks into the zone radius (without needing a manual refresh).
-  useEffect(() => {
+  // Track the driver's live position so the Join button flips green the
+  // moment they walk into the zone radius. A single watchPositionAsync
+  // subscription (scoped to focus) emits only on ~25m movement — far cheaper
+  // and safer on Android than the old 5s setInterval, which stacked
+  // overlapping one-shot getCurrentPositionAsync reads and could ANR/crash.
+  useFocusEffect(useCallback(() => {
+    let sub: Location.LocationSubscription | null = null;
     let cancelled = false;
-    const tick = async () => {
+    (async () => {
       try {
         const { status } = await Location.getForegroundPermissionsAsync();
-        if (status !== "granted") return;
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (!cancelled) setUserCoords({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+        if (status !== "granted" || cancelled) return;
+        sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 25, timeInterval: 10000 },
+          loc => setUserCoords({ lat: loc.coords.latitude, lon: loc.coords.longitude }),
+        );
+        if (cancelled) { sub.remove(); sub = null; }
       } catch { /* ignore transient GPS errors */ }
-    };
-    const id = setInterval(tick, 5000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
+    })();
+    return () => { cancelled = true; if (sub) sub.remove(); };
+  }, []));
 
   // Pre-flight checks: window open, geo-fence, not already in queue.
   // Returns null on success, or an error message string.

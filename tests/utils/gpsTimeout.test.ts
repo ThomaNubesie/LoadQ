@@ -1,4 +1,4 @@
-import { tryGetUserLocation, getCurrentLocationWithTimeout } from "../../utils/gpsTimeout";
+import { tryGetUserLocation, getCurrentLocationWithTimeout, __resetGpsSingleFlight } from "../../utils/gpsTimeout";
 import * as Location from "expo-location";
 
 const mockedLocation = Location as jest.Mocked<typeof Location>;
@@ -7,6 +7,7 @@ const sampleCoords = { coords: { latitude: 45.4215, longitude: -75.6972 } } as a
 describe("tryGetUserLocation", () => {
   beforeEach(() => {
     jest.useRealTimers();
+    __resetGpsSingleFlight();
     mockedLocation.requestForegroundPermissionsAsync.mockReset();
     mockedLocation.getCurrentPositionAsync.mockReset();
   });
@@ -65,6 +66,7 @@ describe("tryGetUserLocation", () => {
 describe("getCurrentLocationWithTimeout", () => {
   beforeEach(() => {
     jest.useRealTimers();
+    __resetGpsSingleFlight();
     mockedLocation.getCurrentPositionAsync.mockReset();
   });
 

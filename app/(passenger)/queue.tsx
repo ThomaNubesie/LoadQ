@@ -31,6 +31,10 @@ export default function PassengerBoardScreen() {
   // their pick on tab switches and app foregrounds. They reclaim control
   // by tapping "📍" (re-detect) or picking another zone.
   const manualPickRef = useRef(false);
+  // Throttles the AppState foreground re-detect so the inactive→active
+  // bounce (incl. returning from the GPS permission dialog) doesn't fire
+  // back-to-back GPS reads.
+  const lastForegroundDetectRef = useRef(0);
 
   // GPS-detect with a single top-level timeout that covers permission +
   // location. Falls back to the first zone only if there is no current
@@ -96,10 +100,15 @@ export default function PassengerBoardScreen() {
     }
   }, [paramZoneId, zones]));
 
-  // App foreground re-detect — only when the user hasn't pinned a zone.
+  // App foreground re-detect — only when the user hasn't pinned a zone,
+  // throttled to one GPS read per 8s.
   useEffect(() => {
     const sub = AppState.addEventListener("change", state => {
-      if (state === "active" && !manualPickRef.current) detectViaGPS();
+      if (state !== "active" || manualPickRef.current) return;
+      const now = Date.now();
+      if (now - lastForegroundDetectRef.current < 8000) return;
+      lastForegroundDetectRef.current = now;
+      detectViaGPS();
     });
     return () => sub.remove();
   }, [detectViaGPS]);

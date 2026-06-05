@@ -11,18 +11,34 @@ import { useFocusEffect } from "expo-router";
 // Used to re-run GPS-based zone detection so drivers and passengers always
 // land on their current physical zone whenever the app becomes interactive,
 // not just when they manually navigate.
-export function useFocusAndForeground(callback: () => void) {
+//
+// `minIntervalMs` debounces the callback: focus and foreground both fire in
+// quick succession (and on Android, returning from the permission dialog
+// itself bounces AppState inactive→active), which otherwise re-runs an
+// expensive GPS + network reload several times per interaction. Pass the
+// GPS timeout (~8s) so a single user action triggers at most one detect.
+export function useFocusAndForeground(callback: () => void, minIntervalMs = 0) {
   // Stash latest callback in a ref so the AppState listener doesn't capture
   // a stale closure if the caller's deps change between mounts.
   const cbRef = useRef(callback);
   cbRef.current = callback;
+  const lastRunRef = useRef(0);
 
-  useFocusEffect(useCallback(() => { cbRef.current(); }, []));
+  const run = useCallback(() => {
+    if (minIntervalMs > 0) {
+      const now = Date.now();
+      if (now - lastRunRef.current < minIntervalMs) return;
+      lastRunRef.current = now;
+    }
+    cbRef.current();
+  }, [minIntervalMs]);
+
+  useFocusEffect(useCallback(() => { run(); }, [run]));
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") cbRef.current();
+      if (state === "active") run();
     });
     return () => sub.remove();
-  }, []);
+  }, [run]);
 }

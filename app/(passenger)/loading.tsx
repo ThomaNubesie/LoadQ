@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, RefreshControl, Alert, Modal, Linking, Platform, Share, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -49,8 +49,16 @@ export default function PassengerLoadingScreen() {
   // Per-driver unread message count. Drives the badge on each card's 💬 button.
   const [unreadByDriver, setUnreadByDriver] = useState<Map<string, number>>(new Map());
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true); else setLoading(true);
+  // True once the first load() completes — lets focus/foreground re-detects
+  // refresh silently instead of flashing the full-screen spinner.
+  const loadedOnceRef = useRef(false);
+
+  // `silent` re-detects in the background without blanking the list — used by
+  // the focus/foreground re-detect so reopening the app doesn't flash the
+  // spinner over content. The first load always shows the spinner.
+  const load = useCallback(async (isRefresh = false, silent = false) => {
+    if (isRefresh) setRefreshing(true);
+    else if (!silent || !loadedOnceRef.current) setLoading(true);
     let zone = activeZone;
     // If the Board tab handed us a zoneId, pin to it instead of GPS-detecting.
     // Keeps the loading view consistent with what the passenger saw on Board.
@@ -96,6 +104,7 @@ export default function PassengerLoadingScreen() {
     }
     // Unread DMs per driver — drives the badge on each card's chat icon.
     setUnreadByDriver(await MessagesAPI.unreadBySender());
+    loadedOnceRef.current = true;
     setLoading(false); setRefreshing(false);
   }, [activeZone?.id, zones, zoneIdParam]);
 
@@ -127,7 +136,10 @@ export default function PassengerLoadingScreen() {
   // Re-run GPS + nearest-zone detection on every focus AND every time the
   // app returns from background, so the passenger lands on their current
   // zone whenever they reopen the app, even if they last viewed another.
-  useFocusAndForeground(load);
+  // Debounced (8s) + silent so the focus+foreground double-fire doesn't
+  // re-run GPS several times or blank the list on every reopen.
+  const refocusDetect = useCallback(() => { load(false, true); }, [load]);
+  useFocusAndForeground(refocusDetect, 8000);
 
   // Live unread badge: bump the per-driver counter whenever a new message
   // arrives from one of the loading drivers, without waiting for a poll.

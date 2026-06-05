@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import { getCurrentLocationWithTimeout } from "../utils/gpsTimeout";
 import { supabase } from "./supabase";
 
 let _interval: ReturnType<typeof setInterval> | null = null;
@@ -10,7 +11,10 @@ async function uploadOnce() {
   try {
     const { status } = await Location.getForegroundPermissionsAsync();
     if (status !== "granted") return;
-    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    // Shares the app-wide single-flight read (see utils/gpsTimeout) so this
+    // 60s loop never stacks a native GPS request on top of a screen's read.
+    const loc = await getCurrentLocationWithTimeout(8000);
+    if (!loc) return;
     await supabase.rpc("update_my_location", {
       p_lat: loc.coords.latitude,
       p_lng: loc.coords.longitude,
