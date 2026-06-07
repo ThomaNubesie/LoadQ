@@ -93,6 +93,12 @@ function originCity(region: RegionCode | string | null | undefined): Destination
   return REGION_TO_CITY[region] ?? null;
 }
 
+// Public wrapper so the savings comparison (constants/comparisons.ts) can map
+// a zone's region to its fare-origin city using the same logic as fares.
+export function regionOriginCity(region: RegionCode | string | null | undefined): DestinationCity | null {
+  return originCity(region);
+}
+
 // Price per seat between a zone's region and a destination city. null = "set on board".
 export function getPricePerSeat(
   fromRegion: RegionCode | string | null | undefined,

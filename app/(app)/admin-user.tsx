@@ -142,6 +142,51 @@ export default function AdminUserScreen() {
     Linking.openURL(`mailto:${user.email}?subject=LoadQ`);
   };
 
+  const callPhone = () => {
+    if (!user?.phone) { Alert.alert("No phone on file"); return; }
+    Linking.openURL(`tel:${user.phone}`);
+  };
+
+  // Admin force-cancels every active reservation the passenger holds.
+  const forceCancelReservations = () => {
+    if (!user) return;
+    Alert.alert(
+      "Cancel all reservations?",
+      "Withdraws every pending and confirmed seat reservation this passenger currently holds, freeing the seats for others.",
+      [
+        { text: "Keep", style: "cancel" },
+        { text: "Cancel reservations", style: "destructive", onPress: async () => {
+          setBusy(true);
+          const { data, error } = await supabase.rpc("admin_cancel_passenger_claims", { p_id: user.id });
+          setBusy(false);
+          if (error) { Alert.alert("Could not cancel", error.message); return; }
+          Alert.alert("Done", `${data ?? 0} reservation(s) cancelled.`);
+          load();
+        }},
+      ],
+    );
+  };
+
+  // Admin hard-deletes the passenger profile + owned data (auth login row is
+  // kept so the same email can sign up fresh — matches self-delete behaviour).
+  const deletePassenger = () => {
+    if (!user) return;
+    Alert.alert(
+      "Delete this passenger?",
+      "Permanently deletes their profile, trips, reservations and messages. Their login record is kept so the same email can sign up again. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: async () => {
+          setBusy(true);
+          const { error } = await supabase.rpc("admin_delete_passenger", { p_id: user.id });
+          setBusy(false);
+          if (error) { Alert.alert("Could not delete", error.message); return; }
+          router.back();
+        }},
+      ],
+    );
+  };
+
   const openThread = () => {
     if (!user) return;
     router.push({ pathname: "/(app)/admin-thread" as any, params: { id: user.id, role, name: user.full_name } });
@@ -430,6 +475,11 @@ export default function AdminUserScreen() {
             <TouchableOpacity style={[s.actionBtn, s.actNeutral]} onPress={sendEmail} activeOpacity={0.85}>
               <Text style={[s.actionText, s.txtT1]}>✉️  Email</Text>
             </TouchableOpacity>
+            {!!user.phone && (
+              <TouchableOpacity style={[s.actionBtn, s.actNeutral]} onPress={callPhone} activeOpacity={0.85}>
+                <Text style={[s.actionText, s.txtT1]}>📞  Call</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={[s.actionBtn, s.actAccent]} onPress={openThread} activeOpacity={0.85}>
               <Text style={[s.actionText, s.txtAccent]}>💬  Message</Text>
             </TouchableOpacity>
@@ -447,6 +497,26 @@ export default function AdminUserScreen() {
                 activeOpacity={0.85}
               >
                 <Text style={[s.actionText, s.txtRed]}>🚫  Remove from queue</Text>
+              </TouchableOpacity>
+            )}
+            {!isDriver && (
+              <TouchableOpacity
+                style={[s.actionBtn, s.actBlocked]}
+                disabled={busy}
+                onPress={forceCancelReservations}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.actionText, s.txtRed]}>✋  Cancel reservations</Text>
+              </TouchableOpacity>
+            )}
+            {!isDriver && (
+              <TouchableOpacity
+                style={[s.actionBtn, s.actBlocked]}
+                disabled={busy}
+                onPress={deletePassenger}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.actionText, s.txtRed]}>🗑  Delete passenger</Text>
               </TouchableOpacity>
             )}
           </View>

@@ -46,6 +46,15 @@ export default function AdminZonesScreen() {
   const [gpsLoading,  setGpsLoading]  = useState(false);
   const [error,       setError]       = useState("");
 
+  // Inline edit of an existing zone's display name + address. Coordinates,
+  // region and radius stay fixed here — those are set at creation. Renaming
+  // lets admins shorten long labels (e.g. "Berri-UQAM — Sainte-Catherine")
+  // that otherwise overflow the passenger header.
+  const [editingId,   setEditingId]   = useState<string | null>(null);
+  const [editName,    setEditName]    = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [savingEdit,  setSavingEdit]  = useState(false);
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -108,6 +117,25 @@ export default function AdminZonesScreen() {
   const handleToggleActive = async (zone: ZoneRow) => {
     const { error: tErr } = await ZonesAPI.setActive(zone.id, !zone.is_active);
     if (tErr) { Alert.alert("Error", tErr); return; }
+    await refresh();
+  };
+
+  const startEditZone = (z: ZoneRow) => {
+    setEditingId(z.id);
+    setEditName(z.name);
+    setEditAddress(z.address || "");
+  };
+
+  const saveEditZone = async (z: ZoneRow) => {
+    if (!editName.trim()) { Alert.alert("Name required", "Zone name can't be empty."); return; }
+    setSavingEdit(true);
+    const { error: uErr } = await ZonesAPI.update(z.id, {
+      name: editName.trim(),
+      address: editAddress.trim() || null,
+    });
+    setSavingEdit(false);
+    if (uErr) { Alert.alert("Could not update", uErr); return; }
+    setEditingId(null);
     await refresh();
   };
 
@@ -208,12 +236,36 @@ export default function AdminZonesScreen() {
         <Text style={[s.section, { marginTop:32 }]}>EXISTING ({zones.length})</Text>
         {zones.map(z => (
           <View key={z.id} style={s.zoneCard}>
-            <View style={{ flex:1 }}>
-              <Text style={[s.zoneName, !z.is_active && { color: Colors.t3 }]}>{z.name}</Text>
-              <Text style={s.zoneAddr}>{z.address || "—"}</Text>
-              <Text style={s.zoneMeta}>{z.region}  ·  {z.timezone}  ·  {z.radius_meters}m  ·  {z.latitude.toFixed(4)}, {z.longitude.toFixed(4)}</Text>
-            </View>
-            <Switch value={z.is_active} onValueChange={() => handleToggleActive(z)} trackColor={{ false:Colors.border, true:Colors.accent }} thumbColor="#fff" />
+            {editingId === z.id ? (
+              <View style={{ flex:1 }}>
+                <Text style={s.label}>NAME</Text>
+                <TextInput style={s.input} value={editName} onChangeText={setEditName} placeholder="Zone name" placeholderTextColor={Colors.t3} />
+                <Text style={s.label}>ADDRESS</Text>
+                <TextInput style={s.input} value={editAddress} onChangeText={setEditAddress} placeholder="Address" placeholderTextColor={Colors.t3} />
+                <View style={s.editBtnRow}>
+                  <TouchableOpacity style={[s.editSaveBtn, savingEdit && s.saveBtnOff]} onPress={() => saveEditZone(z)} disabled={savingEdit} activeOpacity={0.85}>
+                    <Text style={s.editSaveText}>{savingEdit ? "Saving…" : "Save"}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.editCancelBtn} onPress={() => setEditingId(null)} disabled={savingEdit} activeOpacity={0.85}>
+                    <Text style={s.editCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                <View style={{ flex:1 }}>
+                  <Text style={[s.zoneName, !z.is_active && { color: Colors.t3 }]}>{z.name}</Text>
+                  <Text style={s.zoneAddr}>{z.address || "—"}</Text>
+                  <Text style={s.zoneMeta}>{z.region}  ·  {z.timezone}  ·  {z.radius_meters}m  ·  {z.latitude.toFixed(4)}, {z.longitude.toFixed(4)}</Text>
+                </View>
+                <View style={s.zoneActions}>
+                  <TouchableOpacity onPress={() => startEditZone(z)} style={s.zoneEditBtn} activeOpacity={0.7}>
+                    <Text style={s.zoneEditText}>✏️</Text>
+                  </TouchableOpacity>
+                  <Switch value={z.is_active} onValueChange={() => handleToggleActive(z)} trackColor={{ false:Colors.border, true:Colors.accent }} thumbColor="#fff" />
+                </View>
+              </>
+            )}
           </View>
         ))}
       </ScrollView>
@@ -251,4 +303,12 @@ const s = StyleSheet.create({
   zoneName:    { fontSize:13, fontWeight:"600", color:Colors.t1 },
   zoneAddr:    { fontSize:11, color:Colors.t2, marginTop:2 },
   zoneMeta:    { fontSize:10, color:Colors.t3, marginTop:3 },
+  zoneActions: { flexDirection:"row", alignItems:"center", gap:10 },
+  zoneEditBtn: { padding:4 },
+  zoneEditText:{ fontSize:16 },
+  editBtnRow:  { flexDirection:"row", gap:8, marginTop:4 },
+  editSaveBtn: { flex:1, backgroundColor:Colors.accent, borderRadius:10, paddingVertical:10, alignItems:"center" },
+  editSaveText:{ color:Colors.accentText, fontSize:13, fontWeight:"700" },
+  editCancelBtn:{ flex:1, backgroundColor:Colors.card, borderWidth:1, borderColor:Colors.border, borderRadius:10, paddingVertical:10, alignItems:"center" },
+  editCancelText:{ color:Colors.t2, fontSize:13, fontWeight:"700" },
 });

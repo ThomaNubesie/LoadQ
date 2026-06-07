@@ -10,10 +10,20 @@ import { getDistanceKm, REGIONS, ZoneLocation } from "../../constants/zones";
 import { useZones } from "../../hooks/useZones";
 import { getRegionName } from "../../constants/pricing";
 import { loadingState } from "../../utils/loadingTimer";
+import { HistoryAPI, LoadingHistoryRow } from "../../services/history";
 import { useNow } from "../../hooks/useNow";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import { saveActiveZone, loadActiveZone } from "../../utils/zoneStore";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+
+// Start of the current loading day (4 AM local). Matches the History tab and
+// the 4 AM daily reset, so "earlier today" shows only this day's events.
+function startOfToday4am(): number {
+  const d = new Date();
+  d.setHours(4, 0, 0, 0);
+  if (d.getTime() > Date.now()) d.setDate(d.getDate() - 1);
+  return d.getTime();
+}
 
 export default function PassengerBoardScreen() {
   const router = useRouter();
@@ -22,6 +32,7 @@ export default function PassengerBoardScreen() {
   const { zoneId: paramZoneId } = useLocalSearchParams<{ zoneId?: string }>();
 
   const [entries, setEntries]       = useState<QueueEntry[]>([]);
+  const [ended, setEnded]           = useState<LoadingHistoryRow[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeZone, setActiveZone] = useState<ZoneLocation | null>(null);
@@ -121,8 +132,14 @@ export default function PassengerBoardScreen() {
   const load = useCallback(async (isRefresh = false) => {
     if (!activeZone) return;
     if (isRefresh) setRefreshing(true); else setLoading(true);
-    const list = await QueueAPI.getZoneQueue(activeZone.id);
+    // Live routes from the active queue + the day's finished sessions, so the
+    // Board keeps a greyed-out record of cars that already departed/timed out.
+    const [list, hist] = await Promise.all([
+      QueueAPI.getZoneQueue(activeZone.id),
+      HistoryAPI.listForZone(activeZone.id, startOfToday4am()),
+    ]);
     setEntries(list.filter(e => e.status !== "ended"));
+    setEnded(hist);
     setLoading(false);
     setRefreshing(false);
   }, [activeZone?.id]);
@@ -232,6 +249,36 @@ export default function PassengerBoardScreen() {
             );
           })
         )}
+
+        {ended.length > 0 && (
+          <>
+            <View style={s.endedDivider}>
+              <View style={s.endedLine} />
+              <Text style={s.endedDividerText}>earlier today</Text>
+              <View style={s.endedLine} />
+            </View>
+            {ended.map(h => {
+              const departed = h.end_reason === "departed";
+              const time = new Date(h.ended_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+              const reason = departed ? "departed" : h.end_reason === "timeout_2h" ? "2h timeout" : "day close";
+              return (
+                <View key={h.id} style={[s.routeCard, s.endedCard]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.routeName, s.endedTextDim]} numberOfLines={1}>
+                      {activeZone ? REGIONS.find(rr => rr.code === activeZone.region)?.name : ""} → {getRegionName(h.destination_region)}
+                    </Text>
+                    <Text style={[s.routeMeta, s.endedTextDim]}>
+                      {time} · {reason}{departed && h.seats_filled > 0 ? ` · ${h.seats_filled} seats` : ""}
+                    </Text>
+                  </View>
+                  <Text style={[s.endedMark, departed ? s.endedMarkOk : s.endedMarkBad]}>
+                    {departed ? "✓" : "✗"}
+                  </Text>
+                </View>
+              );
+            })}
+          </>
+        )}
       </ScrollView>
 
       <PassengerBottomNav />
@@ -258,6 +305,14 @@ const s = StyleSheet.create({
   routeMeta:     { fontSize: 11, color: Colors.t3, marginTop: 4, letterSpacing: 0.5, fontWeight: "600" },
   routeCount:    { fontSize: 28, fontWeight: "900", color: Colors.t2, letterSpacing: -0.5, minWidth: 56, textAlign: "right" },
   routeCountHot: { color: Colors.accent },
+  endedDivider:  { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 18, marginBottom: 10 },
+  endedLine:     { flex: 1, height: 0.5, backgroundColor: Colors.border },
+  endedDividerText: { fontSize: 11, fontWeight: "700", color: Colors.t3, letterSpacing: 0.5 },
+  endedCard:     { opacity: 0.5 },
+  endedTextDim:  { color: Colors.t3 },
+  endedMark:     { fontSize: 20, fontWeight: "900", width: 28, textAlign: "right" },
+  endedMarkOk:   { color: "#22C55E" },
+  endedMarkBad:  { color: Colors.red },
   empty:         { color: Colors.t3, textAlign: "center", marginTop: 40 },
   loadingBlock:  { alignItems: "center", marginTop: 60, gap: 12 },
   emptyBlock:    { alignItems: "center", marginTop: 40 },

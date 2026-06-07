@@ -40,6 +40,19 @@ export const TripsAPI = {
     return (data as Trip[]) ?? [];
   },
 
+  // Every trip the signed-in passenger has ever taken — used for the
+  // lifetime savings headline. Bounded only by their own usage.
+  async listAllMine(): Promise<Trip[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data } = await supabase
+      .from("trips")
+      .select("id, zone_id, destination_region, price_paid, created_at")
+      .eq("passenger_id", user.id)
+      .order("created_at", { ascending: false });
+    return (data as Trip[]) ?? [];
+  },
+
   // Aggregate stats across the network for the past 7 days.
   async listNetwork(): Promise<NetworkStat[]> {
     const { data } = await supabase

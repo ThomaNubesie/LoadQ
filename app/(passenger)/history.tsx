@@ -6,6 +6,7 @@ import { HistoryAPI, LoadingHistoryRow } from "../../services/history";
 import { QueueAPI } from "../../services/queue";
 import { TripsAPI, Trip } from "../../services/trips";
 import { getRegionName } from "../../constants/pricing";
+import { sumSavings, COMPARE_MODES } from "../../constants/comparisons";
 import { QueueEntry } from "../../constants/types";
 import { useZones } from "../../hooks/useZones";
 import { useStrings } from "../../hooks/useStrings";
@@ -69,6 +70,7 @@ export default function PassengerHistoryScreen() {
   const [historyRows, setHistoryRows]   = useState<LoadingHistoryRow[]>([]);
   const [loadingNow, setLoadingNow]     = useState<QueueEntry[]>([]);
   const [trips, setTrips]               = useState<Trip[]>([]);
+  const [allTrips, setAllTrips]         = useState<Trip[]>([]);
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);
 
@@ -87,14 +89,16 @@ export default function PassengerHistoryScreen() {
     if (!activeZoneId) return;
     if (isRefresh) setRefreshing(true); else setLoading(true);
     const sinceMs = chipSinceMs(chip);
-    const [hist, queue, mine] = await Promise.all([
+    const [hist, queue, mine, all] = await Promise.all([
       chip === "now" ? Promise.resolve([] as LoadingHistoryRow[]) : HistoryAPI.listForZone(activeZoneId, sinceMs),
       QueueAPI.getZoneQueue(activeZoneId),
       TripsAPI.listMine(),
+      TripsAPI.listAllMine(),
     ]);
     setHistoryRows(hist);
     setLoadingNow(queue.filter(e => e.status === "loading"));
     setTrips(mine);
+    setAllTrips(all);
     setLoading(false);
     setRefreshing(false);
   }, [activeZoneId, chip]);
@@ -139,7 +143,23 @@ export default function PassengerHistoryScreen() {
   const weekAgo    = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const weekTrips  = trips.filter(t => new Date(t.created_at).getTime() >= weekAgo);
   const weekSpent  = weekTrips.reduce((sum, t) => sum + Number(t.price_paid || 0), 0);
-  const weekSaved  = Math.max(0, weekTrips.length * 20 - weekSpent);
+
+  // Map a trip's loading zone back to its region (fare origin) so the savings
+  // comparison can look up competitor fares. Falls back to the zone id prefix.
+  const regionForZone = useCallback(
+    (zoneId: string) => zones.find(z => z.id === zoneId)?.region ?? zoneId.split("-")[0],
+    [zones],
+  );
+  const toSavingsInput = useCallback(
+    (list: Trip[]) => list.map(t => ({
+      fromRegion: regionForZone(t.zone_id),
+      toCity:     t.destination_region,
+      paid:       Number(t.price_paid || 0),
+    })),
+    [regionForZone],
+  );
+  const lifetimeSavings = useMemo(() => sumSavings(toSavingsInput(allTrips)),  [allTrips,  toSavingsInput]);
+  const weekSavings     = useMemo(() => sumSavings(toSavingsInput(weekTrips)), [weekTrips, toSavingsInput]);
 
   return (
     <SafeAreaView style={s.container}>
@@ -196,15 +216,25 @@ export default function PassengerHistoryScreen() {
           })
         )}
 
-        <View style={s.tripsFooter}>
-          <Text style={s.tripsFooterLabel}>{t.yourTripsThisWeek}</Text>
-          <View style={s.tripsFooterStats}>
-            <Text style={s.tripsFooterStat}>{t.trips} <Text style={s.tripsFooterVal}>{weekTrips.length}</Text></Text>
-            <Text style={s.tripsFooterDot}>·</Text>
-            <Text style={s.tripsFooterStat}>{t.spent} <Text style={s.tripsFooterVal}>C${weekSpent.toFixed(0)}</Text></Text>
-            <Text style={s.tripsFooterDot}>·</Text>
-            <Text style={s.tripsFooterStat}>{t.saved} <Text style={s.tripsFooterVal}>C${weekSaved.toFixed(0)}</Text></Text>
+        <View style={s.savingsCard}>
+          <Text style={s.savingsLabel}>YOUR LOADQ SAVINGS</Text>
+          <Text style={s.savingsBig}>C${Math.round(lifetimeSavings.bus)}</Text>
+          <Text style={s.savingsSub}>
+            saved vs the bus over {allTrips.length} trip{allTrips.length === 1 ? "" : "s"}
+          </Text>
+
+          <View style={s.savingsBreak}>
+            {COMPARE_MODES.map(m => (
+              <View key={m.key} style={s.savingsBreakRow}>
+                <Text style={s.savingsBreakMode}>vs {m.label}</Text>
+                <Text style={s.savingsBreakVal}>C${Math.round(lifetimeSavings[m.key])}</Text>
+              </View>
+            ))}
           </View>
+
+          <Text style={s.savingsWeek}>
+            This week: {weekTrips.length} trip{weekTrips.length === 1 ? "" : "s"} · spent C${weekSpent.toFixed(0)} · saved C${Math.round(weekSavings.bus)} vs bus
+          </Text>
         </View>
       </ScrollView>
 
@@ -232,10 +262,13 @@ const s = StyleSheet.create({
   rowIcon:          { fontSize: 20, fontWeight: "900", width: 22, textAlign: "center" },
   rowRoute:         { color: Colors.t1, fontSize: 13, fontWeight: "700" },
   rowMeta:          { color: Colors.t3, fontSize: 11, marginTop: 3, fontWeight: "500" },
-  tripsFooter:      { marginTop: 24, paddingTop: 16, borderTopWidth: 0.5, borderTopColor: Colors.border },
-  tripsFooterLabel: { fontSize: 11, fontWeight: "800", color: Colors.t3, letterSpacing: 2, marginBottom: 8, textAlign: "center" },
-  tripsFooterStats: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
-  tripsFooterStat:  { color: Colors.t2, fontSize: 12, fontWeight: "600" },
-  tripsFooterVal:   { color: Colors.accent, fontWeight: "800" },
-  tripsFooterDot:   { color: Colors.border, fontSize: 12 },
+  savingsCard:      { marginTop: 24, padding: 18, borderRadius: 16, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, alignItems: "center" },
+  savingsLabel:     { fontSize: 11, fontWeight: "800", color: Colors.t3, letterSpacing: 2, marginBottom: 6 },
+  savingsBig:       { fontSize: 40, fontWeight: "900", color: Colors.accent, letterSpacing: -1 },
+  savingsSub:       { fontSize: 12, color: Colors.t2, marginTop: 2, marginBottom: 14, fontWeight: "600" },
+  savingsBreak:     { alignSelf: "stretch", gap: 2, borderTopWidth: 0.5, borderTopColor: Colors.border, paddingTop: 12 },
+  savingsBreakRow:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 7 },
+  savingsBreakMode: { fontSize: 13, color: Colors.t2, fontWeight: "600" },
+  savingsBreakVal:  { fontSize: 14, color: Colors.t1, fontWeight: "800" },
+  savingsWeek:      { fontSize: 11, color: Colors.t3, marginTop: 12, textAlign: "center", fontWeight: "500" },
 });

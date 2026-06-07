@@ -22,10 +22,16 @@ interface UserRow {
   created_at: string;
 }
 
-const FILTERS: { key: Filter; label: string }[] = [
+// Status chips per role. Passengers have no verification, so they only get
+// the All / Blocked split; drivers keep the full set.
+const DRIVER_FILTERS: { key: Filter; label: string }[] = [
   { key: "all",      label: "All" },
   { key: "pending",  label: "Pending" },
   { key: "verified", label: "Verified" },
+  { key: "blocked",  label: "Blocked" },
+];
+const PASSENGER_FILTERS: { key: Filter; label: string }[] = [
+  { key: "all",      label: "All" },
   { key: "blocked",  label: "Blocked" },
 ];
 
@@ -33,7 +39,17 @@ export default function AdminUsersScreen() {
   const router = useRouter();
   const [rows, setRows]         = useState<UserRow[]>([]);
   const [q, setQ]               = useState("");
+  const [roleTab, setRoleTab]   = useState<Role>("driver");
   const [filter, setFilter]     = useState<Filter>("pending");
+
+  // Switching role resets a role-incompatible status chip (e.g. Passengers
+  // can't be "pending"/"verified").
+  const switchRole = (role: Role) => {
+    setRoleTab(role);
+    if (role === "passenger" && (filter === "pending" || filter === "verified")) {
+      setFilter("all");
+    }
+  };
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefresh] = useState(false);
   const [busy, setBusy]         = useState<string | null>(null);
@@ -99,6 +115,8 @@ export default function AdminUsersScreen() {
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return rows.filter(r => {
+      // role tab
+      if (r.role !== roleTab) return false;
       // filter chip
       if (filter === "pending"  && (r.role !== "driver" || r.verified || r.blocked)) return false;
       if (filter === "verified" && !r.verified) return false;
@@ -109,7 +127,14 @@ export default function AdminUsersScreen() {
           || (r.email   ?? "").toLowerCase().includes(term)
           || (r.phone   ?? "").toLowerCase().includes(term));
     });
-  }, [rows, q, filter]);
+  }, [rows, q, filter, roleTab]);
+
+  const counts = useMemo(() => ({
+    driver:    rows.filter(r => r.role === "driver").length,
+    passenger: rows.filter(r => r.role === "passenger").length,
+  }), [rows]);
+
+  const statusFilters = roleTab === "driver" ? DRIVER_FILTERS : PASSENGER_FILTERS;
 
   return (
     <SafeAreaView style={s.container}>
@@ -131,8 +156,26 @@ export default function AdminUsersScreen() {
         onChangeText={setQ}
       />
 
+      <View style={s.roleTabs}>
+        {([
+          { key: "driver"    as Role, label: `Drivers`,    n: counts.driver },
+          { key: "passenger" as Role, label: `Passengers`, n: counts.passenger },
+        ]).map(rt => (
+          <TouchableOpacity
+            key={rt.key}
+            style={[s.roleTab, roleTab === rt.key && s.roleTabActive]}
+            onPress={() => switchRole(rt.key)}
+            activeOpacity={0.85}
+          >
+            <Text style={[s.roleTabText, roleTab === rt.key && s.roleTabTextActive]}>
+              {rt.label} ({rt.n})
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={s.tabs}>
-        {FILTERS.map(f => (
+        {statusFilters.map(f => (
           <TouchableOpacity
             key={f.key}
             style={[s.tab, filter === f.key && s.tabActive]}
@@ -211,6 +254,11 @@ const s = StyleSheet.create({
   addBtn:       { fontSize: 28, color: Colors.accent, width: 24, textAlign: "right", lineHeight: 28, fontWeight: "300" },
   title:        { fontSize: 17, fontWeight: "700", color: Colors.t1 },
   search:       { margin: 16, marginBottom: 0, backgroundColor: Colors.card, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 11, color: Colors.t1 },
+  roleTabs:     { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 14 },
+  roleTab:      { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card, alignItems: "center" },
+  roleTabActive:{ backgroundColor: Colors.accent+"20", borderColor: Colors.accent },
+  roleTabText:  { fontSize: 13, fontWeight: "800", color: Colors.t2 },
+  roleTabTextActive: { color: Colors.accent },
   tabs:         { flexDirection: "row", gap: 6, paddingHorizontal: 16, paddingTop: 12 },
   tab:          { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
   tabActive:    { backgroundColor: Colors.accent+"20", borderColor: Colors.accent },
