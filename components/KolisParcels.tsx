@@ -59,7 +59,7 @@ export default function KolisParcels() {
             <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 13 }}>{sizeLabel(p.size)} {k.forDest} {p.to_city}</Text>
             <Text style={{ color: Colors.t3, fontSize: 10.5 }}>{k.pickHere} · 🔒 {k.senderHidden}</Text>
           </View>
-          <Text style={{ color: Colors.green, fontWeight: "800", fontSize: 13, marginRight: 8 }}>C${Math.round(p.price_cents / 100)}</Text>
+          <Text style={{ color: Colors.green, fontWeight: "800", fontSize: 13, marginRight: 8 }}>+C${Math.round((p.driver_payout_cents ?? 0) / 100)}</Text>
           <TouchableOpacity onPress={() => accept(p)} disabled={busyId === p.id} style={{ backgroundColor: MAG, borderRadius: 9, paddingVertical: 7, paddingHorizontal: 13 }}>
             {busyId === p.id ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>{k.accept}</Text>}
           </TouchableOpacity>

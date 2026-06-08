@@ -17,8 +17,12 @@ export default function KolisCarrying() {
   const [list, setList] = useState<KolisParcel[]>([]);
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [earned, setEarned] = useState(0);
 
-  const load = useCallback(() => { KolisAPI.carrying().then(setList).catch(() => {}); }, []);
+  const load = useCallback(() => {
+    KolisAPI.carrying().then(setList).catch(() => {});
+    KolisAPI.earnedCents().then(setEarned).catch(() => {});
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const deliver = async (p: KolisParcel) => {
@@ -36,7 +40,11 @@ export default function KolisCarrying() {
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <TouchableOpacity onPress={() => router.back()}><Text style={{ color: Colors.t2, marginBottom: 8, fontSize: 15 }}>←</Text></TouchableOpacity>
-        <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.t1, marginBottom: 14 }}>{k.carrying}</Text>
+        <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.t1, marginBottom: 6 }}>{k.carrying}</Text>
+        <View style={{ borderRadius: 12, backgroundColor: "rgba(16,185,129,0.12)", borderWidth: 1, borderColor: "rgba(16,185,129,0.3)", padding: 11, marginBottom: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ color: "#4ade9c", fontWeight: "700", fontSize: 13 }}>{k.totalEarned}</Text>
+          <Text style={{ color: "#4ade9c", fontWeight: "800", fontSize: 18 }}>C${Math.round(earned / 100)}</Text>
+        </View>
         {list.length === 0 && <Text style={{ color: Colors.t2, textAlign: "center", marginTop: 30 }}>{k.noneCarrying}</Text>}
         {list.map((p) => (
           <View key={p.id} style={{ borderWidth: 1, borderColor: "#3D2E00", backgroundColor: "#1F1500", borderRadius: 15, padding: 14, marginBottom: 12 }}>
@@ -48,7 +56,7 @@ export default function KolisCarrying() {
             <TouchableOpacity onPress={() => deliver(p)} disabled={busyId === p.id} style={{ backgroundColor: MAG, borderRadius: 12, padding: 14, alignItems: "center" }}>
               {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{k.markDelivered}</Text>}
             </TouchableOpacity>
-            <Text style={{ color: "#4ade9c", fontSize: 11, textAlign: "center", marginTop: 8 }}>C${Math.round(p.price_cents / 100)} {k.released}</Text>
+            <Text style={{ color: "#4ade9c", fontSize: 11, textAlign: "center", marginTop: 8 }}>+C${Math.round((p.driver_payout_cents ?? 0) / 100)} {k.released}</Text>
           </View>
         ))}
       </ScrollView>

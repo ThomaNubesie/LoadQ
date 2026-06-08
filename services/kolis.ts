@@ -9,6 +9,7 @@ export type KolisParcel = {
   to_city: string;
   pickup_zone: string;
   price_cents: number;
+  driver_payout_cents: number | null;
   dropoff_type: string;
   status?: string;
 };
@@ -30,10 +31,19 @@ export const KolisAPI = {
   async carrying(): Promise<KolisParcel[]> {
     const { data } = await supabase
       .from("kolis_parcels")
-      .select("id, code, size, to_city, pickup_zone, price_cents, dropoff_type, status")
+      .select("id, code, size, to_city, pickup_zone, price_cents, driver_payout_cents, dropoff_type, status")
       .in("status", ["matched", "picked_up", "in_transit"])
       .order("created_at", { ascending: true });
     return (data ?? []) as KolisParcel[];
+  },
+
+  // Total the driver has earned from delivered Kolis parcels (in cents).
+  async earnedCents(): Promise<number> {
+    const { data } = await supabase
+      .from("kolis_parcels")
+      .select("driver_payout_cents")
+      .eq("status", "delivered");
+    return (data ?? []).reduce((sum: number, r: { driver_payout_cents: number | null }) => sum + (r.driver_payout_cents ?? 0), 0);
   },
 
   // Mark delivered with the recipient's 4-digit code -> captures the escrow.
