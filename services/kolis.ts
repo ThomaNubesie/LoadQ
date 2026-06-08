@@ -37,13 +37,30 @@ export const KolisAPI = {
     return (data ?? []) as KolisParcel[];
   },
 
-  // Total the driver has earned from delivered Kolis parcels (in cents).
-  async earnedCents(): Promise<number> {
+  // Driver's Kolis earnings, split paid vs pending (cents).
+  async earnings(): Promise<{ paid: number; pending: number }> {
     const { data } = await supabase
       .from("kolis_parcels")
-      .select("driver_payout_cents")
+      .select("driver_payout_cents, driver_paid_at")
       .eq("status", "delivered");
-    return (data ?? []).reduce((sum: number, r: { driver_payout_cents: number | null }) => sum + (r.driver_payout_cents ?? 0), 0);
+    let paid = 0, pending = 0;
+    (data ?? []).forEach((r: { driver_payout_cents: number | null; driver_paid_at: string | null }) => {
+      const c = r.driver_payout_cents ?? 0;
+      if (r.driver_paid_at) paid += c; else pending += c;
+    });
+    return { paid, pending };
+  },
+
+  async getInterac(): Promise<string | null> {
+    const { data } = await supabase.from("kolis_driver_payout").select("interac_email").maybeSingle();
+    return data?.interac_email ?? null;
+  },
+
+  async setInterac(email: string): Promise<{ error?: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "not signed in" };
+    const { error } = await supabase.from("kolis_driver_payout").upsert({ driver_id: user.id, interac_email: email });
+    return { error: error?.message };
   },
 
   // Mark delivered with the recipient's 4-digit code -> captures the escrow.
