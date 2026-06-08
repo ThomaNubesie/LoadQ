@@ -1,0 +1,53 @@
+// Kolis-specific strings for the LoadQ driver integration. Kept separate so we
+// never modify LoadQ's own i18n. Keyed by the same "en" | "fr" langs.
+export const KOLIS_STRINGS = {
+  en: {
+    parcels: "Parcels for your trip",
+    forDest: "to",
+    pickHere: "Pick up here",
+    accept: "Accept",
+    accepted: "Parcel accepted — it's on your trip.",
+    carrying: "Carrying",
+    none: "No new parcels right now.",
+    senderHidden: "Sender hidden",
+    deliverTitle: "Deliver parcel",
+    confirmDelivery: "Confirm delivery",
+    enterCode: "Enter the recipient's 4-digit code",
+    markDelivered: "Mark delivered",
+    delivered: "Delivered!",
+    badCode: "Wrong code — ask the recipient again.",
+    released: "released to you",
+    recipientMasked: "Recipient · masked contact",
+    noneCarrying: "You're not carrying any parcels.",
+    envelope: "Envelope",
+    small: "Small box",
+    large: "Large box",
+  },
+  fr: {
+    parcels: "Colis pour votre trajet",
+    forDest: "vers",
+    pickHere: "À récupérer ici",
+    accept: "Accepter",
+    accepted: "Colis accepté — ajouté à votre trajet.",
+    carrying: "En cours",
+    none: "Aucun nouveau colis pour l'instant.",
+    senderHidden: "Expéditeur masqué",
+    deliverTitle: "Livrer le colis",
+    confirmDelivery: "Confirmer la livraison",
+    enterCode: "Saisissez le code à 4 chiffres du destinataire",
+    markDelivered: "Marquer livré",
+    delivered: "Livré !",
+    badCode: "Code incorrect — redemandez au destinataire.",
+    released: "vous est versé",
+    recipientMasked: "Destinataire · contact masqué",
+    noneCarrying: "Vous ne transportez aucun colis.",
+    envelope: "Enveloppe",
+    small: "Petit colis",
+    large: "Grand colis",
+  },
+};
+
+export type KolisLang = keyof typeof KOLIS_STRINGS;
+export function ks(lang: string) {
+  return KOLIS_STRINGS[(lang === "fr" ? "fr" : "en")];
+}

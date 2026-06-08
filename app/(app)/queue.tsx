@@ -12,6 +12,7 @@ import { Colors } from "../../constants/colors";
 import { QueueEntry, Vehicle } from "../../constants/types";
 import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
+import KolisParcels from "../../components/KolisParcels";
 import ZoneMap from "../../components/ZoneMap";
 import { loadingState, formatRemaining, isWithinLoadingWindow, nextWindowOpen } from "../../utils/loadingTimer";
 import { getCurrentLocationWithTimeout, tryGetUserLocation } from "../../utils/gpsTimeout";
@@ -662,6 +663,8 @@ export default function QueueScreen() {
         style={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
       >
+        {/* Kolis: parcel offers for queued drivers (self-hides if none) */}
+        <KolisParcels />
         {loading ? (
           <View style={s.loadingBlock}>
             <ActivityIndicator color={Colors.accent} size="large" />
