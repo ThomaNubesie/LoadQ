@@ -2,13 +2,17 @@
 // objects (same Supabase project). Additive — does not touch LoadQ's own data.
 import { supabase } from "./supabase";
 
+// Amount-walled: a LoadQ driver carrying a parcel sees their payout, never the
+// sender's price. No price_cents field exists here by construction.
 export type KolisParcel = {
   id: string;
   code: string;
   size: string;
+  from_city?: string;
   to_city: string;
-  pickup_zone: string;
-  price_cents: number;
+  pickup_zone?: string | null;
+  pickup_hub_name?: string | null;
+  pickup_addr?: string | null; // present only in carrying (post-accept)
   driver_payout_cents: number | null;
   dropoff_type: string;
   status?: string;
@@ -27,13 +31,9 @@ export const KolisAPI = {
     return data === true;
   },
 
-  // Parcels this driver is currently carrying.
+  // Parcels this driver is currently carrying (walled RPC — payout only, no price).
   async carrying(): Promise<KolisParcel[]> {
-    const { data } = await supabase
-      .from("kolis_parcels")
-      .select("id, code, size, to_city, pickup_zone, price_cents, driver_payout_cents, dropoff_type, status")
-      .in("status", ["matched", "picked_up", "in_transit"])
-      .order("created_at", { ascending: true });
+    const { data } = await supabase.rpc("kolis_carrying");
     return (data ?? []) as KolisParcel[];
   },
 
