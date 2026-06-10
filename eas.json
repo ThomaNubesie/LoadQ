@@ -20,6 +20,7 @@
     "production": {
       "distribution": "store",
       "node": "20.19.4",
+      "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
       }
