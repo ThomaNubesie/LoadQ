@@ -170,6 +170,13 @@ export default function PassengerProfileScreen() {
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.versionLabel}</Text>
           <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>{Constants.expoConfig?.version ?? "—"}</Text>
         </View>
+
+        <View style={{ alignItems: "center", marginTop: 20 }}>
+          <Text style={{ color: Colors.t3, fontSize: 11.5, textAlign: "center" }}>{t.ownedBy}</Text>
+          <TouchableOpacity onPress={() => Linking.openURL("https://www.concordexpress.ca").catch(() => {})}>
+            <Text style={{ color: Colors.accent, fontSize: 11.5, fontWeight: "600", marginTop: 2 }}>www.concordexpress.ca</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <PassengerBottomNav />

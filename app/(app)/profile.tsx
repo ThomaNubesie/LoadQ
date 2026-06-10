@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -255,6 +255,13 @@ export default function ProfileScreen() {
         <TouchableOpacity style={s.deleteAccountBtn} onPress={handleDeleteAccount}>
           <Text style={s.deleteAccountText}>{t.deleteAccountAction}</Text>
         </TouchableOpacity>
+
+        <View style={{ alignItems: "center", marginTop: 20 }}>
+          <Text style={{ color: Colors.t3, fontSize: 11.5, textAlign: "center" }}>{t.ownedBy}</Text>
+          <TouchableOpacity onPress={() => Linking.openURL("https://www.concordexpress.ca").catch(() => {})}>
+            <Text style={{ color: Colors.accent, fontSize: 11.5, fontWeight: "600", marginTop: 2 }}>www.concordexpress.ca</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
       <BottomNav />
     </SafeAreaView>
