@@ -125,7 +125,11 @@ export const QueueAPI = {
     const isFirstLoader = !existingLoading || existingLoading.length === 0;
 
     const now            = new Date();
-    const loadDeadline   = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    // Per-day window: the first two loaders of the day in a zone get 4h, the
+    // rest get 3h. loadq_load_minutes is the single source of truth (watchdog
+    // uses the same RPC when it promotes the next driver).
+    const loadMins       = isFirstLoader ? await this.loadMinutes(zoneId) : 180;
+    const loadDeadline   = new Date(now.getTime() + loadMins * 60 * 1000);
     const insertPayload: Record<string, unknown> = {
       zone_id:            zoneId,
       driver_id:          user.id,
@@ -145,19 +149,35 @@ export const QueueAPI = {
     return { data, error: error?.message };
   },
 
-  async startLoading(entryId: string) {
+  // Per-day load window in minutes for a zone (240 for the first two loaders of
+  // the day, else 180). Falls back to 180 if the RPC is unavailable.
+  async loadMinutes(zoneId: string): Promise<number> {
+    const { data, error } = await supabase.rpc("loadq_load_minutes", { p_zone: zoneId });
+    return !error && typeof data === "number" ? data : 180;
+  },
+
+  // Report the driver's current GPS so the watchdog can tailor a release
+  // message (near the zone vs. away). Best-effort; never throws.
+  async reportLocation(lat: number, lng: number) {
+    try { await supabase.rpc("loadq_report_location", { p_lat: lat, p_lng: lng }); }
+    catch { /* best-effort */ }
+  },
+
+  async startLoading(entryId: string, zoneId?: string) {
     // Window check is done by the caller (which knows the zone) and by the
     // watchdog Edge Function. No global guard here so the watchdog's
     // auto-promotion (which already did a per-zone TZ check) is not blocked.
     const loadStart    = new Date();
-    const loadDeadline = new Date();
-    loadDeadline.setHours(loadDeadline.getHours() + 3);
+    const loadMins     = zoneId ? await this.loadMinutes(zoneId) : 180;
+    const loadDeadline = new Date(loadStart.getTime() + loadMins * 60 * 1000);
     const { error } = await supabase
       .from("queue_entries")
       .update({
         status:        "loading",
         load_start_at: loadStart.toISOString(),
         load_deadline: loadDeadline.toISOString(),
+        expiry_stage:  0,
+        expiry_msg_at: null,
       })
       .eq("id", entryId);
     return { error: error?.message };

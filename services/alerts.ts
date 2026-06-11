@@ -3,7 +3,8 @@ import { supabase } from "./supabase";
 export interface AlertRow {
   id: string;
   user_id: string;
-  kind: "return" | "slot_open" | "moved_back" | "removed";
+  kind: "return" | "slot_open" | "moved_back" | "removed"
+      | "lowtime" | "expiry_nudge" | "released" | "headback";
   title: string;
   body: string;
   ref: string;

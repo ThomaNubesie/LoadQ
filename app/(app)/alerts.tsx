@@ -8,10 +8,14 @@ import BottomNav from "../../components/BottomNav";
 import { AlertsAPI, AlertRow } from "../../services/alerts";
 
 const ICON: Record<AlertRow["kind"], string> = {
-  return:     "🚕",
-  slot_open:  "✅",
-  moved_back: "⏱",
-  removed:    "🌙",
+  return:       "🚕",
+  slot_open:    "✅",
+  moved_back:   "⏱",
+  removed:      "🌙",
+  lowtime:      "⏰",
+  expiry_nudge: "⏳",
+  released:     "🙂",
+  headback:     "📣",
 };
 
 function timeAgo(iso: string): string {

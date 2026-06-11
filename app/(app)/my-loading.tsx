@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, ActivityIndicator } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { QueueAPI } from "../../services/queue";
 import { ClaimsAPI, SeatClaim } from "../../services/claims";
 import { MessagesAPI } from "../../services/messages";
@@ -124,19 +125,45 @@ export default function MyLoadingScreen() {
   const isLoadingState = entry?.status === "loading";
   const now            = useNow(1000, isLoadingState);
 
-  // When my own 2h timer expires, immediately trigger the watchdog and bounce
-  // back to the queue — don't sit on an expired loading screen.
-  const expiredFired = useRef(false);
+  // Once the loading window expires we DON'T bounce the driver away — they stay
+  // here so they can still tap Depart or Cancel. The server watchdog sends the
+  // gentle nudges (3, ten minutes apart) and only then releases the spot. We
+  // just nudge the watchdog along (~every 60s) so escalation keeps moving while
+  // the screen is open, instead of waiting on the cron tick.
+  const lastWatchdog = useRef(0);
   useEffect(() => {
     if (!entry || entry.status !== "loading" || !entry.load_start_at) return;
-    const elapsed = now - new Date(entry.load_start_at).getTime();
-    if (elapsed >= 3 * 60 * 60 * 1000 && !expiredFired.current) {
-      expiredFired.current = true;
+    const deadlineMs = entry.load_deadline
+      ? new Date(entry.load_deadline).getTime()
+      : new Date(entry.load_start_at).getTime() + 3 * 60 * 60 * 1000;
+    if (now >= deadlineMs && Date.now() - lastWatchdog.current > 60_000) {
+      lastWatchdog.current = Date.now();
       QueueAPI.triggerWatchdog();
-      Alert.alert(t.timesUp, t.threeHourWindowEnded);
-      setTimeout(() => router.replace("/(app)/queue"), 1500);
     }
-  }, [now, entry?.id, entry?.status, entry?.load_start_at]);
+  }, [now, entry?.id, entry?.status, entry?.load_start_at, entry?.load_deadline]);
+
+  // While loading, report GPS so the server can tailor a release message
+  // (near the zone vs. away). Best-effort, scoped to the loading state.
+  useEffect(() => {
+    if (!isLoadingState) return;
+    let cancelled = false;
+    let sub: Location.LocationSubscription | null = null;
+    const reportOnce = async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted" || cancelled) return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!cancelled) QueueAPI.reportLocation(pos.coords.latitude, pos.coords.longitude);
+        sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 100, timeInterval: 120000 },
+          loc => QueueAPI.reportLocation(loc.coords.latitude, loc.coords.longitude),
+        );
+        if (cancelled && sub) { sub.remove(); sub = null; }
+      } catch { /* ignore transient GPS errors */ }
+    };
+    reportOnce();
+    return () => { cancelled = true; if (sub) sub.remove(); };
+  }, [isLoadingState]);
 
   const handleSeatTap = async (idx: number) => {
     if (!entry || entry.status === "ended") return;
@@ -221,13 +248,33 @@ export default function MyLoadingScreen() {
     );
   };
 
+  const handleCancel = () => {
+    if (!entry) return;
+    Alert.alert(
+      t.leaveQueueTitle,
+      t.leaveQueueBody,
+      [
+        { text: t.stayInQueue, style: "cancel" },
+        {
+          text: t.leaveQueue,
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await QueueAPI.leaveQueue(entry.id);
+            if (error) { Alert.alert(t.error, error); return; }
+            router.replace("/(app)/queue");
+          },
+        },
+      ]
+    );
+  };
+
   const totalSeats     = entry?.vehicle?.seats || 4;
   const seats          = seatCountFor(entry); // exclude driver
   const states  = normalizeSeatStates(entry?.seat_states, seats);
   const boarded = states.filter(s => s === "boarded" || s === "locked").length;
   const locked  = entry?.seats_locked || 0;
 
-  const lstate   = isLoadingState ? loadingState(entry?.load_start_at, seats, now) : null;
+  const lstate   = isLoadingState ? loadingState(entry?.load_start_at, seats, now, entry?.load_deadline) : null;
   const required = lstate ? lstate.effectiveRequired : seats;
 
   const { zones } = useZones();
@@ -515,9 +562,26 @@ export default function MyLoadingScreen() {
               </Text>
             )}
 
-            <TouchableOpacity style={s.departBtn} onPress={handleDepart} activeOpacity={0.85}>
-              <Text style={s.departBtnText}>🚌 Depart now ({boarded}/{seats})</Text>
-            </TouchableOpacity>
+            {lstate?.phase === "expired" && (
+              <View style={s.timeUpBanner}>
+                <Text style={s.timeUpTitle}>⏳ {t.timesUp}</Text>
+                <Text style={s.timeUpBody}>
+                  Whenever you're ready, tap Depart (with your passengers) or Cancel so the next driver can go.
+                </Text>
+                <Text style={s.timeUpBodyFr}>
+                  Dès que vous êtes prêt, touchez Partir ou Annuler pour laisser passer le prochain chauffeur.
+                </Text>
+              </View>
+            )}
+
+            <View style={s.actionRow}>
+              <TouchableOpacity style={s.cancelBtn} onPress={handleCancel} activeOpacity={0.85}>
+                <Text style={s.cancelBtnText}>{t.cancel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.departBtn} onPress={handleDepart} activeOpacity={0.85}>
+                <Text style={s.departBtnText}>🚌 {t.depart} ({boarded}/{seats})</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </ScrollView>
@@ -611,8 +675,15 @@ const s = StyleSheet.create({
   pendingBar:  { backgroundColor:Colors.yellow+"12", borderRadius:8, padding:10, borderWidth:0.5, borderColor:Colors.yellow+"30" },
   pendingText: { color:Colors.yellow, fontSize:12, textAlign:"center" },
   tip:         { color:Colors.t3, fontSize:11, textAlign:"center", marginTop:14, marginBottom:8, fontStyle:"italic" },
-  departBtn:   { marginTop:8, backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center", marginBottom:24 },
+  actionRow:   { flexDirection:"row", gap:10, marginTop:8, marginBottom:24 },
+  departBtn:   { flex:1, backgroundColor:Colors.accent, borderRadius:14, padding:16, alignItems:"center" },
   departBtnText:{ color:Colors.accentText, fontSize:15, fontWeight:"800" },
+  cancelBtn:   { flex:1, backgroundColor:Colors.card, borderRadius:14, padding:16, alignItems:"center", borderWidth:1, borderColor:Colors.border },
+  cancelBtnText:{ color:Colors.t2, fontSize:15, fontWeight:"800" },
+  timeUpBanner:{ backgroundColor:Colors.accent+"12", borderRadius:12, padding:14, marginTop:6, marginBottom:6, borderWidth:1, borderColor:Colors.accent+"50" },
+  timeUpTitle: { color:Colors.accent, fontSize:14, fontWeight:"800", marginBottom:6 },
+  timeUpBody:  { color:Colors.t1, fontSize:12.5, lineHeight:18 },
+  timeUpBodyFr:{ color:Colors.t3, fontSize:11.5, lineHeight:16, fontStyle:"italic", marginTop:4 },
   destRow:     { flexDirection:"row", alignItems:"center", justifyContent:"space-between", marginTop:14, backgroundColor:Colors.card, borderRadius:12, padding:14, borderWidth:0.5, borderColor:Colors.border },
   destLabel:   { color:Colors.t1, fontSize:13, fontWeight:"600", flex:1 },
   changeDestBtn:{ backgroundColor:Colors.accent+"20", borderRadius:8, paddingHorizontal:12, paddingVertical:6, borderWidth:0.5, borderColor:Colors.accent+"50" },
