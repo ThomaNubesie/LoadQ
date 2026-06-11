@@ -41,3 +41,6 @@ yarn-error.*
 /android
 
 supabase/.temp/
+
+# Google Play service account (never commit)
+google-play-key.json
