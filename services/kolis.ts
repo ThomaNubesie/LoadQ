@@ -16,6 +16,7 @@ export type KolisParcel = {
   driver_payout_cents: number | null;
   dropoff_type: string;
   status?: string;
+  is_request?: boolean; // true = dispatch assigned this to me specifically (accept/decline)
 };
 
 export const KolisAPI = {
@@ -28,6 +29,12 @@ export const KolisAPI = {
   // Accept an available parcel that matches the driver's queue.
   async accept(id: string): Promise<boolean> {
     const { data } = await supabase.rpc("kolis_accept_parcel", { p_id: id });
+    return data === true;
+  },
+
+  // Decline a parcel that dispatch targeted to me — returns it to the pool.
+  async decline(id: string): Promise<boolean> {
+    const { data } = await supabase.rpc("kolis_decline_parcel", { p_id: id });
     return data === true;
   },
 
