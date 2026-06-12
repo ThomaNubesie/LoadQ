@@ -38,6 +38,13 @@ export default function KolisParcels() {
     load();
   };
 
+  const decline = async (p: KolisParcel) => {
+    setBusyId(p.id);
+    await KolisAPI.decline(p.id);
+    setBusyId(null);
+    load();
+  };
+
   return (
     <View style={{ marginHorizontal: 16, marginTop: 14, borderWidth: 1.5, borderColor: MAG, borderRadius: 15, padding: 13, backgroundColor: "rgba(225,29,107,0.06)" }}>
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
@@ -57,9 +64,16 @@ export default function KolisParcels() {
           <Text style={{ fontSize: 17, marginRight: 9 }}>{emoji(p.size)}</Text>
           <View style={{ flex: 1 }}>
             <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 13 }}>{sizeLabel(p.size)} {k.forDest} {p.to_city}</Text>
-            <Text style={{ color: Colors.t3, fontSize: 10.5 }}>{k.pickHere} · 🔒 {k.senderHidden}</Text>
+            <Text style={{ color: Colors.t3, fontSize: 10.5 }}>
+              {p.is_request ? `📣 ${k.requestedForYou}` : `${k.pickHere} · 🔒 ${k.senderHidden}`}
+            </Text>
           </View>
           <Text style={{ color: Colors.green, fontWeight: "800", fontSize: 13, marginRight: 8 }}>+C${Math.round((p.driver_payout_cents ?? 0) / 100)}</Text>
+          {p.is_request && (
+            <TouchableOpacity onPress={() => decline(p)} disabled={busyId === p.id} style={{ borderWidth: 1, borderColor: Colors.border, borderRadius: 9, paddingVertical: 7, paddingHorizontal: 11, marginRight: 6 }}>
+              <Text style={{ color: Colors.t2, fontWeight: "800", fontSize: 12 }}>{k.decline}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => accept(p)} disabled={busyId === p.id} style={{ backgroundColor: MAG, borderRadius: 9, paddingVertical: 7, paddingHorizontal: 13 }}>
             {busyId === p.id ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>{k.accept}</Text>}
           </TouchableOpacity>
