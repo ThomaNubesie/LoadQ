@@ -56,7 +56,7 @@ export interface Zone {
 }
 
 export type QueueStatus = "loading" | "called_back" | "waiting" | "penalised" | "ended";
-export type QueueEndReason = "departed" | "cancelled" | "expired" | "removed_by_admin" | "eod_close" | "window_closed";
+export type QueueEndReason = "departed" | "cancelled" | "expired" | "removed_by_admin" | "eod_close" | "window_closed" | "released";
 export type SeatStatus  = "empty" | "boarded" | "locked" | "disputed";
 
 export interface QueueEntry {
@@ -78,6 +78,8 @@ export interface QueueEntry {
   seat_states?: SeatStatus[];
   end_reason?: QueueEndReason | null;
   pushback_count?: number;
+  expiry_stage?: number | null;
+  expiry_msg_at?: string | null;
 }
 
 export interface SeatConfirmation {

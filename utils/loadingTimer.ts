@@ -23,26 +23,38 @@ export interface LoadingState {
   showWarning:       boolean;         // true once t ≥ 2h45
 }
 
-export function loadingState(loadStartAt: string | null | undefined, seats: number, now: number = Date.now()): LoadingState | null {
+export function loadingState(
+  loadStartAt: string | null | undefined,
+  seats: number,
+  now: number = Date.now(),
+  loadDeadline?: string | null,
+): LoadingState | null {
   if (!loadStartAt) return null;
   const startMs   = new Date(loadStartAt).getTime();
   if (Number.isNaN(startMs)) return null;
   const elapsedMs = Math.max(0, now - startMs);
 
+  // The window can be 3h (default) or 4h (first two loaders of the day). When a
+  // load_deadline is set on the entry, it is the source of truth for the cap;
+  // the seat-reduction thresholds scale proportionally to the window length.
+  const deadlineMs = loadDeadline ? new Date(loadDeadline).getTime() : NaN;
+  const capMs = !Number.isNaN(deadlineMs) ? Math.max(MIN, deadlineMs - startMs) : LOAD_CAP_MS;
+  const f = capMs / LOAD_CAP_MS; // scale factor vs. the canonical 3h window
+
   let phase: LoadingPhase;
   let effectiveRequired: number;
-  if      (elapsedMs >= LOAD_CAP_MS)              { phase = "expired";  effectiveRequired = seats - 3; }
-  else if (elapsedMs >= 2 * HOUR + 45 * MIN)      { phase = "warning";  effectiveRequired = seats - 3; }
-  else if (elapsedMs >= 2 * HOUR + 15 * MIN)      { phase = "reduced3"; effectiveRequired = seats - 3; }
-  else if (elapsedMs >= HOUR + 30 * MIN)          { phase = "reduced1"; effectiveRequired = seats - 1; }
-  else                                            { phase = "normal";   effectiveRequired = seats;     }
+  if      (elapsedMs >= capMs)                         { phase = "expired";  effectiveRequired = seats - 3; }
+  else if (elapsedMs >= f * (2 * HOUR + 45 * MIN))     { phase = "warning";  effectiveRequired = seats - 3; }
+  else if (elapsedMs >= f * (2 * HOUR + 15 * MIN))     { phase = "reduced3"; effectiveRequired = seats - 3; }
+  else if (elapsedMs >= f * (HOUR + 30 * MIN))         { phase = "reduced1"; effectiveRequired = seats - 1; }
+  else                                                 { phase = "normal";   effectiveRequired = seats;     }
 
   return {
     phase,
     elapsedMs,
-    remainingMs: Math.max(0, LOAD_CAP_MS - elapsedMs),
+    remainingMs: Math.max(0, capMs - elapsedMs),
     effectiveRequired,
-    showWarning: elapsedMs >= 2 * HOUR + 45 * MIN,
+    showWarning: elapsedMs >= f * (2 * HOUR + 45 * MIN),
   };
 }
 

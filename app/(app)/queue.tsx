@@ -304,8 +304,10 @@ export default function QueueScreen() {
   useEffect(() => {
     for (const e of entries) {
       if (e.status !== "loading" || !e.load_start_at) continue;
-      const elapsed = now - new Date(e.load_start_at).getTime();
-      if (elapsed >= 3 * 60 * 60 * 1000 && !firedExpiry.current.has(e.id)) {
+      const deadlineMs = e.load_deadline
+        ? new Date(e.load_deadline).getTime()
+        : new Date(e.load_start_at).getTime() + 3 * 60 * 60 * 1000;
+      if (now >= deadlineMs && !firedExpiry.current.has(e.id)) {
         firedExpiry.current.add(e.id);
         QueueAPI.triggerWatchdog();
         // Re-pull the queue twice — first to catch the eviction, second
@@ -341,7 +343,7 @@ export default function QueueScreen() {
     const sc       = statusColor(entry.status);
 
     const lstate = entry.status === "loading"
-      ? loadingState(entry.load_start_at, seats, now)
+      ? loadingState(entry.load_start_at, seats, now, entry.load_deadline)
       : null;
     const required = lstate ? lstate.effectiveRequired : seats;
     const timerColor = lstate?.phase === "warning" || lstate?.phase === "expired"
@@ -364,6 +366,7 @@ export default function QueueScreen() {
     const endLabel: Record<string, string> = {
       departed: t.endReasonDeparted, cancelled: t.endReasonCancelled, expired: t.endReasonExpired,
       removed_by_admin: t.endReasonRemoved, eod_close: t.endReasonClosed, window_closed: t.endReasonWindowClosed,
+      released: t.endReasonExpired,
     };
 
     const unreadFromThis = unreadBySender.get(entry.driver_id) ?? 0;
