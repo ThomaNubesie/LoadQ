@@ -1,13 +1,16 @@
-// Per-driver loading timer rules (3-hour cap):
+// Per-driver loading timer rules. The cap comes from the row's load_deadline
+// (2h for most loaders, 4h for the day's first loader in the 4–6am window).
+// The seat-reduction thresholds below are expressed on a canonical 3h scale
+// and scaled proportionally to the actual window via `f` (see loadingState):
 //   t < 1h30:        required = seats
 //   1h30 ≤ t < 2h15: required = seats - 1
 //   2h15 ≤ t < 3h00: required = seats - 3   (cumulative jump)
-//   t ≥ 2h45:        warning banner ("reaching 3-hour mark")
-//   t ≥ 3h00:        hard close (handled server-side by watchdog)
+//   t ≥ 2h45:        warning banner ("reaching the deadline")
+//   t ≥ cap:         hard close (handled server-side by watchdog)
 //
-// Loading window: 4:00 — 23:59 local time. Outside this window joinQueue
-// and startLoading are blocked; in-progress loads are force-closed at 23:59
-// by the watchdog regardless of timer.
+// Loading window: 4:00 — 20:00 local time. Outside this window joinQueue
+// and startLoading are blocked; in-progress loads are force-closed at the
+// deadline by the watchdog.
 
 const MIN  = 60_000;
 const HOUR = 60 * MIN;
