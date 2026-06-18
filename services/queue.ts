@@ -4,6 +4,13 @@ import { isWithinLoadingWindow } from "../utils/loadingTimer";
 import { getZoneTimezone } from "../hooks/useZones";
 import { DriversAPI } from "./drivers";
 
+// Postgres unique_violation. A queue_entries_zone_dest_position_uniq collision
+// means another driver grabbed the same position in the same instant — the
+// caller should recompute its slot and retry.
+function isUniqueViolation(err: any): boolean {
+  return err?.code === "23505" || /duplicate key|unique constraint/i.test(err?.message ?? "");
+}
+
 export const QueueAPI = {
   // Profile validation gate. A driver may only join the queue once an admin
   // has verified them AND their profile/vehicle/billing are in good standing.
@@ -106,54 +113,65 @@ export const QueueAPI = {
     // A+B have departed, a new joiner is #4, not #2. The departed rows stay
     // visible in the list (greyed) with their original numbers so the daily
     // history is intact. Reset happens via the 3 AM purge.
-    const { data: entries } = await supabase
-      .from("queue_entries").select("position")
-      .eq("zone_id", zoneId)
-      .eq("destination_region", destinationRegion)
-      .order("position", { ascending: false }).limit(1);
-    const position = entries?.[0]?.position ? entries[0].position + 1 : 1;
+    //
+    // A DB unique index (queue_entries_zone_dest_position_uniq) guarantees no
+    // two drivers ever share a position. Because max+1 is computed client-side
+    // it can race, so we retry on a unique violation: each attempt re-reads the
+    // now-committed rows, so the loser of the race lands on the next free slot
+    // (and re-evaluates whether it's still the first loader on this route).
+    const now = new Date();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data: entries } = await supabase
+        .from("queue_entries").select("position")
+        .eq("zone_id", zoneId)
+        .eq("destination_region", destinationRegion)
+        .order("position", { ascending: false }).limit(1);
+      const position = entries?.[0]?.position ? entries[0].position + 1 : 1;
 
-    // Auto-promote: if there's no driver currently loading on this route,
-    // this new entry goes straight into 'loading' state with a fresh 2h timer.
-    // Otherwise they wait in line.
-    const { data: existingLoading } = await supabase
-      .from("queue_entries").select("id")
-      .eq("zone_id", zoneId)
-      .eq("destination_region", destinationRegion)
-      .eq("status", "loading")
-      .limit(1);
-    const isFirstLoader = !existingLoading || existingLoading.length === 0;
+      // Auto-promote: if there's no driver currently loading on this route,
+      // this new entry goes straight into 'loading' with a fresh timer.
+      // Otherwise they wait in line.
+      const { data: existingLoading } = await supabase
+        .from("queue_entries").select("id")
+        .eq("zone_id", zoneId)
+        .eq("destination_region", destinationRegion)
+        .eq("status", "loading")
+        .limit(1);
+      const isFirstLoader = !existingLoading || existingLoading.length === 0;
 
-    const now            = new Date();
-    // Per-day window: the first two loaders of the day in a zone get 4h, the
-    // rest get 3h. loadq_load_minutes is the single source of truth (watchdog
-    // uses the same RPC when it promotes the next driver).
-    const loadMins       = isFirstLoader ? await this.loadMinutes(zoneId) : 180;
-    const loadDeadline   = new Date(now.getTime() + loadMins * 60 * 1000);
-    const insertPayload: Record<string, unknown> = {
-      zone_id:            zoneId,
-      driver_id:          user.id,
-      vehicle_id:         vehicleId,
-      destination_region: destinationRegion,
-      position,
-      status:             isFirstLoader ? "loading" : "waiting",
-    };
-    if (isFirstLoader) {
-      insertPayload.load_start_at = now.toISOString();
-      insertPayload.load_deadline = loadDeadline.toISOString();
+      const insertPayload: Record<string, unknown> = {
+        zone_id:            zoneId,
+        driver_id:          user.id,
+        vehicle_id:         vehicleId,
+        destination_region: destinationRegion,
+        position,
+        status:             isFirstLoader ? "loading" : "waiting",
+      };
+      if (isFirstLoader) {
+        // loadq_load_minutes is the single source of truth for window length
+        // (4h for the day's first loader in the 4–6am window, else 2h). The
+        // watchdog uses the same RPC when it promotes the next driver.
+        const loadMins = await this.loadMinutes(zoneId);
+        insertPayload.load_start_at = now.toISOString();
+        insertPayload.load_deadline = new Date(now.getTime() + loadMins * 60 * 1000).toISOString();
+      }
+      const { data, error } = await supabase
+        .from("queue_entries")
+        .insert(insertPayload)
+        .select().single();
+      if (!error) return { data };
+      // Someone took this slot between our read and write — recompute & retry.
+      if (!isUniqueViolation(error) || attempt === 4) return { error: error.message };
     }
-    const { data, error } = await supabase
-      .from("queue_entries")
-      .insert(insertPayload)
-      .select().single();
-    return { data, error: error?.message };
+    return { error: "Couldn't reserve a queue spot — please try again." };
   },
 
-  // Per-day load window in minutes for a zone (240 for the first two loaders of
-  // the day, else 180). Falls back to 180 if the RPC is unavailable.
+  // Per-day load window in minutes for a zone (240 for the day's first loader
+  // when they start in the 4–6am window, else 120). Falls back to 120 if the
+  // RPC is unavailable.
   async loadMinutes(zoneId: string): Promise<number> {
     const { data, error } = await supabase.rpc("loadq_load_minutes", { p_zone: zoneId });
-    return !error && typeof data === "number" ? data : 180;
+    return !error && typeof data === "number" ? data : 120;
   },
 
   // Report the driver's current GPS so the watchdog can tailor a release
@@ -168,7 +186,7 @@ export const QueueAPI = {
     // watchdog Edge Function. No global guard here so the watchdog's
     // auto-promotion (which already did a per-zone TZ check) is not blocked.
     const loadStart    = new Date();
-    const loadMins     = zoneId ? await this.loadMinutes(zoneId) : 180;
+    const loadMins     = zoneId ? await this.loadMinutes(zoneId) : 120;
     const loadDeadline = new Date(loadStart.getTime() + loadMins * 60 * 1000);
     const { error } = await supabase
       .from("queue_entries")
@@ -216,18 +234,23 @@ export const QueueAPI = {
         return { error: "Can't change destination — more than 1 hour since loading started." };
       }
     }
-    // New position = back of the destination's sub-queue.
-    const { data: maxRow } = await supabase
-      .from("queue_entries").select("position")
-      .eq("zone_id", entry.zone_id)
-      .eq("destination_region", newDestination)
-      .order("position", { ascending: false }).limit(1).maybeSingle();
-    const newPos = (maxRow?.position ?? 0) + 1;
-    const { error } = await supabase.from("queue_entries").update({
-      destination_region: newDestination,
-      position:           newPos,
-    }).eq("id", entry.id);
-    return { error: error?.message };
+    // New position = back of the destination's sub-queue. Retry on a unique
+    // violation in case another driver lands on the same slot concurrently.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data: maxRow } = await supabase
+        .from("queue_entries").select("position")
+        .eq("zone_id", entry.zone_id)
+        .eq("destination_region", newDestination)
+        .order("position", { ascending: false }).limit(1).maybeSingle();
+      const newPos = (maxRow?.position ?? 0) + 1;
+      const { error } = await supabase.from("queue_entries").update({
+        destination_region: newDestination,
+        position:           newPos,
+      }).eq("id", entry.id);
+      if (!error) return {};
+      if (!isUniqueViolation(error) || attempt === 4) return { error: error.message };
+    }
+    return { error: "Couldn't change destination — please try again." };
   },
 
   // Fire-and-forget watchdog invocation. Used by clients to force the

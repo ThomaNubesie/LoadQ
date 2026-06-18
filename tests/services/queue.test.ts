@@ -236,4 +236,39 @@ describe("QueueAPI.joinQueue", () => {
     const insert = insertCalls.find(p => p.zone_id === "zone-1");
     expect(insert.position).toBe(18);
   });
+
+  it("retries with a recomputed position when the slot collides (unique violation)", async () => {
+    setUser({ id: "drv-1" });
+    primeCanJoinOk();
+    pushResult(null);                       // cooldown: no recent depart
+    // Attempt 0: sees max position 3 → tries 4, but another driver took it.
+    pushResult([{ position: 3 }]);          // position lookup
+    pushResult([{ id: "other-entry" }]);    // existing loading → waiting
+    pushResult(null, { code: "23505", message: "duplicate key value violates unique constraint" });
+    // Attempt 1: re-reads (the winner's row 4 is now committed) → takes 5.
+    pushResult([{ position: 4 }]);          // position lookup (now sees 4)
+    pushResult([{ id: "other-entry" }]);    // existing loading → waiting
+    pushResult({ id: "new-entry" });        // insert succeeds
+
+    const r = await QueueAPI.joinQueue("zone-1", "veh-1", "montreal");
+
+    expect(r.error).toBeUndefined();
+    const positions = insertCalls.filter(p => p.zone_id === "zone-1").map(p => p.position);
+    expect(positions).toEqual([4, 5]);      // first try 4 (rejected), retry 5
+  });
+
+  it("does NOT retry on a non-unique error and surfaces it", async () => {
+    setUser({ id: "drv-1" });
+    primeCanJoinOk();
+    pushResult(null);                       // cooldown
+    pushResult([{ position: 3 }]);          // position lookup
+    pushResult([{ id: "other-entry" }]);    // existing loading → waiting
+    pushResult(null, { code: "23514", message: "check constraint violation" });
+
+    const r = await QueueAPI.joinQueue("zone-1", "veh-1", "montreal");
+
+    expect(r.error).toMatch(/check constraint/i);
+    // Only one insert attempt — a non-unique error is not retried.
+    expect(insertCalls.filter(p => p.zone_id === "zone-1").length).toBe(1);
+  });
 });

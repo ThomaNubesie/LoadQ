@@ -127,14 +127,12 @@ export const DriversAPI = {
 
     // Lapsed and a referral free month is banked: start it now. Capped at
     // one month — referral_waiver_granted prevents the bank from ever being
-    // topped past 1, so this fires at most once.
+    // topped past 1, so this fires at most once. The write goes through a
+    // SECURITY DEFINER RPC because waiver_* columns are locked against direct
+    // client writes (server-side access control).
     if ((driver.waiver_months ?? 0) > 0) {
-      const until = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();
-      const { error } = await supabase
-        .from("drivers")
-        .update({ waiver_until: until, waiver_months: 0 })
-        .eq("id", driver.id);
-      if (!error) return true;
+      const { data, error } = await supabase.rpc("loadq_consume_waiver");
+      if (!error && data === true) return true;
     }
 
     // No entitlement, no active trial/grace/DB period, no banked month.

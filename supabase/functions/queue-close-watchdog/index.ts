@@ -10,9 +10,10 @@
 //                                 the spot is freed either way.
 //   • zone clock hits 8 PM EOD  → close out as before
 //
-// Loading window length is per-zone & per-day: the first two loaders of the day
-// get 240 min (4h), everyone after gets 180 min (3h) — see loadq_load_minutes().
-// load_deadline on the row is the source of truth here.
+// Loading window length is per-zone & per-day: the day's FIRST loader gets
+// 240 min (4h) if they start in the 04:00–05:59 window, everyone else gets
+// 120 min (2h) — see loadq_load_minutes(). load_deadline on the row is the
+// source of truth here.
 //
 // "Head back" — when the front loader is at ≤1h left OR ≥70% full, every waiting
 // driver on that route is messaged, with urgency scaled to their place in line
@@ -29,7 +30,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const MIN_MS        = 60 * 1000;
-const DEFAULT_CAP_MS = 3 * 60 * MIN_MS;        // fallback if load_deadline is null
+const DEFAULT_CAP_MS = 2 * 60 * MIN_MS;        // fallback if load_deadline is null
 const FALLBACK_TZ   = "America/Toronto";       // if a zone row is missing a tz
 
 // Time-up escalation: nudge cadence and how many nudges before release.
@@ -370,9 +371,9 @@ Deno.serve(async () => {
       .order("position", { ascending: true }).limit(1).maybeSingle();
     if (!next) continue;
 
-    // Per-day window length: first two loaders of the day get 4h, else 3h.
+    // Per-day window length: day's first loader (4–6am) gets 4h, else 2h.
     const { data: minsData } = await supabase.rpc("loadq_load_minutes", { p_zone: zoneId });
-    const loadMins   = typeof minsData === "number" ? minsData : 180;
+    const loadMins   = typeof minsData === "number" ? minsData : 120;
     const loadStart  = new Date();
     const loadDeadline = new Date(loadStart.getTime() + loadMins * MIN_MS);
     const hrs = Math.round(loadMins / 60);
