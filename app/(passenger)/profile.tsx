@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, Linking } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -168,7 +168,7 @@ export default function PassengerProfileScreen() {
         </TouchableOpacity>
         <View style={[s.rowBtn, { justifyContent: "space-between" }]}>
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.versionLabel}</Text>
-          <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>{Constants.expoConfig?.version ?? "—"}</Text>
+          <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>{`${Constants.expoConfig?.version ?? "—"} (${(Platform.OS === "ios" ? Constants.expoConfig?.ios?.buildNumber : Constants.expoConfig?.android?.versionCode) ?? "?"})`}</Text>
         </View>
 
         <View style={{ alignItems: "center", marginTop: 20 }}>
