@@ -176,6 +176,24 @@ export default function QueueScreen() {
     return () => { cancelled = true; if (sub) sub.remove(); };
   }, []));
 
+  // Keep our location fresh in the DB while we hold a queue spot, so the
+  // watchdog can see us "present" and promote/reinsert us. Previously ONLY the
+  // loading screen reported location, so waiting/standby drivers went stale and
+  // were never reinserted. Foreground-only (scoped to focus, like the watch).
+  const coordsRef = useRef<{ lat: number; lon: number } | null>(null);
+  useEffect(() => { coordsRef.current = userCoords; }, [userCoords]);
+  const entryRef = useRef<QueueEntry | null>(null);
+  useEffect(() => { entryRef.current = myEntry; }, [myEntry]);
+  useFocusEffect(useCallback(() => {
+    const push = () => {
+      const c = coordsRef.current;
+      if (c && entryRef.current) QueueAPI.reportLocation(c.lat, c.lon).catch(() => {});
+    };
+    push();
+    const iv = setInterval(push, 60_000);
+    return () => clearInterval(iv);
+  }, []));
+
   // Pre-flight checks: window open, geo-fence, not already in queue.
   // Returns null on success, or an error message string.
   const validateJoin = (): string | null => {
