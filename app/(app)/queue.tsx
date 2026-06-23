@@ -14,7 +14,7 @@ import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
 import KolisParcels from "../../components/KolisParcels";
 import ZoneMap from "../../components/ZoneMap";
-import { loadingState, formatRemaining, isWithinLoadingWindow, nextWindowOpen } from "../../utils/loadingTimer";
+import { loadingState, formatRemaining, isWithinRegistrationWindow, nextRegistrationOpen } from "../../utils/loadingTimer";
 import { getCurrentLocationWithTimeout, tryGetUserLocation } from "../../utils/gpsTimeout";
 import { useNow } from "../../hooks/useNow";
 import {
@@ -198,7 +198,7 @@ export default function QueueScreen() {
   // Returns null on success, or an error message string.
   const validateJoin = (): string | null => {
     if (!activeZone || !myVehicle) return t.missingZoneOrVehicle;
-    if (!isWithinLoadingWindow(new Date(), getZoneTimezone(activeZone.id))) {
+    if (!isWithinRegistrationWindow(new Date(), getZoneTimezone(activeZone.id))) {
       return `${t.queueClosed} — ${t.queueClosedSub}`;
     }
     if (myEntry) return t.alreadyInQueue;
@@ -340,8 +340,8 @@ export default function QueueScreen() {
     }
   }, [now, entries, activeZone?.id]);
   const zoneTz        = getZoneTimezone(activeZone?.id);
-  const windowOpen    = isWithinLoadingWindow(new Date(now), zoneTz);
-  const nextOpen      = windowOpen ? null : nextWindowOpen(new Date(now), zoneTz);
+  const windowOpen    = isWithinRegistrationWindow(new Date(now), zoneTz);
+  const nextOpen      = windowOpen ? null : nextRegistrationOpen(new Date(now), zoneTz);
 
   // Are we physically inside the loading zone? Used to flip the Join button
   // styling so the driver gets visual confirmation they're allowed to join.

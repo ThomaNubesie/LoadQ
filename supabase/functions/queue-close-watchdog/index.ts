@@ -1,26 +1,28 @@
-// Watchdog: drives the loading window, the time-up escalation, and the
-// "head back" calls. Runs as a Supabase Edge Function on a cron (every minute,
-// see ./README.md). All driver-facing copy is bilingual (EN + FR) and friendly.
+// Watchdog: drives the LoadQ 5 AM queue day. Runs as a Supabase Edge Function
+// on a cron (every minute, see ./README.md). All driver-facing copy is
+// bilingual (EN + FR) and friendly.
 //
-// Per queue_entry with status='loading':
-//   • before the deadline      → low-time reminders at 30 / 10 min left
-//   • deadline passes          → 3 gentle nudges, 10 min apart (expiry_stage 1→3)
-//   • still no Depart/Cancel    → release the spot (status='ended', removed).
-//                                 GPS only tailors the message (near vs away);
-//                                 the spot is freed either way.
-//   • zone clock hits 8 PM EOD  → close out as before
+// Day shape (zone-local): joining opens 00:00, the loading clock starts 05:00,
+// the window closes 20:00, and the queue is purged at midnight. The shared
+// rules mirror utils/queueDay.ts (kept in sync by hand — this file is Deno and
+// can't import the app bundle).
 //
-// Loading window length is per-zone & per-day: the day's FIRST loader gets
-// 240 min (4h) if they start in the 04:00–05:59 window, everyone else gets
-// 120 min (2h) — see loadq_load_minutes(). load_deadline on the row is the
-// source of truth here.
+// Each tick, per (zone, destination) sub-queue:
+//   • Active loader present?  No → start a 10-min grace (warn), then standby.
+//                             Yes → clear the grace marker.
+//   • Active loader overtime? deadline passed → 3 nudges, 10 min apart, then
+//                             release the spot.
+//   • No active loader?       Promote the first PRESENT waiting driver; every
+//                             absent driver ahead of them is skipped to
+//                             'standby'. First loader of the day gets 4h, the
+//                             rest 3h.
+//   • Standby driver present again? Return them to 'waiting' — they keep their
+//                             (earlier) position, so they sit at the front of
+//                             the line behind the current loader.
 //
-// "Head back" — when the front loader is at ≤1h left OR ≥70% full, every waiting
-// driver on that route is messaged, with urgency scaled to their place in line
-// (next = warmest, then medium, then a gentle heads-up).
+// "Present" = a GPS fix inside the zone radius, no older than 10 minutes.
 //
-// Zone timezones/coords come from public.zones (authoritative). Update rows in
-// that table — never hardcode a map here.
+// Zone timezones/coords/radius come from public.zones (authoritative).
 //
 // Env required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto-injected).
 
@@ -29,27 +31,40 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const MIN_MS        = 60 * 1000;
-const DEFAULT_CAP_MS = 2 * 60 * MIN_MS;        // fallback if load_deadline is null
-const FALLBACK_TZ   = "America/Toronto";       // if a zone row is missing a tz
+const MIN_MS         = 60 * 1000;
+const DEFAULT_CAP_MS = 3 * 60 * MIN_MS;        // 3h fallback if load_deadline is null
+const FALLBACK_TZ    = "America/Toronto";      // if a zone row is missing a tz
+
+// Day boundaries (zone-local).
+const LOAD_OPEN_HOUR  = 5;                      // 05:00 clock start
+const LOAD_CLOSE_HOUR = 20;                     // 20:00 window close
+const PURGE_HOUR      = 0;                      // 00:00–00:59 daily purge
+
+// Per-day loading window length.
+const FIRST_LOADER_MIN = 240;                  // day's first loader: 4h
+const OTHER_LOADER_MIN = 180;                  // everyone else: 3h
+
+// Presence + grace.
+const PRESENCE_FRESH_MS = 10 * MIN_MS;         // GPS fix must be this fresh
+const GRACE_MS          = 10 * MIN_MS;         // mid-load away grace before standby
 
 // Time-up escalation: nudge cadence and how many nudges before release.
-const NUDGE_GAP_MS = 10 * MIN_MS;              // 10 min between nudges
-const MAX_NUDGES   = 3;                        // 3 nudges, then release
+const NUDGE_GAP_MS = 10 * MIN_MS;
+const MAX_NUDGES   = 3;
 
-// Low-time reminders for the loading driver — minutes remaining at which to
-// nudge. Deduped per loading session so each fires once.
+// Low-time reminders for the loading driver (minutes remaining). Deduped.
 const LOW_TIME_MINUTES = [30, 10];
 
-// "Head back" trigger: notify all waiting drivers when the loader is within
-// this much time of the deadline OR at/above this fill ratio.
-const HEAD_BACK_LEAD_MS = 60 * MIN_MS;         // 1 hour left
-const HEAD_BACK_FILL    = 0.70;                // 70% of passenger seats
+// "Head back": notify waiting drivers when the loader is within this much time
+// of the deadline OR at/above this fill ratio.
+const HEAD_BACK_LEAD_MS = 60 * MIN_MS;
+const HEAD_BACK_FILL    = 0.70;
 
-// A driver location is "fresh enough" to tailor the release message if it was
-// reported within this window. Older than that → treat as "away".
-const LOCATION_FRESH_MS = 20 * MIN_MS;
-const AT_ZONE_METERS    = 1000;                // ≤1 km counts as "at the zone"
+interface DriverLoc {
+  current_lat: number | null;
+  current_lng: number | null;
+  location_at: string | null;
+}
 
 interface LoadingRow {
   id: string;
@@ -58,11 +73,13 @@ interface LoadingRow {
   destination_region: string | null;
   load_start_at: string | null;
   load_deadline: string | null;
+  left_zone_at: string | null;
   vehicle_id: string | null;
   seats_boarded: number | null;
   expiry_stage: number | null;
   expiry_msg_at: string | null;
   vehicles: { seats: number } | null;
+  drivers: DriverLoc | null;
 }
 
 interface ZoneRow {
@@ -71,23 +88,18 @@ interface ZoneRow {
   name: string | null;
   latitude: number | null;
   longitude: number | null;
-}
-
-interface DriverLoc {
-  current_lat: number | null;
-  current_lng: number | null;
-  location_at: string | null;
+  radius_meters: number | null;
+  manual_queue: boolean | null;
 }
 
 type PushMsg = { to: string; title: string; body: string; sound: "default" };
 
-// Combine an EN + FR message into one bilingual body (title stays EN-short).
 function bi(en: string, fr: string): string {
   return `${en}\n${fr}`;
 }
 
 // Insert an alert row (idempotent via the alerts (user_id, ref) unique index)
-// and, only when it was newly created, queue a push to that user's device.
+// and, only when newly created, queue a push to that user's device.
 async function recordAndQueue(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -102,7 +114,7 @@ async function recordAndQueue(
     .upsert({ user_id: userId, kind, ref, title, body },
             { onConflict: "user_id,ref", ignoreDuplicates: true })
     .select("id");
-  if (error || !data || data.length === 0) return; // duplicate / failure → no push
+  if (error || !data || data.length === 0) return;
   const { data: drv } = await supabase
     .from("drivers").select("push_token").eq("id", userId).maybeSingle();
   const token = (drv as { push_token: string | null } | null)?.push_token;
@@ -132,13 +144,12 @@ function partsInTz(d: Date, tz: string): { hour: number; minute: number } {
   };
 }
 
+// Loading window is [05:00, 20:00) in the zone's local time.
 function isWindowClosedInTz(d: Date, tz: string): boolean {
-  // Loading window is [04:00, 20:00) in the zone's local time.
   const { hour } = partsInTz(d, tz);
-  return hour < 4 || hour >= 20;
+  return hour < LOAD_OPEN_HOUR || hour >= LOAD_CLOSE_HOUR;
 }
 
-// Great-circle distance in metres.
 function haversineM(aLat: number, aLng: number, bLat: number, bLng: number): number {
   const R = 6371000;
   const toRad = (x: number) => (x * Math.PI) / 180;
@@ -150,17 +161,30 @@ function haversineM(aLat: number, aLng: number, bLat: number, bLng: number): num
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+// "Present": a fresh (≤10 min) GPS fix inside the zone radius.
+function presentInZone(loc: DriverLoc | null, zone: ZoneRow | undefined, now: Date): boolean {
+  // Manual-order zones: advance strictly by queue position, ignoring GPS. Every
+  // driver counts as "present" so promotion/standby follow the order the operator
+  // set on-site — no false "absent" from stale or missing GPS.
+  if (zone && zone.manual_queue) return true;
+  if (!loc || loc.current_lat == null || loc.current_lng == null || !loc.location_at) return false;
+  if (!zone || zone.latitude == null || zone.longitude == null) return false;
+  if (now.getTime() - new Date(loc.location_at).getTime() > PRESENCE_FRESH_MS) return false;
+  const radius = zone.radius_meters ?? 150;
+  return haversineM(loc.current_lat, loc.current_lng, zone.latitude, zone.longitude) <= radius;
+}
+
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
   const now = new Date();
+  const day = now.toISOString().slice(0, 10);
   const pushQueue: PushMsg[] = [];
 
-  // Fetch all zones once → tz + name + coords.
   const { data: zoneRows, error: zoneErr } = await supabase
-    .from("zones").select("id, timezone, name, latitude, longitude");
+    .from("zones").select("id, timezone, name, latitude, longitude, radius_meters, manual_queue");
   if (zoneErr) {
     return new Response(JSON.stringify({ error: `zones lookup failed: ${zoneErr.message}` }), { status: 500 });
   }
@@ -169,34 +193,71 @@ Deno.serve(async () => {
 
   const { data: loadingEntries, error } = await supabase
     .from("queue_entries")
-    .select("id, zone_id, driver_id, destination_region, load_start_at, load_deadline, vehicle_id, seats_boarded, expiry_stage, expiry_msg_at, vehicles(seats)")
+    .select("id, zone_id, driver_id, destination_region, load_start_at, load_deadline, left_zone_at, vehicle_id, seats_boarded, expiry_stage, expiry_msg_at, vehicles(seats), drivers(current_lat, current_lng, location_at)")
     .eq("status", "loading");
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 
-  const rows = (loadingEntries as LoadingRow[]) ?? [];
-  const moved: string[]   = [];   // kept for response shape; escalation no longer moves-to-back
-  const removed: string[] = [];
-  const released: string[] = [];
+  const rows = (loadingEntries as unknown as LoadingRow[]) ?? [];
+  const removed: string[]   = [];
+  const released: string[]  = [];
+  const standbyed: string[] = [];
 
-  // Track which (zone, destination) sub-queues had their loading slot freed so
-  // we can promote a waiting driver inside the SAME sub-queue.
-  const affectedRoutes = new Set<string>();   // "zoneId::destinationRegion"
+  const affectedRoutes = new Set<string>();
   const routeKey = (zoneId: string, destRegion: string | null) => `${zoneId}::${destRegion ?? ""}`;
 
-  // ── Loop 1: per loading driver — reminders, escalation, EOD close ──────────
+  // ── Loop 1: per loading driver — presence grace, reminders, escalation ─────
   for (const e of rows) {
     const tz         = tzFor(e.zone_id);
+    const zone       = zoneById.get(e.zone_id);
     const zoneClosed = isWindowClosedInTz(now, tz);
     const deadlineMs = e.load_deadline
       ? new Date(e.load_deadline).getTime()
       : (e.load_start_at ? new Date(e.load_start_at).getTime() + DEFAULT_CAP_MS : null);
     const expired    = deadlineMs !== null && now.getTime() >= deadlineMs;
 
-    // EOD: zone closed (8 PM) AND the clock has run out → close the session.
-    // A driver still mid-clock when the zone closes keeps loading until their
-    // deadline elapses on a later tick (P79).
+    // ── Presence grace (Q2): a loader who leaves the zone gets a 10-min grace,
+    //    then drops to standby and the slot frees. Only while the window is open.
+    if (!zoneClosed) {
+      const present = presentInZone(e.drivers, zone, now);
+      if (!present) {
+        const since = e.left_zone_at ? new Date(e.left_zone_at).getTime() : null;
+        if (since == null) {
+          await supabase.from("queue_entries").update({ left_zone_at: now.toISOString() }).eq("id", e.id);
+          await recordAndQueue(supabase, e.driver_id, "left_zone",
+            `leftzone:${e.id}:${e.load_start_at ?? day}`,
+            "Return to the zone",
+            bi(`You've left ${zone?.name ?? "the loading zone"} while loading. Come back within 10 minutes or you'll be put on standby and the next driver will load.`,
+               `Vous avez quitté ${zone?.name ?? "la zone"} pendant le chargement. Revenez dans 10 minutes ou vous serez mis en attente et le prochain chauffeur chargera.`),
+            pushQueue);
+          continue;
+        }
+        if (now.getTime() - since >= GRACE_MS) {
+          affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
+          const { error: sbErr } = await supabase.from("queue_entries")
+            .update({ status: "standby", left_zone_at: null, expiry_stage: 0, expiry_msg_at: null })
+            .eq("id", e.id);
+          if (!sbErr) {
+            standbyed.push(e.id);
+            await recordAndQueue(supabase, e.driver_id, "standby",
+              `standby:${e.id}:${day}`,
+              "You're on standby",
+              bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return to the zone and you'll be reinserted at the front automatically.",
+                 "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez à la zone et vous serez réinséré à l'avant automatiquement."),
+              pushQueue);
+          }
+          continue;
+        }
+        // Still within grace — wait.
+        continue;
+      } else if (e.left_zone_at != null) {
+        // Back in the zone — clear the grace marker.
+        await supabase.from("queue_entries").update({ left_zone_at: null }).eq("id", e.id);
+      }
+    }
+
+    // EOD: zone closed (8 PM) AND clock run out → close the session.
     if (zoneClosed) {
       if (!expired) continue;
       affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
@@ -209,10 +270,10 @@ Deno.serve(async () => {
       if (!delErr) {
         removed.push(e.id);
         await recordAndQueue(supabase, e.driver_id, "removed",
-          `removed:${e.id}:${now.toISOString().slice(0, 10)}`,
+          `removed:${e.id}:${day}`,
           "Loading closed for the day",
-          bi("Loading is closed for today and your time has ended. Rejoin tomorrow — the queue resets at 4 AM.",
-             "Le chargement est terminé pour aujourd'hui. Réinscrivez-vous demain — la file repart à 4 h."),
+          bi("Loading is closed for today and your time has ended. Rejoin tomorrow — the queue resets at midnight and loading starts at 5 AM.",
+             "Le chargement est terminé pour aujourd'hui. Réinscrivez-vous demain — la file repart à minuit et le chargement commence à 5 h."),
           pushQueue);
       }
       continue;
@@ -266,21 +327,8 @@ Deno.serve(async () => {
       continue;
     }
 
-    // stage === MAX_NUDGES and 10 min elapsed → release the spot (removed).
-    // GPS only changes the wording: near the zone vs. away.
+    // stage === MAX_NUDGES and 10 min elapsed → release the spot.
     affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
-    const { data: drvLoc } = await supabase
-      .from("drivers").select("current_lat, current_lng, location_at")
-      .eq("id", e.driver_id).maybeSingle();
-    const loc  = drvLoc as DriverLoc | null;
-    const zone = zoneById.get(e.zone_id);
-    let atZone = false;
-    if (loc?.current_lat != null && loc?.current_lng != null && loc?.location_at &&
-        zone?.latitude != null && zone?.longitude != null &&
-        now.getTime() - new Date(loc.location_at).getTime() <= LOCATION_FRESH_MS) {
-      atZone = haversineM(loc.current_lat, loc.current_lng, zone.latitude, zone.longitude) <= AT_ZONE_METERS;
-    }
-
     await supabase.from("loading_history").insert({
       driver_id: e.driver_id, zone_id: e.zone_id, destination_region: e.destination_region,
       vehicle_id: e.vehicle_id, load_start_at: e.load_start_at,
@@ -292,65 +340,86 @@ Deno.serve(async () => {
     if (!relErr) {
       released.push(e.id);
       removed.push(e.id);
-      const title = "Your spot was freed up";
-      const body = atZone
-        ? bi("Looks like you're near the zone — if you're ready, just tap Depart next time, or Cancel if plans changed. We've freed your spot for now; rejoin from the Queue tab.",
-             "Vous semblez près de la zone — si vous êtes prêt, touchez Partir la prochaine fois, ou Annuler si vos plans ont changé. Nous avons libéré votre place; réinscrivez-vous depuis l'onglet File.")
-        : bi("We couldn't reach you, so we released your place to keep the line moving. To come back, just join again from the Queue tab — the normal rejoin rules apply (you start at the back).",
-             "Nous n'avons pas pu vous joindre, alors nous avons libéré votre place pour faire avancer la file. Pour revenir, réinscrivez-vous depuis l'onglet File (vous repartez à la fin).");
       await recordAndQueue(supabase, e.driver_id, "released",
-        `released:${e.id}:${e.load_start_at ?? now.toISOString()}`, title, body, pushQueue);
+        `released:${e.id}:${e.load_start_at ?? now.toISOString()}`,
+        "Your spot was freed up",
+        bi("Your loading time ran out, so we released your place to keep the line moving. To come back, join again from the Queue tab (you start at the back).",
+           "Votre temps de chargement est écoulé, alors nous avons libéré votre place pour faire avancer la file. Pour revenir, réinscrivez-vous depuis l'onglet File (vous repartez à la fin)."),
+        pushQueue);
     }
   }
 
-  // ── Loop 2: daily cycle (8 PM close → greying, 3 AM purge) ────────────────
+  // ── Loop 2: daily cycle (midnight purge, 8 PM close → end waiting+standby) ──
   for (const z of (zoneRows as ZoneRow[] ?? [])) {
-    if (!isWindowClosedInTz(now, tzFor(z.id))) continue;
-    const { hour } = partsInTz(now, tzFor(z.id));
-    const isPurgeHour = hour === 3; // 3:00–3:59 AM local
+    const tz = tzFor(z.id);
+    const { hour } = partsInTz(now, tz);
 
-    if (isPurgeHour) {
+    if (hour === PURGE_HOUR) {
+      // Midnight: wipe the whole zone for a fresh day (joining reopens at 00:00).
       const { data: all } = await supabase
         .from("queue_entries").select("id").eq("zone_id", z.id);
       const ids = ((all ?? []) as { id: string }[]).map(r => r.id);
       if (ids.length === 0) continue;
       await supabase.from("queue_entries").delete().in("id", ids);
       for (const id of ids) removed.push(id);
-    } else {
-      const { data: waiters } = await supabase
-        .from("queue_entries").select("id, driver_id")
-        .eq("zone_id", z.id).eq("status", "waiting");
-      const waitList = (waiters ?? []) as { id: string; driver_id: string }[];
-      if (waitList.length === 0) continue;
-      const { error: updErr } = await supabase
-        .from("queue_entries").update({ status: "ended", end_reason: "window_closed" })
-        .in("id", waitList.map(w => w.id));
-      if (updErr) continue;
-      for (const w of waitList) {
-        removed.push(w.id);
-        await recordAndQueue(supabase, w.driver_id, "removed",
-          `closed:${w.id}:${now.toISOString().slice(0, 10)}`,
-          "Loading closed for the day",
-          bi("Loading is now closed for today. The queue resets at 4 AM tomorrow.",
-             "Le chargement est fermé pour aujourd'hui. La file repart à 4 h demain."),
-          pushQueue);
-      }
+      continue;
+    }
+
+    if (!isWindowClosedInTz(now, tz)) continue;
+    // Window closed (8 PM–midnight): end anyone still waiting or on standby.
+    const { data: leftovers } = await supabase
+      .from("queue_entries").select("id, driver_id")
+      .eq("zone_id", z.id).in("status", ["waiting", "standby"]);
+    const list = (leftovers ?? []) as { id: string; driver_id: string }[];
+    if (list.length === 0) continue;
+    const { error: updErr } = await supabase
+      .from("queue_entries").update({ status: "ended", end_reason: "window_closed" })
+      .in("id", list.map(w => w.id));
+    if (updErr) continue;
+    for (const w of list) {
+      removed.push(w.id);
+      await recordAndQueue(supabase, w.driver_id, "removed",
+        `closed:${w.id}:${day}`,
+        "Loading closed for the day",
+        bi("Loading is now closed for today. The queue resets at midnight; loading starts again at 5 AM.",
+           "Le chargement est fermé pour aujourd'hui. La file repart à minuit; le chargement reprend à 5 h."),
+        pushQueue);
     }
   }
 
-  // Any (zone, destination) that has waiting drivers but no loader should have
-  // its front driver promoted — catches fresh sub-queues with no freed slot.
+  // ── Standby reinsertion: a standby driver who is present again returns to
+  //    'waiting'. They keep their (earlier) position, so they naturally sit at
+  //    the front of the line behind the current loader. ─────────────────────────
+  const { data: standbyRows } = await supabase
+    .from("queue_entries")
+    .select("id, zone_id, destination_region, drivers(current_lat, current_lng, location_at)")
+    .eq("status", "standby");
+  for (const s of (standbyRows ?? []) as unknown as
+       { id: string; zone_id: string; destination_region: string | null; drivers: DriverLoc | null }[]) {
+    if (isWindowClosedInTz(now, tzFor(s.zone_id))) continue;
+    if (!presentInZone(s.drivers, zoneById.get(s.zone_id), now)) continue;
+    const { error: reErr } = await supabase.from("queue_entries")
+      .update({ status: "waiting" }).eq("id", s.id);
+    if (!reErr) affectedRoutes.add(routeKey(s.zone_id, s.destination_region));
+  }
+
+  // Any (zone, destination) with waiting drivers but no loader needs a
+  // promotion check — catches fresh sub-queues at 5 AM with no freed slot.
   const { data: waitingPairs } = await supabase
     .from("queue_entries").select("zone_id, destination_region").eq("status", "waiting");
   for (const w of (waitingPairs ?? []) as { zone_id: string; destination_region: string | null }[]) {
     affectedRoutes.add(routeKey(w.zone_id, w.destination_region));
   }
 
-  // ── Promote the next waiting driver per freed sub-queue ───────────────────
+  // ── Present-gated promotion per free sub-queue ─────────────────────────────
+  // Among waiting drivers ordered by position, skip absent ones to 'standby'
+  // and promote the first PRESENT one. If nobody is present, everyone checked
+  // goes to standby and the slot stays open for next tick.
   const promoted: string[] = [];
   for (const key of affectedRoutes) {
     const [zoneId, destRegionRaw] = key.split("::");
     const destRegion = destRegionRaw === "" ? null : destRegionRaw;
+    const zone = zoneById.get(zoneId);
     if (isWindowClosedInTz(now, tzFor(zoneId))) continue;
 
     let stillLoadingQuery = supabase
@@ -361,44 +430,71 @@ Deno.serve(async () => {
     const { data: stillLoading } = await stillLoadingQuery.limit(1);
     if (stillLoading && stillLoading.length > 0) continue;
 
-    let nextQuery = supabase
-      .from("queue_entries").select("id, driver_id")
+    let waitQuery = supabase
+      .from("queue_entries")
+      .select("id, driver_id, position, drivers(current_lat, current_lng, location_at)")
       .eq("zone_id", zoneId).eq("status", "waiting");
-    nextQuery = destRegion
-      ? nextQuery.eq("destination_region", destRegion)
-      : nextQuery.is("destination_region", null);
-    const { data: next } = await nextQuery
-      .order("position", { ascending: true }).limit(1).maybeSingle();
-    if (!next) continue;
+    waitQuery = destRegion
+      ? waitQuery.eq("destination_region", destRegion)
+      : waitQuery.is("destination_region", null);
+    const { data: waiters } = await waitQuery.order("position", { ascending: true });
+    const candidates = (waiters ?? []) as unknown as
+      { id: string; driver_id: string; position: number; drivers: DriverLoc | null }[];
 
-    // Per-day window length: day's first loader (4–6am) gets 4h, else 2h.
+    // Walk the line: absent drivers are skipped to standby; the first present
+    // one is promoted.
+    let chosen: { id: string; driver_id: string } | null = null;
+    const skipAbsent: { id: string; driver_id: string }[] = [];
+    for (const c of candidates) {
+      if (presentInZone(c.drivers, zone, now)) { chosen = c; break; }
+      skipAbsent.push(c);
+    }
+
+    // Park absent drivers ahead of the chosen one (or everyone, if none present).
+    for (const a of skipAbsent) {
+      const { error: sbErr } = await supabase.from("queue_entries")
+        .update({ status: "standby" }).eq("id", a.id);
+      if (!sbErr) {
+        standbyed.push(a.id);
+        await recordAndQueue(supabase, a.driver_id, "standby",
+          `standby:${a.id}:${day}`,
+          "You're on standby",
+          bi(`Loading started but you weren't in the ${zone?.name ?? "loading"} zone, so you were skipped. Return to the zone and you'll be reinserted at the front automatically.`,
+             `Le chargement a commencé mais vous n'étiez pas dans la zone ${zone?.name ?? ""}, vous avez donc été ignoré. Revenez à la zone et vous serez réinséré à l'avant automatiquement.`),
+          pushQueue);
+      }
+    }
+
+    if (!chosen) continue; // nobody present — leave the slot open for next tick
+
     const { data: minsData } = await supabase.rpc("loadq_load_minutes", { p_zone: zoneId });
-    const loadMins   = typeof minsData === "number" ? minsData : 120;
+    const loadMins   = typeof minsData === "number" ? minsData : OTHER_LOADER_MIN;
     const loadStart  = new Date();
     const loadDeadline = new Date(loadStart.getTime() + loadMins * MIN_MS);
     const hrs = Math.round(loadMins / 60);
     const { error: promErr } = await supabase.from("queue_entries").update({
-      status:        "loading",
-      load_start_at: loadStart.toISOString(),
-      load_deadline: loadDeadline.toISOString(),
-      expiry_stage:  0,
-      expiry_msg_at: null,
-    }).eq("id", next.id);
+      status:         "loading",
+      load_start_at:  loadStart.toISOString(),
+      load_deadline:  loadDeadline.toISOString(),
+      last_active_at: loadStart.toISOString(),
+      left_zone_at:   null,
+      expiry_stage:   0,
+      expiry_msg_at:  null,
+    }).eq("id", chosen.id);
     if (!promErr) {
-      promoted.push(next.id);
-      const nextRow = next as { id: string; driver_id: string };
-      await recordAndQueue(supabase, nextRow.driver_id, "slot_open",
-        `slot_open:${nextRow.id}:${loadStart.toISOString()}`,
+      promoted.push(chosen.id);
+      await recordAndQueue(supabase, chosen.driver_id, "slot_open",
+        `slot_open:${chosen.id}:${loadStart.toISOString()}`,
         "It's your turn to load",
-        bi(`Your loading slot is open. Head to the loading zone now — you have ${hrs} hours.`,
-           `Votre place de chargement est ouverte. Rendez-vous à la zone maintenant — vous avez ${hrs} heures.`),
+        bi(`Your loading slot is open — you have ${hrs} hours. You're at the zone, so you're good to go.`,
+           `Votre place de chargement est ouverte — vous avez ${hrs} heures. Vous êtes à la zone, c'est parti.`),
         pushQueue);
     }
   }
 
   // ── "Head back" — when a loader is at ≤1h left OR ≥70% full, message every
   //    waiting driver on that route, urgency scaled to their place in line. ──
-  const handled = new Set<string>([...removed, ...released]);
+  const handled = new Set<string>([...removed, ...released, ...standbyed]);
   for (const e of rows) {
     if (handled.has(e.id)) continue;
     if (isWindowClosedInTz(now, tzFor(e.zone_id))) continue;
@@ -447,6 +543,6 @@ Deno.serve(async () => {
 
   return new Response(JSON.stringify({
     now: now.toISOString(),
-    moved, removed, released, promoted, pushed: pushQueue.length,
+    removed, released, standbyed, promoted, pushed: pushQueue.length,
   }), { headers: { "Content-Type": "application/json" } });
 });
