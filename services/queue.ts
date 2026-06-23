@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { QueueEntry, SeatStatus } from "../constants/types";
-import { isWithinLoadingWindow } from "../utils/loadingTimer";
+import { isWithinRegistrationWindow } from "../utils/loadingTimer";
 import { getZoneTimezone } from "../hooks/useZones";
 import { DriversAPI } from "./drivers";
 
@@ -77,8 +77,8 @@ export const QueueAPI = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Not authenticated" };
     if (!destinationRegion) return { error: "Destination is required" };
-    if (!isWithinLoadingWindow(new Date(), getZoneTimezone(zoneId))) {
-      return { error: "Queue closed (4:00 AM – 8:00 PM local)" };
+    if (!isWithinRegistrationWindow(new Date(), getZoneTimezone(zoneId))) {
+      return { error: "Queue closed (registration opens at midnight, until 8:00 PM local)" };
     }
 
     const gate = await this.canJoin();

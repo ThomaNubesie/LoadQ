@@ -97,6 +97,36 @@ export function isWithinLoadingWindow(now: Date = new Date(), tz?: string): bool
   return true;
 }
 
+// Registration window: drivers may JOIN the queue (and hold pole position) from
+// 00:00 (midnight), even though the loading clock doesn't start until 05:00 (the
+// watchdog promotes/loads from 5 AM). Registration closes with the day at 20:00.
+//   Open  00:00 (midnight)
+//   Close 20:00 (8 PM) — window is [00:00, 20:00)
+export const REGISTER_WINDOW_OPEN_HOUR  = 0;
+export const REGISTER_WINDOW_CLOSE_HOUR = 20;
+
+export function isWithinRegistrationWindow(now: Date = new Date(), tz?: string): boolean {
+  const { hour } = partsInTz(now, tz);
+  return hour >= REGISTER_WINDOW_OPEN_HOUR && hour < REGISTER_WINDOW_CLOSE_HOUR;
+}
+
+// Next instant registration opens (the upcoming midnight) in `tz`.
+export function nextRegistrationOpen(now: Date = new Date(), tz?: string): Date {
+  if (!tz) {
+    const next = new Date(now);
+    next.setHours(0, 0, 0, 0);
+    if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+    return next;
+  }
+  const start = new Date(now);
+  for (let i = 1; i <= 60 * 24; i++) {
+    const candidate = new Date(start.getTime() + i * 60_000);
+    const { hour, minute } = partsInTz(candidate, tz);
+    if (hour === 0 && minute === 0) return candidate;
+  }
+  return new Date(start.getTime() + 60 * 60_000);
+}
+
 // Returns the next Date at which the loading window opens in `tz`.
 // When `tz` is omitted, computes against the device's local time.
 export function nextWindowOpen(now: Date = new Date(), tz?: string): Date {
