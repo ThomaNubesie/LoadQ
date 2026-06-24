@@ -7,11 +7,13 @@ import { supabase } from "../../services/supabase";
 import { ReferralAPI, ReferralProgress } from "../../services/referral";
 import { Colors } from "../../constants/colors";
 import BottomNav from "../../components/BottomNav";
+import { useStrings } from "../../hooks/useStrings";
 
 const GOAL = 10;
 
 export default function ReferralScreen() {
   const router = useRouter();
+  const { t, lang } = useStrings();
   const [driverId, setDriverId] = useState<string | null>(null);
   const [prog, setProg]         = useState<ReferralProgress | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -29,7 +31,7 @@ export default function ReferralScreen() {
 
   const onShare = () => {
     if (!link) return;
-    Share.share({ message: `Ride with me on LoadQ. Sign up here: ${link}` });
+    Share.share({ message: t("referShareMsg", { link }) });
   };
 
   const qualified = prog?.qualified ?? 0;
@@ -42,7 +44,7 @@ export default function ReferralScreen() {
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
           <Text style={s.back}>←</Text>
         </TouchableOpacity>
-        <Text style={s.title}>Refer & earn</Text>
+        <Text style={s.title}>{t.referTitle}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -50,45 +52,39 @@ export default function ReferralScreen() {
         <ActivityIndicator color={Colors.accent} style={{ flex: 1 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 96, alignItems: "center" }}>
-          <Text style={s.lead}>
-            Passengers scan this code with their phone camera to sign up under you.
-          </Text>
+          <Text style={s.lead}>{t.referLead}</Text>
 
           <View style={s.qrBox}>
             {link ? <QRCode value={link} size={196} backgroundColor="#fff" /> : null}
           </View>
 
           <TouchableOpacity style={s.shareBtn} onPress={onShare}>
-            <Text style={s.shareText}>Share my link</Text>
+            <Text style={s.shareText}>{t.referShareLink}</Text>
           </TouchableOpacity>
 
           {waiverActive ? (
             <View style={[s.statusBox, s.statusOk]}>
-              <Text style={s.statusTitle}>🎁 Free month active</Text>
+              <Text style={s.statusTitle}>{t.referFreeMonthActive}</Text>
               <Text style={s.statusSub}>
-                Your subscription is waived until{" "}
-                {new Date(prog!.waiver_until as string).toLocaleDateString()}.
+                {t("referWaivedUntil", { date: new Date(prog!.waiver_until as string).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA") })}
               </Text>
             </View>
           ) : waiverBanked ? (
             <View style={[s.statusBox, s.statusOk]}>
-              <Text style={s.statusTitle}>🎉 You earned a free month</Text>
-              <Text style={s.statusSub}>
-                It starts automatically when your current paid period ends.
-              </Text>
+              <Text style={s.statusTitle}>{t.referEarnedMonth}</Text>
+              <Text style={s.statusSub}>{t.referEarnedSub}</Text>
             </View>
           ) : (
             <View style={s.statusBox}>
               <Text style={s.statusTitle}>{qualified} / {GOAL}</Text>
               <Text style={s.statusSub}>
-                referred passengers who have each completed 3+ trips. Reach {GOAL}{" "}
-                to earn one free month of LoadQ.
+                {t("referProgressSub", { goal: String(GOAL) })}
               </Text>
               <View style={s.barTrack}>
                 <View style={[s.barFill, { width: `${Math.min(100, (qualified / GOAL) * 100)}%` }]} />
               </View>
               <Text style={s.metaText}>
-                {prog?.referred_total ?? 0} total passengers signed up with your code
+                {t("referTotalSignups", { total: String(prog?.referred_total ?? 0) })}
               </Text>
             </View>
           )}
