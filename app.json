@@ -2,7 +2,7 @@
   "expo": {
     "name": "LoadQ",
     "slug": "loadq",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "loadq",
@@ -24,7 +24,7 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "buildNumber": "8"
+      "buildNumber": "9"
     },
     "android": {
       "adaptiveIcon": {
@@ -42,7 +42,8 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 36
+      "versionCode": 38,
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
