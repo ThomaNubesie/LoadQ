@@ -147,6 +147,7 @@ export const STRINGS = {
     position:         "Position",
     estimatedWait:    "Est. wait",
     joinQueue:        "Join queue",
+    joinDistance:     "Join ({d}m away)",
     leaveQueue:       "Leave queue",
     movedBack:        "Moved to back of line",
 
@@ -592,6 +593,7 @@ export const STRINGS = {
     position:         "Position",
     estimatedWait:    "Attente estimée",
     joinQueue:        "Rejoindre la file",
+    joinDistance:     "Rejoindre ({d}m)",
     leaveQueue:       "Quitter la file",
     movedBack:        "Rejeté en fin de file",
 

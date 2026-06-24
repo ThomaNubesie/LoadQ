@@ -302,6 +302,36 @@ export const QueueAPI = {
     return {};
   },
 
+  // ── Admin queue controls (drivers.is_admin only; enforced server-side) ──────
+  async isAdmin(): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data } = await supabase.from("drivers").select("is_admin").eq("id", user.id).maybeSingle();
+    return !!(data as { is_admin?: boolean } | null)?.is_admin;
+  },
+  async searchDrivers(query: string): Promise<{ id: string; full_name: string | null; phone: string | null }[]> {
+    let q = supabase.from("drivers").select("id, full_name, phone").limit(30);
+    const term = query.trim();
+    if (term) q = q.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
+    else q = q.order("full_name", { ascending: true });
+    const { data } = await q;
+    return (data as { id: string; full_name: string | null; phone: string | null }[]) || [];
+  },
+  async adminAddToQueue(zoneId: string, destinationRegion: string | null, driverId: string, position?: number | null) {
+    const { error } = await supabase.rpc("loadq_admin_add", {
+      p_zone: zoneId, p_dest: destinationRegion, p_driver_id: driverId, p_pos: position ?? null,
+    });
+    return { error: error?.message };
+  },
+  async adminMove(entryId: string, newPosition: number) {
+    const { error } = await supabase.rpc("loadq_admin_move", { p_entry_id: entryId, p_new_pos: newPosition });
+    return { error: error?.message };
+  },
+  async adminDepart(entryId: string, seats: number) {
+    const { error } = await supabase.rpc("loadq_admin_depart", { p_entry_id: entryId, p_seats: seats });
+    return { error: error?.message };
+  },
+
   subscribeToZone(zoneId: string, callback: (payload: any) => void) {
     const name = `zone-${zoneId}`;
     // Remove existing channel first to avoid duplicate error
