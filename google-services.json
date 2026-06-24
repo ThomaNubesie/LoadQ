@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "513883385840",
+    "project_id": "loadq-6ac47",
+    "storage_bucket": "loadq-6ac47.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:513883385840:android:8a7cc47768094e3d3ff735",
+        "android_client_info": {
+          "package_name": "ca.loadq.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCF3gN2QSOgwem_0Yx0JV1CDjwbAYuX2Y4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
