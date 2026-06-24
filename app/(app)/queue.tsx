@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking, ActivityIndicator, TextInput } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { MessagesAPI } from "../../services/messages";
@@ -30,7 +30,7 @@ import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../const
 export default function QueueScreen() {
   const router = useRouter();
   const { zoneId: paramZoneId, zoneName: paramZoneName } = useLocalSearchParams<{ zoneId?: string; zoneName?: string }>();
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
 
   const { zones } = useZones();
   const { activeCodes: activeDestCodes } = useDestinations();
@@ -44,6 +44,57 @@ export default function QueueScreen() {
   const [userRegion,   setUserRegion]   = useState<RegionCode|null>(null);
   const [activeZone,   setActiveZone]   = useState<ZoneLocation|null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  // Sticky loading location: once a zone is chosen (auto-detected on first load,
+  // or manually picked) it does NOT change on refresh/refocus — only via the
+  // zone picker. manualPickRef hard-locks it to the user's explicit choice.
+  const activeZoneRef = useRef<ZoneLocation | null>(null);
+  useEffect(() => { activeZoneRef.current = activeZone; }, [activeZone]);
+  const manualPickRef = useRef(false);
+  // Admin queue controls — only rendered for drivers.is_admin; enforced server-side.
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminModal, setAdminModal] = useState<{ mode: "add" | "move" | "depart"; entry?: QueueEntry; dest?: string | null } | null>(null);
+  const [adminInput, setAdminInput] = useState("");
+  const [driverResults, setDriverResults] = useState<{ id: string; full_name: string | null; phone: string | null }[]>([]);
+  const [adminBusy, setAdminBusy] = useState(false);
+  useEffect(() => { QueueAPI.isAdmin().then(setIsAdmin); }, []);
+  useEffect(() => {
+    if (adminModal?.mode !== "add") return;
+    let cancelled = false;
+    QueueAPI.searchDrivers(adminInput).then(r => { if (!cancelled) setDriverResults(r); });
+    return () => { cancelled = true; };
+  }, [adminModal?.mode, adminInput]);
+  const reloadBoard = () => { const zid = activeZoneRef.current?.id; if (zid) QueueAPI.getZoneQueue(zid).then(setEntries); };
+  const openAdminAdd    = (dest: string | null) => { setAdminInput(""); setDriverResults([]); setAdminModal({ mode: "add", dest }); };
+  const openAdminMove   = (entry: QueueEntry)   => { setAdminInput(String(entry.position)); setAdminModal({ mode: "move", entry }); };
+  const openAdminDepart = (entry: QueueEntry)   => { setAdminInput("0"); setAdminModal({ mode: "depart", entry }); };
+  const doAdminAdd = async (driverId: string) => {
+    if (!activeZone || adminBusy) return;
+    setAdminBusy(true);
+    const dest = adminModal?.dest === "_unknown" ? null : (adminModal?.dest ?? null);
+    const { error } = await QueueAPI.adminAddToQueue(activeZone.id, dest, driverId);
+    setAdminBusy(false);
+    if (error) { Alert.alert("Couldn't add", error); return; }
+    setAdminModal(null); reloadBoard();
+  };
+  const doAdminMove = async () => {
+    if (!adminModal?.entry || adminBusy) return;
+    const n = parseInt(adminInput, 10);
+    if (!Number.isFinite(n) || n < 1) { Alert.alert("Enter a queue number (1 or higher)"); return; }
+    setAdminBusy(true);
+    const { error } = await QueueAPI.adminMove(adminModal.entry.id, n);
+    setAdminBusy(false);
+    if (error) { Alert.alert("Couldn't move", error); return; }
+    setAdminModal(null); reloadBoard();
+  };
+  const doAdminDepart = async () => {
+    if (!adminModal?.entry || adminBusy) return;
+    const seats = Math.max(0, parseInt(adminInput, 10) || 0);
+    setAdminBusy(true);
+    const { error } = await QueueAPI.adminDepart(adminModal.entry.id, seats);
+    setAdminBusy(false);
+    if (error) { Alert.alert("Couldn't depart", error); return; }
+    setAdminModal(null); reloadBoard();
+  };
   const [dropRegion,   setDropRegion]   = useState<RegionCode>("ottawa");
   const [userCoords,   setUserCoords]   = useState<{lat:number,lon:number}|null>(null);
   const [joining,      setJoining]      = useState(false);
@@ -126,9 +177,10 @@ export default function QueueScreen() {
       const region = detectUserRegion(lat, lon);
       setUserRegion(region);
       if (region) setDropRegion(region);
-      const zone = resolveZone(lat, lon);
-      setActiveZone(zone);
-    } else {
+      // Sticky: auto-pick the zone only on the FIRST load (none chosen yet).
+      // After that the loading location changes only by manual selection.
+      if (!activeZoneRef.current && !manualPickRef.current) setActiveZone(resolveZone(lat, lon));
+    } else if (!activeZoneRef.current && !manualPickRef.current) {
       // GPS denied or timed out — use param or fall back to first zone.
       const z = paramZoneId ? zones.find(z => z.id === paramZoneId) : null;
       setActiveZone(prev => prev ?? z ?? zones[0] ?? null);
@@ -140,6 +192,9 @@ export default function QueueScreen() {
     ]);
     setMyId(driver?.id || null);
     setMyVehicle(vehicles.find(v => v.is_active) || vehicles[0] || null);
+    // Refresh the board for the (sticky) active zone.
+    const zid = activeZoneRef.current?.id;
+    if (zid) QueueAPI.getZoneQueue(zid).then(setEntries);
     loadedOnceRef.current = true;
     setLoading(false);
     setRefreshing(false);
@@ -557,6 +612,16 @@ export default function QueueScreen() {
             )}
           </View>
         )}
+        {isAdmin && !isEnded && (
+          <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingBottom: 10, marginTop: -2 }}>
+            <TouchableOpacity onPress={() => openAdminMove(entry)} style={{ backgroundColor: Colors.cardAlt, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+              <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>#{entry.position} ✎ Move</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => openAdminDepart(entry)} style={{ backgroundColor: Colors.cardAlt, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+              <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>🚪 Depart</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   };
@@ -581,6 +646,11 @@ export default function QueueScreen() {
               {userCoords && !isMyRegion && <Text style={s.watchTag}> · Watching only</Text>}
               {!userCoords && <Text style={s.watchTag}> · Locating…</Text>}
             </View>
+          )}
+          {activeZone && (
+            <Text style={{ color: Colors.t2, fontSize: 11.5, fontWeight: "700", marginTop: 3 }}>
+              {new Date().toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { weekday: "long", month: "long", day: "numeric" })}
+            </Text>
           )}
         </View>
         <TouchableOpacity
@@ -640,9 +710,9 @@ export default function QueueScreen() {
                     : joining
                       ? t.joining
                       : inGeo
-                        ? "✓ Join queue"
+                        ? `✓ ${t.joinQueue}`
                         : distanceMeters !== null
-                          ? `Join (${distanceMeters}m away)`
+                          ? t("joinDistance", { d: String(distanceMeters) })
                           : t.joinQueue}
                 </Text>
               </TouchableOpacity>
@@ -713,6 +783,11 @@ export default function QueueScreen() {
                       <View style={s.priceBadge}>
                         <Text style={s.priceBadgeText}>C${price} / seat</Text>
                       </View>
+                    )}
+                    {isAdmin && (
+                      <TouchableOpacity onPress={() => openAdminAdd(destKey)} style={{ backgroundColor: Colors.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                        <Text style={{ color: Colors.accentText, fontWeight: "800", fontSize: 12 }}>+ Add</Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
@@ -867,7 +942,7 @@ export default function QueueScreen() {
                   <TouchableOpacity
                     key={zone.id}
                     style={[s.zoneRow, isActive && s.zoneRowActive]}
-                    onPress={() => { setActiveZone(zone); setShowDropdown(false); }}
+                    onPress={() => { manualPickRef.current = true; setActiveZone(zone); setShowDropdown(false); }}
                     activeOpacity={0.8}
                   >
                     <View style={{ flex:1 }}>
@@ -888,6 +963,64 @@ export default function QueueScreen() {
                 );
               })}
             </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Admin queue controls ── */}
+      <Modal visible={!!adminModal} transparent animationType="slide" onRequestClose={() => setAdminModal(null)}>
+        <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setAdminModal(null)}>
+          <View style={s.modalSheet}>
+            <View style={{ alignItems: "center", paddingTop: 6 }}>
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border }} />
+            </View>
+            {adminModal?.mode === "add" && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+                <Text style={s.modalTitle}>Add driver to line</Text>
+                <TextInput
+                  value={adminInput} onChangeText={setAdminInput} autoFocus
+                  placeholder="Search name or phone" placeholderTextColor={Colors.t3}
+                  style={{ backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 12, fontSize: 16, marginBottom: 10 }}
+                />
+                <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
+                  {driverResults.map(d => (
+                    <TouchableOpacity key={d.id} disabled={adminBusy} onPress={() => doAdminAdd(d.id)}
+                      style={{ paddingVertical: 12, borderBottomColor: Colors.border, borderBottomWidth: 1 }}>
+                      <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 15 }}>{d.full_name || "(no name)"}</Text>
+                      {d.phone ? <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }}>{d.phone}</Text> : null}
+                    </TouchableOpacity>
+                  ))}
+                  {driverResults.length === 0 && <Text style={{ color: Colors.t3, paddingVertical: 16 }}>No drivers found.</Text>}
+                </ScrollView>
+              </View>
+            )}
+            {adminModal?.mode === "move" && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 28 }}>
+                <Text style={s.modalTitle}>Change queue number</Text>
+                <TextInput
+                  value={adminInput} onChangeText={setAdminInput} keyboardType="number-pad" autoFocus
+                  style={{ backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 14, fontSize: 22, fontWeight: "800", textAlign: "center", marginBottom: 14 }}
+                />
+                <TouchableOpacity onPress={doAdminMove} disabled={adminBusy}
+                  style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 15, alignItems: "center" }}>
+                  <Text style={{ color: Colors.accentText, fontWeight: "800", fontSize: 16 }}>{adminBusy ? "…" : "Move"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {adminModal?.mode === "depart" && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 28 }}>
+                <Text style={s.modalTitle}>Mark departed</Text>
+                <Text style={{ color: Colors.t2, marginBottom: 8, fontSize: 13 }}>Passengers boarded</Text>
+                <TextInput
+                  value={adminInput} onChangeText={setAdminInput} keyboardType="number-pad" autoFocus
+                  style={{ backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 14, fontSize: 22, fontWeight: "800", textAlign: "center", marginBottom: 14 }}
+                />
+                <TouchableOpacity onPress={doAdminDepart} disabled={adminBusy}
+                  style={{ backgroundColor: Colors.red, borderRadius: 12, padding: 15, alignItems: "center" }}>
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>{adminBusy ? "…" : "Mark departed"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
