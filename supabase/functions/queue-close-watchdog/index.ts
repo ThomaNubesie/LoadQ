@@ -36,8 +36,8 @@ const DEFAULT_CAP_MS = 3 * 60 * MIN_MS;        // 3h fallback if load_deadline i
 const FALLBACK_TZ    = "America/Toronto";      // if a zone row is missing a tz
 
 // Day boundaries (zone-local).
-const LOAD_OPEN_HOUR  = 5;                      // 05:00 clock start
-const LOAD_CLOSE_HOUR = 20;                     // 20:00 window close
+let LOAD_OPEN_HOUR  = 5;                        // 05:00 clock start — overridden by public.queue_window
+let LOAD_CLOSE_HOUR = 23;                       // 23:00 window close — overridden by public.queue_window
 const PURGE_HOUR      = 0;                      // 00:00–00:59 daily purge
 
 // Per-day loading window length.
@@ -178,6 +178,16 @@ Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  // Queue hours are remote-controlled via public.queue_window — change them with
+  // a single DB update, no redeploy and no app build.
+  const { data: qw } = await supabase
+    .from("queue_window").select("load_open_hour, close_hour").eq("id", 1).maybeSingle();
+  if (qw) {
+    const c = qw as { load_open_hour?: number; close_hour?: number };
+    if (typeof c.load_open_hour === "number") LOAD_OPEN_HOUR = c.load_open_hour;
+    if (typeof c.close_hour === "number") LOAD_CLOSE_HOUR = c.close_hour;
+  }
 
   const now = new Date();
   const day = now.toISOString().slice(0, 10);
