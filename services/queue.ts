@@ -186,7 +186,18 @@ export const QueueAPI = {
     // watchdog Edge Function. No global guard here so the watchdog's
     // auto-promotion (which already did a per-zone TZ check) is not blocked.
     const loadStart    = new Date();
-    const loadMins     = zoneId ? await this.loadMinutes(zoneId) : 120;
+    // An admin can pin a per-entry loading time (load_minutes_override). When
+    // present it wins over the zone default so the driver's deadline matches
+    // what the admin chose when adding them.
+    const { data: ovr } = await supabase
+      .from("queue_entries")
+      .select("load_minutes_override")
+      .eq("id", entryId)
+      .maybeSingle();
+    const override = (ovr as { load_minutes_override?: number | null } | null)?.load_minutes_override;
+    const loadMins     = typeof override === "number" && override > 0
+      ? override
+      : (zoneId ? await this.loadMinutes(zoneId) : 120);
     const loadDeadline = new Date(loadStart.getTime() + loadMins * 60 * 1000);
     const { error } = await supabase
       .from("queue_entries")
@@ -317,9 +328,39 @@ export const QueueAPI = {
     const { data } = await q;
     return (data as { id: string; full_name: string | null; phone: string | null }[]) || [];
   },
-  async adminAddToQueue(zoneId: string, destinationRegion: string | null, driverId: string, position?: number | null) {
+  // Full list of VERIFIED drivers for the admin "add driver" picker, each with
+  // their primary vehicle (active first) for display. `query` filters by name
+  // or phone; empty query returns the whole verified roster (name-ordered).
+  async searchVerifiedDrivers(query: string): Promise<{
+    id: string; full_name: string | null; phone: string | null; verified: boolean;
+    vehicle: { make: string; model: string; seats: number } | null;
+  }[]> {
+    let q = supabase
+      .from("drivers")
+      .select("id, full_name, phone, verified")
+      .eq("verified", true)
+      .order("full_name", { ascending: true })
+      .limit(100);
+    const term = query.trim();
+    if (term) q = q.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
+    const { data } = await q;
+    const drivers = (data as { id: string; full_name: string | null; phone: string | null; verified: boolean }[]) || [];
+    if (drivers.length === 0) return [];
+    // Pull each driver's primary vehicle in one query, then map to the row.
+    const { data: vehicles } = await supabase
+      .from("vehicles")
+      .select("driver_id, make, model, seats, is_active")
+      .in("driver_id", drivers.map(d => d.id));
+    const byDriver = new Map<string, { make: string; model: string; seats: number }>();
+    for (const v of (vehicles as { driver_id: string; make: string; model: string; seats: number; is_active: boolean }[] | null) || []) {
+      const existing = byDriver.get(v.driver_id);
+      if (!existing || v.is_active) byDriver.set(v.driver_id, { make: v.make, model: v.model, seats: v.seats });
+    }
+    return drivers.map(d => ({ ...d, vehicle: byDriver.get(d.id) ?? null }));
+  },
+  async adminAddToQueue(zoneId: string, destinationRegion: string | null, driverId: string, position?: number | null, minutes?: number | null) {
     const { error } = await supabase.rpc("loadq_admin_add", {
-      p_zone: zoneId, p_dest: destinationRegion, p_driver_id: driverId, p_pos: position ?? null,
+      p_zone: zoneId, p_dest: destinationRegion, p_driver_id: driverId, p_pos: position ?? null, p_minutes: minutes ?? null,
     });
     return { error: error?.message };
   },
@@ -329,6 +370,31 @@ export const QueueAPI = {
   },
   async adminDepart(entryId: string, seats: number) {
     const { error } = await supabase.rpc("loadq_admin_depart", { p_entry_id: entryId, p_seats: seats });
+    return { error: error?.message };
+  },
+
+  // ── Queue hours (public.queue_window, single row id=1) ──────────────────────
+  // Anon-readable; the app gates the Join window on these instead of hardcoded
+  // hours. Defaults to {0,5,23} if the row/table is unavailable.
+  async getQueueWindow(): Promise<{ register_open_hour: number; load_open_hour: number; close_hour: number }> {
+    const fallback = { register_open_hour: 0, load_open_hour: 5, close_hour: 23 };
+    try {
+      const { data, error } = await supabase
+        .from("queue_window")
+        .select("register_open_hour, load_open_hour, close_hour")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error || !data) return fallback;
+      const w = data as { register_open_hour: number; load_open_hour: number; close_hour: number };
+      return {
+        register_open_hour: w.register_open_hour ?? fallback.register_open_hour,
+        load_open_hour:     w.load_open_hour     ?? fallback.load_open_hour,
+        close_hour:         w.close_hour         ?? fallback.close_hour,
+      };
+    } catch { return fallback; }
+  },
+  async setQueueWindow(reg: number, load: number, close: number) {
+    const { error } = await supabase.rpc("loadq_set_queue_window", { p_register: reg, p_load: load, p_close: close });
     return { error: error?.message };
   },
 

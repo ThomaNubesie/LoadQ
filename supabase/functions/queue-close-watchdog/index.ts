@@ -442,18 +442,18 @@ Deno.serve(async () => {
 
     let waitQuery = supabase
       .from("queue_entries")
-      .select("id, driver_id, position, drivers(current_lat, current_lng, location_at)")
+      .select("id, driver_id, position, load_minutes_override, drivers(current_lat, current_lng, location_at)")
       .eq("zone_id", zoneId).eq("status", "waiting");
     waitQuery = destRegion
       ? waitQuery.eq("destination_region", destRegion)
       : waitQuery.is("destination_region", null);
     const { data: waiters } = await waitQuery.order("position", { ascending: true });
     const candidates = (waiters ?? []) as unknown as
-      { id: string; driver_id: string; position: number; drivers: DriverLoc | null }[];
+      { id: string; driver_id: string; position: number; load_minutes_override: number | null; drivers: DriverLoc | null }[];
 
     // Walk the line: absent drivers are skipped to standby; the first present
     // one is promoted.
-    let chosen: { id: string; driver_id: string } | null = null;
+    let chosen: { id: string; driver_id: string; load_minutes_override?: number | null } | null = null;
     const skipAbsent: { id: string; driver_id: string }[] = [];
     for (const c of candidates) {
       if (presentInZone(c.drivers, zone, now)) { chosen = c; break; }
@@ -477,8 +477,13 @@ Deno.serve(async () => {
 
     if (!chosen) continue; // nobody present — leave the slot open for next tick
 
-    const { data: minsData } = await supabase.rpc("loadq_load_minutes", { p_zone: zoneId });
-    const loadMins   = typeof minsData === "number" ? minsData : OTHER_LOADER_MIN;
+    let loadMins: number;
+    if (typeof chosen.load_minutes_override === "number") {
+      loadMins = chosen.load_minutes_override;
+    } else {
+      const { data: minsData } = await supabase.rpc("loadq_load_minutes", { p_zone: zoneId });
+      loadMins = typeof minsData === "number" ? minsData : OTHER_LOADER_MIN;
+    }
     const loadStart  = new Date();
     const loadDeadline = new Date(loadStart.getTime() + loadMins * MIN_MS);
     const hrs = Math.round(loadMins / 60);
