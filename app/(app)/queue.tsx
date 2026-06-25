@@ -14,7 +14,7 @@ import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
 import KolisParcels from "../../components/KolisParcels";
 import ZoneMap from "../../components/ZoneMap";
-import { loadingState, formatRemaining, isWithinRegistrationWindow, nextRegistrationOpen } from "../../utils/loadingTimer";
+import { loadingState, formatRemaining, isWithinHours, nextRegistrationOpen } from "../../utils/loadingTimer";
 import { getCurrentLocationWithTimeout, tryGetUserLocation } from "../../utils/gpsTimeout";
 import { useNow } from "../../hooks/useNow";
 import {
@@ -51,27 +51,62 @@ export default function QueueScreen() {
   useEffect(() => { activeZoneRef.current = activeZone; }, [activeZone]);
   const manualPickRef = useRef(false);
   // Admin queue controls — only rendered for drivers.is_admin; enforced server-side.
+  type VerifiedDriver = { id: string; full_name: string | null; phone: string | null; verified: boolean; vehicle: { make: string; model: string; seats: number } | null };
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminModal, setAdminModal] = useState<{ mode: "add" | "move" | "depart"; entry?: QueueEntry; dest?: string | null } | null>(null);
+  // Add flow is two-step: mode "add" = pick a verified driver, then "config" =
+  // choose zone/destination/position/loading-time before inserting.
+  const [adminModal, setAdminModal] = useState<{ mode: "add" | "config" | "move"; entry?: QueueEntry; dest?: string | null; driver?: VerifiedDriver } | null>(null);
   const [adminInput, setAdminInput] = useState("");
-  const [driverResults, setDriverResults] = useState<{ id: string; full_name: string | null; phone: string | null }[]>([]);
+  const [driverResults, setDriverResults] = useState<VerifiedDriver[]>([]);
   const [adminBusy, setAdminBusy] = useState(false);
+  // Config-panel state (step B of the add flow).
+  const [addZoneId,  setAddZoneId]  = useState<string | null>(null);
+  const [addDest,    setAddDest]    = useState<string | null>(null);
+  const [addPos,     setAddPos]     = useState("");
+  const [addMinutes, setAddMinutes] = useState<number | null>(null);
+  const [addCustomMin, setAddCustomMin] = useState("");
   useEffect(() => { QueueAPI.isAdmin().then(setIsAdmin); }, []);
+  // Remote Join-window config (public.queue_window) — drives the open/close
+  // hours instead of the hardcoded 0/20. Falls back to {0,5,23} on failure.
+  const [queueWindow, setQueueWindow] = useState<{ register_open_hour: number; load_open_hour: number; close_hour: number }>({ register_open_hour: 0, load_open_hour: 5, close_hour: 23 });
+  useEffect(() => { QueueAPI.getQueueWindow().then(setQueueWindow); }, []);
   useEffect(() => {
     if (adminModal?.mode !== "add") return;
     let cancelled = false;
-    QueueAPI.searchDrivers(adminInput).then(r => { if (!cancelled) setDriverResults(r); });
+    QueueAPI.searchVerifiedDrivers(adminInput).then(r => { if (!cancelled) setDriverResults(r); });
     return () => { cancelled = true; };
   }, [adminModal?.mode, adminInput]);
   const reloadBoard = () => { const zid = activeZoneRef.current?.id; if (zid) QueueAPI.getZoneQueue(zid).then(setEntries); };
   const openAdminAdd    = (dest: string | null) => { setAdminInput(""); setDriverResults([]); setAdminModal({ mode: "add", dest }); };
   const openAdminMove   = (entry: QueueEntry)   => { setAdminInput(String(entry.position)); setAdminModal({ mode: "move", entry }); };
-  const openAdminDepart = (entry: QueueEntry)   => { setAdminInput("0"); setAdminModal({ mode: "depart", entry }); };
-  const doAdminAdd = async (driverId: string) => {
-    if (!activeZone || adminBusy) return;
-    setAdminBusy(true);
+  // Step A → Step B: seed the config panel from the row that was tapped + the
+  // current loading zone, and default the position to the end of that line.
+  const pickAdminDriver = (driver: VerifiedDriver) => {
     const dest = adminModal?.dest === "_unknown" ? null : (adminModal?.dest ?? null);
-    const { error } = await QueueAPI.adminAddToQueue(activeZone.id, dest, driverId);
+    const zid  = activeZone?.id ?? null;
+    const lineLen = entries.filter(e =>
+      e.zone_id === zid && (e.destination_region ?? null) === dest &&
+      e.status !== "ended"
+    ).length;
+    setAddZoneId(zid);
+    setAddDest(dest);
+    setAddPos(String(lineLen + 1));
+    setAddMinutes(null);
+    setAddCustomMin("");
+    setAdminModal({ mode: "config", driver, dest });
+  };
+  const doAdminAdd = async () => {
+    if (!adminModal?.driver || !addZoneId || adminBusy) return;
+    const pos = parseInt(addPos, 10);
+    const minutes = addMinutes === -1
+      ? (parseInt(addCustomMin, 10) || null)
+      : addMinutes;
+    setAdminBusy(true);
+    const { error } = await QueueAPI.adminAddToQueue(
+      addZoneId, addDest, adminModal.driver.id,
+      Number.isFinite(pos) && pos >= 1 ? pos : null,
+      minutes,
+    );
     setAdminBusy(false);
     if (error) { Alert.alert("Couldn't add", error); return; }
     setAdminModal(null); reloadBoard();
@@ -86,14 +121,23 @@ export default function QueueScreen() {
     if (error) { Alert.alert("Couldn't move", error); return; }
     setAdminModal(null); reloadBoard();
   };
-  const doAdminDepart = async () => {
-    if (!adminModal?.entry || adminBusy) return;
-    const seats = Math.max(0, parseInt(adminInput, 10) || 0);
-    setAdminBusy(true);
-    const { error } = await QueueAPI.adminDepart(adminModal.entry.id, seats);
-    setAdminBusy(false);
-    if (error) { Alert.alert("Couldn't depart", error); return; }
-    setAdminModal(null); reloadBoard();
+  // One-tap depart: confirm, then mark departed (0 seats) and refresh.
+  const confirmAdminDepart = (entry: QueueEntry) => {
+    Alert.alert(
+      t("departConfirmTitle", { name: entry.driver?.full_name || t.driverLabel }),
+      undefined,
+      [
+        { text: t.cancel, style: "cancel" },
+        {
+          text: t.depart, style: "destructive",
+          onPress: async () => {
+            const { error } = await QueueAPI.adminDepart(entry.id, 0);
+            if (error) { Alert.alert("Couldn't depart", error); return; }
+            reloadBoard();
+          },
+        },
+      ],
+    );
   };
   const [dropRegion,   setDropRegion]   = useState<RegionCode>("ottawa");
   const [userCoords,   setUserCoords]   = useState<{lat:number,lon:number}|null>(null);
@@ -253,7 +297,7 @@ export default function QueueScreen() {
   // Returns null on success, or an error message string.
   const validateJoin = (): string | null => {
     if (!activeZone || !myVehicle) return t.missingZoneOrVehicle;
-    if (!isWithinRegistrationWindow(new Date(), getZoneTimezone(activeZone.id))) {
+    if (!isWithinHours(new Date(), getZoneTimezone(activeZone.id), queueWindow.register_open_hour, queueWindow.close_hour)) {
       return `${t.queueClosed} — ${t.queueClosedSub}`;
     }
     if (myEntry) return t.alreadyInQueue;
@@ -395,7 +439,7 @@ export default function QueueScreen() {
     }
   }, [now, entries, activeZone?.id]);
   const zoneTz        = getZoneTimezone(activeZone?.id);
-  const windowOpen    = isWithinRegistrationWindow(new Date(now), zoneTz);
+  const windowOpen    = isWithinHours(new Date(now), zoneTz, queueWindow.register_open_hour, queueWindow.close_hour);
   const nextOpen      = windowOpen ? null : nextRegistrationOpen(new Date(now), zoneTz);
 
   // Are we physically inside the loading zone? Used to flip the Join button
@@ -617,8 +661,8 @@ export default function QueueScreen() {
             <TouchableOpacity onPress={() => openAdminMove(entry)} style={{ backgroundColor: Colors.cardAlt, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
               <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>#{entry.position} ✎ Move</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => openAdminDepart(entry)} style={{ backgroundColor: Colors.cardAlt, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
-              <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>🚪 Depart</Text>
+            <TouchableOpacity onPress={() => confirmAdminDepart(entry)} style={{ backgroundColor: Colors.cardAlt, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+              <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>🚪 {t.depart}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -976,23 +1020,104 @@ export default function QueueScreen() {
             </View>
             {adminModal?.mode === "add" && (
               <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
-                <Text style={s.modalTitle}>Add driver to line</Text>
+                <Text style={s.modalTitle}>{t.addDriverToLine}</Text>
                 <TextInput
                   value={adminInput} onChangeText={setAdminInput} autoFocus
-                  placeholder="Search name or phone" placeholderTextColor={Colors.t3}
+                  placeholder={t.searchNameOrPhone} placeholderTextColor={Colors.t3}
                   style={{ backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 12, fontSize: 16, marginBottom: 10 }}
                 />
-                <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
-                  {driverResults.map(d => (
-                    <TouchableOpacity key={d.id} disabled={adminBusy} onPress={() => doAdminAdd(d.id)}
-                      style={{ paddingVertical: 12, borderBottomColor: Colors.border, borderBottomWidth: 1 }}>
-                      <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 15 }}>{d.full_name || "(no name)"}</Text>
-                      {d.phone ? <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }}>{d.phone}</Text> : null}
-                    </TouchableOpacity>
-                  ))}
-                  {driverResults.length === 0 && <Text style={{ color: Colors.t3, paddingVertical: 16 }}>No drivers found.</Text>}
+                <ScrollView style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled">
+                  {driverResults.map(d => {
+                    const initials = (d.full_name || "?").trim().split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase();
+                    return (
+                      <TouchableOpacity key={d.id} disabled={adminBusy} onPress={() => pickAdminDriver(d)}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, borderBottomColor: Colors.border, borderBottomWidth: 1 }}>
+                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.accent + "22", alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 14 }}>{initials || "?"}</Text>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 15 }} numberOfLines={1}>{d.full_name || "(no name)"}</Text>
+                            <Text style={{ color: Colors.green, fontSize: 11, fontWeight: "700" }}>{t.verifiedBadge}</Text>
+                          </View>
+                          <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                            {d.vehicle ? `${d.vehicle.make} ${d.vehicle.model} · ${d.vehicle.seats} seats` : (d.phone || "")}
+                          </Text>
+                        </View>
+                        <Text style={{ color: Colors.t3, fontSize: 16 }}>›</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {driverResults.length === 0 && <Text style={{ color: Colors.t3, paddingVertical: 16 }}>{t.noDriversFound}</Text>}
                 </ScrollView>
               </View>
+            )}
+            {adminModal?.mode === "config" && adminModal.driver && (
+              <ScrollView style={{ maxHeight: "100%" }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
+                <Text style={s.modalTitle}>{adminModal.driver.full_name || "(no name)"}</Text>
+
+                {/* Loading location (zone picker) */}
+                <Text style={s.adminFieldLabel}>{t.loadingLocation}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                  {zones.map(z => (
+                    <TouchableOpacity key={z.id} onPress={() => setAddZoneId(z.id)}
+                      style={[s.adminChip, addZoneId === z.id && s.adminChipActive]}>
+                      <Text style={[s.adminChipText, addZoneId === z.id && { color: Colors.accent }]}>{z.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {/* Destination (region picker for the chosen zone's region) */}
+                <Text style={s.adminFieldLabel}>{t.destinationLabel}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                  {(() => {
+                    const z = zones.find(z => z.id === addZoneId);
+                    const dests = z ? getDestinationsFrom(z.region, activeDestCodes) : [];
+                    return dests.map(dest => (
+                      <TouchableOpacity key={dest} onPress={() => setAddDest(dest)}
+                        style={[s.adminChip, addDest === dest && s.adminChipActive]}>
+                        <Text style={[s.adminChipText, addDest === dest && { color: Colors.accent }]}>→ {getRegionName(dest)}</Text>
+                      </TouchableOpacity>
+                    ));
+                  })()}
+                </ScrollView>
+
+                {/* Position */}
+                <Text style={s.adminFieldLabel}>{t.positionLabel}</Text>
+                <TextInput
+                  value={addPos} onChangeText={setAddPos} keyboardType="number-pad"
+                  style={{ backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 12, fontSize: 18, fontWeight: "800", textAlign: "center" }}
+                />
+
+                {/* Loading time */}
+                <Text style={s.adminFieldLabel}>{t.loadingTimeLabel}</Text>
+                <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                  {[120, 180, 240].map(m => (
+                    <TouchableOpacity key={m} onPress={() => { setAddMinutes(m); setAddCustomMin(""); }}
+                      style={[s.adminChip, addMinutes === m && s.adminChipActive]}>
+                      <Text style={[s.adminChipText, addMinutes === m && { color: Colors.accent }]}>{m / 60}h</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity onPress={() => setAddMinutes(-1)}
+                    style={[s.adminChip, addMinutes === -1 && s.adminChipActive]}>
+                    <Text style={[s.adminChipText, addMinutes === -1 && { color: Colors.accent }]}>{t.customMinutes}</Text>
+                  </TouchableOpacity>
+                </View>
+                {addMinutes === -1 && (
+                  <TextInput
+                    value={addCustomMin} onChangeText={setAddCustomMin} keyboardType="number-pad"
+                    placeholder={t.minutesShort} placeholderTextColor={Colors.t3}
+                    style={{ marginTop: 10, backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 12, fontSize: 16, textAlign: "center" }}
+                  />
+                )}
+
+                <TouchableOpacity onPress={doAdminAdd} disabled={adminBusy || !addZoneId}
+                  style={{ marginTop: 18, backgroundColor: Colors.accent, borderRadius: 12, padding: 15, alignItems: "center", opacity: !addZoneId ? 0.4 : 1 }}>
+                  <Text style={{ color: Colors.accentText, fontWeight: "800", fontSize: 16 }}>
+                    {adminBusy ? "…" : t("addDriverAt", { name: adminModal.driver.full_name || "", pos: addPos || "—" })}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             )}
             {adminModal?.mode === "move" && (
               <View style={{ paddingHorizontal: 16, paddingBottom: 28 }}>
@@ -1004,20 +1129,6 @@ export default function QueueScreen() {
                 <TouchableOpacity onPress={doAdminMove} disabled={adminBusy}
                   style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 15, alignItems: "center" }}>
                   <Text style={{ color: Colors.accentText, fontWeight: "800", fontSize: 16 }}>{adminBusy ? "…" : "Move"}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {adminModal?.mode === "depart" && (
-              <View style={{ paddingHorizontal: 16, paddingBottom: 28 }}>
-                <Text style={s.modalTitle}>Mark departed</Text>
-                <Text style={{ color: Colors.t2, marginBottom: 8, fontSize: 13 }}>Passengers boarded</Text>
-                <TextInput
-                  value={adminInput} onChangeText={setAdminInput} keyboardType="number-pad" autoFocus
-                  style={{ backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 14, fontSize: 22, fontWeight: "800", textAlign: "center", marginBottom: 14 }}
-                />
-                <TouchableOpacity onPress={doAdminDepart} disabled={adminBusy}
-                  style={{ backgroundColor: Colors.red, borderRadius: 12, padding: 15, alignItems: "center" }}>
-                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>{adminBusy ? "…" : "Mark departed"}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1149,4 +1260,8 @@ const s = StyleSheet.create({
   closedSub:          { color:Colors.t2, fontSize:11, marginTop:3, lineHeight:16 },
   geoError:           { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.red+"15", borderLeftWidth:3, borderLeftColor:Colors.red, marginHorizontal:16, marginBottom:8, padding:12, borderRadius:8 },
   geoErrorText:       { flex:1, color:Colors.red, fontSize:12, lineHeight:18 },
+  adminFieldLabel:    { color:Colors.t2, fontSize:12, fontWeight:"700", marginTop:16, marginBottom:8, letterSpacing:0.3 },
+  adminChip:          { paddingHorizontal:14, paddingVertical:8, borderRadius:20, borderWidth:1, borderColor:Colors.border, backgroundColor:Colors.cardAlt },
+  adminChipActive:    { borderColor:Colors.accent, backgroundColor:Colors.accent+"15" },
+  adminChipText:      { color:Colors.t2, fontSize:13, fontWeight:"600" },
 });

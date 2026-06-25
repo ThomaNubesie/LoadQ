@@ -245,6 +245,9 @@ export default function ProfileScreen() {
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-inbox" as any)} activeOpacity={0.85}>
               <Text style={s.adminBtnText}>📨  {t.adminInbox}</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-queue-hours" as any)} activeOpacity={0.85}>
+              <Text style={s.adminBtnText}>🕐  {t.adminQueueHours}</Text>
+            </TouchableOpacity>
           </>
         )}
 

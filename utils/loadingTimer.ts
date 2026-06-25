@@ -110,6 +110,15 @@ export function isWithinRegistrationWindow(now: Date = new Date(), tz?: string):
   return hour >= REGISTER_WINDOW_OPEN_HOUR && hour < REGISTER_WINDOW_CLOSE_HOUR;
 }
 
+// Generic [openHour, closeHour) window check in `tz` — used when the open/close
+// hours come from the remote queue_window config instead of the module consts.
+// Window is [openHour, closeHour); closeHour <= openHour is treated as 24h-open.
+export function isWithinHours(now: Date = new Date(), tz: string | undefined, openHour: number, closeHour: number): boolean {
+  const { hour } = partsInTz(now, tz);
+  if (closeHour <= openHour) return true;
+  return hour >= openHour && hour < closeHour;
+}
+
 // Next instant registration opens (the upcoming midnight) in `tz`.
 export function nextRegistrationOpen(now: Date = new Date(), tz?: string): Date {
   if (!tz) {
