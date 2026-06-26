@@ -6,6 +6,7 @@ import { QueueAPI } from "../../services/queue";
 import { MessagesAPI } from "../../services/messages";
 import { MessageEvents } from "../../services/messageEvents";
 import * as Location from "expo-location";
+import { startBackgroundTracking } from "../../services/backgroundLocation";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
@@ -292,6 +293,15 @@ export default function QueueScreen() {
     const iv = setInterval(push, 60_000);
     return () => clearInterval(iv);
   }, []));
+
+  // Background location (1.2.6+): start reporting immediately the moment the
+  // driver gains a spot, so we don't wait for the layout reconcile's timer. The
+  // OS task persists when this screen unmounts; useDeliveryTracking() in the
+  // (app) layout is the authority that keeps it on through the delivery drive
+  // (carrying a parcel) and stops it once the driver is fully idle.
+  useEffect(() => {
+    if (myEntry) startBackgroundTracking();
+  }, [myEntry?.id]);
 
   // Pre-flight checks: window open, geo-fence, not already in queue.
   // Returns null on success, or an error message string.
@@ -850,6 +860,13 @@ export default function QueueScreen() {
       <Modal visible={!!previewEntry} transparent animationType="fade" onRequestClose={() => setPreviewEntry(null)}>
         <TouchableOpacity style={s.previewOverlay} activeOpacity={1} onPress={() => setPreviewEntry(null)}>
           <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation?.()} style={s.previewCard}>
+            <TouchableOpacity
+              onPress={() => setPreviewEntry(null)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+            >
+              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            </TouchableOpacity>
             <View style={s.previewAvatarBox}>
               {previewEntry?.driver?.avatar_url ? (
                 <Image source={{ uri: previewEntry.driver.avatar_url }} style={s.previewAvatar} />
@@ -922,6 +939,13 @@ export default function QueueScreen() {
       <Modal visible={showDestPicker} transparent animationType="slide" onRequestClose={() => setShowDestPicker(false)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowDestPicker(false)}>
           <View style={s.modalSheet}>
+            <TouchableOpacity
+              onPress={() => setShowDestPicker(false)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+            >
+              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>Where are you going?</Text>
             <Text style={s.destSub}>
@@ -956,6 +980,13 @@ export default function QueueScreen() {
       <Modal visible={showDropdown} transparent animationType="slide" onRequestClose={() => setShowDropdown(false)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowDropdown(false)}>
           <View style={s.modalSheet}>
+            <TouchableOpacity
+              onPress={() => setShowDropdown(false)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+            >
+              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>Select loading zone</Text>
 
@@ -1015,6 +1046,13 @@ export default function QueueScreen() {
       <Modal visible={!!adminModal} transparent animationType="slide" onRequestClose={() => setAdminModal(null)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setAdminModal(null)}>
           <View style={s.modalSheet}>
+            <TouchableOpacity
+              onPress={() => setAdminModal(null)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+            >
+              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            </TouchableOpacity>
             <View style={{ alignItems: "center", paddingTop: 6 }}>
               <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border }} />
             </View>

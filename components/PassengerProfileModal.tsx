@@ -61,6 +61,13 @@ export default function PassengerProfileModal({ passengerId, confirmed, onClose 
     <Modal visible={!!passengerId} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation?.()} style={s.card}>
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+          >
+            <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+          </TouchableOpacity>
           {loading || !stats ? (
             <ActivityIndicator size="large" color={Colors.accent} style={{ paddingVertical: 24 }} />
           ) : !passenger ? (

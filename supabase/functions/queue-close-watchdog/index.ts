@@ -47,6 +47,10 @@ const OTHER_LOADER_MIN = 180;                  // everyone else: 3h
 // Presence + grace.
 const PRESENCE_FRESH_MS = 10 * MIN_MS;         // GPS fix must be this fresh
 const GRACE_MS          = 10 * MIN_MS;         // mid-load away grace before standby
+// Distance/time escalation for a loader who leaves the zone (GPS zones only).
+const PAUSE_KM          = 10;                  // ≥10 km away → pause (standby) now, don't wait the grace
+const DEPART_MS         = 15 * MIN_MS;         // away ≥15 min → mark departed (+50% of the 10-min grace)
+const DEPART_KM         = 15;                  // ≥15 km away → mark departed (+50% of the 10-km pause)
 
 // Time-up escalation: nudge cadence and how many nudges before release.
 const NUDGE_GAP_MS = 10 * MIN_MS;
@@ -174,6 +178,35 @@ function presentInZone(loc: DriverLoc | null, zone: ZoneRow | undefined, now: Da
   return haversineM(loc.current_lat, loc.current_lng, zone.latitude, zone.longitude) <= radius;
 }
 
+// Distance (km) from the driver's fresh GPS to the zone centre, or null when the
+// fix is missing/stale or the zone is manual-order (no GPS gating there).
+function distanceKm(loc: DriverLoc | null, zone: ZoneRow | undefined, now: Date): number | null {
+  if (zone && zone.manual_queue) return null;
+  if (!loc || loc.current_lat == null || loc.current_lng == null || !loc.location_at) return null;
+  if (!zone || zone.latitude == null || zone.longitude == null) return null;
+  if (now.getTime() - new Date(loc.location_at).getTime() > PRESENCE_FRESH_MS) return null;
+  return haversineM(loc.current_lat, loc.current_lng, zone.latitude, zone.longitude) / 1000;
+}
+
+// Notify the passengers who claimed a seat on this loading driver (and haven't
+// rejected/cancelled) that the driver stepped away / departed and the next
+// driver in line is now loading.
+async function notifyEntryPassengers(
+  supabase: ReturnType<typeof createClient>,
+  entryId: string, title: string, body: string, pushQueue: PushMsg[],
+) {
+  const { data } = await supabase
+    .from("seat_claims")
+    .select("passengers(push_token)")
+    .eq("queue_entry_id", entryId)
+    .is("rejected_at", null)
+    .is("cancelled_at", null);
+  for (const r of (data ?? []) as unknown as { passengers: { push_token: string | null } | null }[]) {
+    const tok = r.passengers?.push_token;
+    if (tok) pushQueue.push({ to: tok, title, body, sound: "default" });
+  }
+}
+
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -232,34 +265,72 @@ Deno.serve(async () => {
     if (!zoneClosed) {
       const present = presentInZone(e.drivers, zone, now);
       if (!present) {
-        const since = e.left_zone_at ? new Date(e.left_zone_at).getTime() : null;
-        if (since == null) {
-          await supabase.from("queue_entries").update({ left_zone_at: now.toISOString() }).eq("id", e.id);
-          await recordAndQueue(supabase, e.driver_id, "left_zone",
-            `leftzone:${e.id}:${e.load_start_at ?? day}`,
-            "Return to the zone",
-            bi(`You've left ${zone?.name ?? "the loading zone"} while loading. Come back within 10 minutes or you'll be put on standby and the next driver will load.`,
-               `Vous avez quitté ${zone?.name ?? "la zone"} pendant le chargement. Revenez dans 10 minutes ou vous serez mis en attente et le prochain chauffeur chargera.`),
-            pushQueue);
+        const since  = e.left_zone_at ? new Date(e.left_zone_at).getTime() : null;
+        const awayMs = since == null ? 0 : now.getTime() - since;
+        const distKm = distanceKm(e.drivers, zone, now);
+
+        // DEPART (+50% escalation): away ≥15 min OR ≥15 km → end the spot for good.
+        if (awayMs >= DEPART_MS || (distKm != null && distKm >= DEPART_KM)) {
+          affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
+          await supabase.from("loading_history").insert({
+            driver_id: e.driver_id, zone_id: e.zone_id, destination_region: e.destination_region,
+            vehicle_id: e.vehicle_id, load_start_at: e.load_start_at,
+            ended_at: now.toISOString(), end_reason: "departed_absent", seats_filled: e.seats_boarded ?? 0,
+          });
+          const { error: depErr } = await supabase.from("queue_entries")
+            .update({ status: "ended", end_reason: "departed_absent" }).eq("id", e.id);
+          if (!depErr) {
+            removed.push(e.id);
+            await recordAndQueue(supabase, e.driver_id, "departed_absent",
+              `departed:${e.id}:${day}`,
+              "Marked as departed",
+              bi(`You moved too far from ${zone?.name ?? "the zone"} (or were away too long) while loading, so we marked you as departed and gave your spot to the next driver. Rejoin from the Queue tab when you're back.`,
+                 `Vous vous êtes trop éloigné de ${zone?.name ?? "la zone"} (ou absent trop longtemps) pendant le chargement; nous vous avons marqué comme parti et donné votre place au prochain chauffeur. Réinscrivez-vous depuis l'onglet File.`),
+              pushQueue);
+            await notifyEntryPassengers(supabase, e.id, "Your driver changed",
+              bi("Your driver left the pickup, so the next driver in line is now loading.",
+                 "Votre chauffeur a quitté le point de ramassage; le prochain chauffeur de la file charge maintenant."),
+              pushQueue);
+          }
           continue;
         }
-        if (now.getTime() - since >= GRACE_MS) {
+
+        // PAUSE: away ≥10 min OR ≥10 km → standby + free the slot. Keep left_zone_at
+        // so the depart clock keeps running while they sit on standby.
+        if (awayMs >= GRACE_MS || (distKm != null && distKm >= PAUSE_KM)) {
           affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
           const { error: sbErr } = await supabase.from("queue_entries")
-            .update({ status: "standby", left_zone_at: null, expiry_stage: 0, expiry_msg_at: null })
+            .update({ status: "standby", left_zone_at: e.left_zone_at ?? now.toISOString(),
+                      expiry_stage: 0, expiry_msg_at: null })
             .eq("id", e.id);
           if (!sbErr) {
             standbyed.push(e.id);
             await recordAndQueue(supabase, e.driver_id, "standby",
               `standby:${e.id}:${day}`,
               "You're on standby",
-              bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return to the zone and you'll be reinserted at the front automatically.",
-                 "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez à la zone et vous serez réinséré à l'avant automatiquement."),
+              bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return within 15 minutes and stay within 15 km, or you'll be marked departed. Come back to the zone and you'll be reinserted at the front automatically.",
+                 "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez dans 15 minutes et restez à moins de 15 km, sinon vous serez marqué parti. Revenez à la zone et vous serez réinséré à l'avant automatiquement."),
+              pushQueue);
+            await notifyEntryPassengers(supabase, e.id, "Your driver is on standby",
+              bi("Your driver stepped away, so they're on standby and the next driver in line is now loading.",
+                 "Votre chauffeur s'est absenté; il est en attente et le prochain chauffeur de la file charge maintenant."),
               pushQueue);
           }
           continue;
         }
-        // Still within grace — wait.
+
+        // First detection of absence → start the grace clock + warn.
+        if (since == null) {
+          await supabase.from("queue_entries").update({ left_zone_at: now.toISOString() }).eq("id", e.id);
+          await recordAndQueue(supabase, e.driver_id, "left_zone",
+            `leftzone:${e.id}:${e.load_start_at ?? day}`,
+            "Return to the zone",
+            bi(`You've left ${zone?.name ?? "the loading zone"} while loading. Come back within 10 minutes (and within 10 km) or you'll be put on standby and the next driver will load.`,
+               `Vous avez quitté ${zone?.name ?? "la zone"} pendant le chargement. Revenez dans 10 minutes (et à moins de 10 km) ou vous serez mis en attente et le prochain chauffeur chargera.`),
+            pushQueue);
+          continue;
+        }
+        // Within grace and within range — wait.
         continue;
       } else if (e.left_zone_at != null) {
         // Back in the zone — clear the grace marker.
@@ -402,15 +473,41 @@ Deno.serve(async () => {
   //    the front of the line behind the current loader. ─────────────────────────
   const { data: standbyRows } = await supabase
     .from("queue_entries")
-    .select("id, zone_id, destination_region, drivers(current_lat, current_lng, location_at)")
+    .select("id, zone_id, driver_id, destination_region, left_zone_at, vehicle_id, seats_boarded, load_start_at, drivers(current_lat, current_lng, location_at)")
     .eq("status", "standby");
   for (const s of (standbyRows ?? []) as unknown as
-       { id: string; zone_id: string; destination_region: string | null; drivers: DriverLoc | null }[]) {
+       { id: string; zone_id: string; driver_id: string; destination_region: string | null;
+         left_zone_at: string | null; vehicle_id: string | null; seats_boarded: number | null;
+         load_start_at: string | null; drivers: DriverLoc | null }[]) {
     if (isWindowClosedInTz(now, tzFor(s.zone_id))) continue;
-    if (!presentInZone(s.drivers, zoneById.get(s.zone_id), now)) continue;
-    const { error: reErr } = await supabase.from("queue_entries")
-      .update({ status: "waiting" }).eq("id", s.id);
-    if (!reErr) affectedRoutes.add(routeKey(s.zone_id, s.destination_region));
+    const zone = zoneById.get(s.zone_id);
+    if (presentInZone(s.drivers, zone, now)) {
+      // Present again → back to waiting, clear the away clock.
+      const { error: reErr } = await supabase.from("queue_entries")
+        .update({ status: "waiting", left_zone_at: null }).eq("id", s.id);
+      if (!reErr) affectedRoutes.add(routeKey(s.zone_id, s.destination_region));
+      continue;
+    }
+    // Still away → escalate to departed once ≥15 min OR ≥15 km from when they left.
+    const awayMs = s.left_zone_at ? now.getTime() - new Date(s.left_zone_at).getTime() : 0;
+    const distKm = distanceKm(s.drivers, zone, now);
+    if (awayMs >= DEPART_MS || (distKm != null && distKm >= DEPART_KM)) {
+      await supabase.from("loading_history").insert({
+        driver_id: s.driver_id, zone_id: s.zone_id, destination_region: s.destination_region,
+        vehicle_id: s.vehicle_id, load_start_at: s.load_start_at,
+        ended_at: now.toISOString(), end_reason: "departed_absent", seats_filled: s.seats_boarded ?? 0,
+      });
+      const { error: depErr } = await supabase.from("queue_entries")
+        .update({ status: "ended", end_reason: "departed_absent" }).eq("id", s.id);
+      if (!depErr) {
+        removed.push(s.id);
+        await recordAndQueue(supabase, s.driver_id, "departed_absent",
+          `departed:${s.id}:${day}`, "Marked as departed",
+          bi("You were away from the zone too long (or too far), so we marked you as departed. Rejoin from the Queue tab when you're back.",
+             "Vous étiez absent trop longtemps (ou trop loin); nous vous avons marqué comme parti. Réinscrivez-vous depuis l'onglet File."),
+          pushQueue);
+      }
+    }
   }
 
   // Any (zone, destination) with waiting drivers but no loader needs a

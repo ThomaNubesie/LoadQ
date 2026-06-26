@@ -10,6 +10,7 @@ import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
 import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
+import Constants from "expo-constants";
 import { Colors } from "../../constants/colors";
 import { Driver, Vehicle } from "../../constants/types";
 import { Lang } from "../../constants/i18n";
@@ -264,6 +265,7 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={() => Linking.openURL("https://www.concordexpress.ca").catch(() => {})}>
             <Text style={{ color: Colors.accent, fontSize: 11.5, fontWeight: "600", marginTop: 2 }}>www.concordexpress.ca</Text>
           </TouchableOpacity>
+          <Text style={{ color: Colors.t3, fontSize: 11, marginTop: 8 }}>v{Constants.expoConfig?.version ?? "—"}</Text>
         </View>
       </ScrollView>
       <BottomNav />

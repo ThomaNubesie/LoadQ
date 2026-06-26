@@ -12,6 +12,7 @@ import { Colors } from "../../constants/colors";
 import { QueueEntry, SeatStatus } from "../../constants/types";
 import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
+import KolisParcels from "../../components/KolisParcels";
 import PassengerProfileModal from "../../components/PassengerProfileModal";
 import { loadingState, formatRemaining } from "../../utils/loadingTimer";
 import { useNow } from "../../hooks/useNow";
@@ -574,6 +575,11 @@ export default function MyLoadingScreen() {
               </View>
             )}
 
+            {/* Kolis parcel offers for the trip — same bilingual card as the
+                Queue screen; self-hides when there are no offers. Lets a loading
+                driver grab a parcel for the same run without leaving the screen. */}
+            <KolisParcels />
+
             <View style={s.actionRow}>
               <TouchableOpacity style={s.cancelBtn} onPress={handleCancel} activeOpacity={0.85}>
                 <Text style={s.cancelBtnText}>{t.cancel}</Text>
@@ -590,6 +596,13 @@ export default function MyLoadingScreen() {
       <Modal visible={showDestPicker} transparent animationType="slide" onRequestClose={() => setShowDestPicker(false)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowDestPicker(false)}>
           <View style={s.modalSheet}>
+            <TouchableOpacity
+              onPress={() => setShowDestPicker(false)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+            >
+              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>Change destination</Text>
             <ScrollView style={{ maxHeight: 420 }}>

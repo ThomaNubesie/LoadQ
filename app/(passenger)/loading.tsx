@@ -564,6 +564,13 @@ export default function PassengerLoadingScreen() {
       <Modal visible={showDestPicker} transparent animationType="slide" onRequestClose={() => setShowDestPicker(false)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowDestPicker(false)}>
           <View style={s.modalSheet}>
+            <TouchableOpacity
+              onPress={() => setShowDestPicker(false)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+            >
+              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>{t.allDestinations}</Text>
             <ScrollView style={{ maxHeight: 400 }}>

@@ -2,7 +2,7 @@
   "expo": {
     "name": "LoadQ",
     "slug": "loadq",
-    "version": "1.2.5",
+    "version": "1.2.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "loadq",
@@ -17,6 +17,9 @@
       "bundleIdentifier": "ca.loadq.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "location"
+        ],
         "NSPhotoLibraryUsageDescription": "LoadQ needs access to your photos so you can set your profile picture (used to identify you to drivers and passengers in the queue) and upload a verification photo of your vehicle for driver approval.",
         "NSPhotoLibraryAddUsageDescription": "LoadQ may save trip-related images you take to your photo library.",
         "NSCameraUsageDescription": "LoadQ uses the camera so you can take a profile picture or photograph your vehicle for driver verification."
@@ -24,7 +27,7 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "buildNumber": "10"
+      "buildNumber": "11"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,14 +38,17 @@
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 40,
+      "versionCode": 41,
       "googleServicesFile": "./google-services.json"
     },
     "plugins": [
@@ -51,8 +57,10 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "LoadQ needs your location to detect when you enter a loading zone.",
-          "locationWhenInUsePermission": "LoadQ needs your location to detect when you enter a loading zone."
+          "locationAlwaysAndWhenInUsePermission": "LoadQ shares your location while you're loading or delivering a parcel so passengers and dispatch can see your position and ETA \u2014 even when the app is in the background.",
+          "locationWhenInUsePermission": "LoadQ needs your location to detect when you enter a loading zone.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

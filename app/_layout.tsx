@@ -7,6 +7,9 @@ import { initLang } from "../hooks/useStrings";
 import { BillingAPI } from "../services/billing";
 import { PushAPI } from "../services/push";
 import { LocationAPI } from "../services/location";
+// Import registers the background-location TaskManager task at startup (incl.
+// OS background relaunch). stopBackgroundTracking() is called on sign-out.
+import { stopBackgroundTracking } from "../services/backgroundLocation";
 import { MessageEvents } from "../services/messageEvents";
 import { supabase } from "../services/supabase";
 import { Colors } from "../constants/colors";
@@ -22,7 +25,7 @@ export default function RootLayout() {
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) { BillingAPI.identify(session.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
-      else { LocationAPI.stop(); MessageEvents.stop(); }
+      else { LocationAPI.stop(); MessageEvents.stop(); stopBackgroundTracking(); }
     });
     return () => { sub.subscription.unsubscribe(); LocationAPI.stop(); MessageEvents.stop(); };
   }, []);

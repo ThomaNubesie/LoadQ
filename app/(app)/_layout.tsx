@@ -1,7 +1,11 @@
 import { Stack } from "expo-router";
 import { Colors } from "../../constants/colors";
+import { useDeliveryTracking } from "../../hooks/useDeliveryTracking";
 
 export default function AppLayout() {
+  // Runs background location while the driver holds a queue spot or is carrying
+  // a parcel; stops when fully idle. Single source of truth for the bg task.
+  useDeliveryTracking();
   return (
     <Stack screenOptions={{ headerShown:false, contentStyle:{ backgroundColor:Colors.bg } }}>
       <Stack.Screen name="zone-select" />
