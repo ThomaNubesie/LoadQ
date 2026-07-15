@@ -34,11 +34,16 @@ export default function WhatsNew() {
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       const seen = await AsyncStorage.getItem(KEY);
-      if (!cancelled && seen !== version && version) setShow(true);
+      // Delay so the app has already navigated to a real screen. Otherwise the
+      // modal pops over the black loading screen and reads as a stuck splash.
+      if (!cancelled && seen !== version && version) {
+        timer = setTimeout(() => { if (!cancelled) setShow(true); }, 3500);
+      }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, [version]);
 
   const close = async () => { await AsyncStorage.setItem(KEY, version); setShow(false); };
