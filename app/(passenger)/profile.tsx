@@ -9,6 +9,8 @@ import { PassengersAPI, Passenger } from "../../services/passengers";
 import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
+import { openStoreListing } from "../../utils/appStore";
+import HowToUse from "../../components/HowToUse";
 import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
 import { Colors } from "../../constants/colors";
 import { Lang } from "../../constants/i18n";
@@ -18,6 +20,7 @@ export default function PassengerProfileScreen() {
   const router      = useRouter();
   const { t, lang } = useStrings();
   const [passenger, setPassenger] = useState<Passenger | null>(null);
+  const [showHowTo, setShowHowTo] = useState(false);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [unread,    setUnread]    = useState<number>(0);
@@ -162,9 +165,17 @@ export default function PassengerProfileScreen() {
           <Text style={s.rowBtnText}>{t.privacy}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={s.rowBtn} onPress={() => setShowHowTo(true)} activeOpacity={0.85}>
+          <Text style={s.rowBtnText}>📘 {lang === "fr" ? "Comment utiliser" : "How to use"}</Text>
+          <Text style={s.rowBtnChevron}>›</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("mailto:support@loadq.ca")} activeOpacity={0.85}>
           <Text style={s.rowBtnText}>{t.support}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.rowBtn} onPress={() => openStoreListing()} activeOpacity={0.85}>
+          <Text style={[s.rowBtnText, { color: Colors.accent, fontWeight: "700" }]}>{lang === "fr" ? "Mettre à jour l'application" : "Update the app"}</Text>
+          <Text style={[s.rowBtnChevron, { color: Colors.accent }]}>›</Text>
         </TouchableOpacity>
         <View style={[s.rowBtn, { justifyContent: "space-between" }]}>
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.versionLabel}</Text>
@@ -179,6 +190,7 @@ export default function PassengerProfileScreen() {
         </View>
       </ScrollView>
 
+      <HowToUse visible={showHowTo} onClose={() => setShowHowTo(false)} role="passenger" />
       <PassengerBottomNav />
     </SafeAreaView>
   );

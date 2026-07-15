@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
+import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { View, Text } from "react-native";
@@ -13,21 +14,51 @@ import { stopBackgroundTracking } from "../services/backgroundLocation";
 import { MessageEvents } from "../services/messageEvents";
 import { supabase } from "../services/supabase";
 import { Colors } from "../constants/colors";
+import WhatsNew from "../components/WhatsNew";
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    initLang().then(() => setReady(true));
-    // Init RevenueCat, then tie purchases to the signed-in user if any.
-    BillingAPI.configure();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) { BillingAPI.identify(data.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) { BillingAPI.identify(session.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
-      else { LocationAPI.stop(); MessageEvents.stop(); stopBackgroundTracking(); }
-    });
-    return () => { sub.subscription.unsubscribe(); LocationAPI.stop(); MessageEvents.stop(); };
+    // Failsafe: the app must NEVER stay on the splash. Reveal the UI as soon as
+    // language is loaded, but force it after 4s no matter what (a hung native
+    // init must not trap users on the load screen).
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; setReady(true); } };
+    const splashTimer = setTimeout(finish, 4000);
+    initLang().then(finish).catch(finish);
+
+    // None of the below may block startup — wrap everything defensively.
+    try {
+      BillingAPI.configure();
+      supabase.auth.getUser().then(({ data }) => {
+        if (data.user) { BillingAPI.identify(data.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
+      }).catch(() => {});
+    } catch { /* never trap the splash */ }
+
+    let sub: { subscription: { unsubscribe: () => void } } | null = null;
+    try {
+      sub = supabase.auth.onAuthStateChange((_e, session) => {
+        if (session?.user) { BillingAPI.identify(session.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
+        else { LocationAPI.stop(); MessageEvents.stop(); stopBackgroundTracking(); }
+      }).data;
+    } catch { /* ignore */ }
+    return () => { clearTimeout(splashTimer); sub?.subscription.unsubscribe(); LocationAPI.stop(); MessageEvents.stop(); };
+  }, []);
+
+  // Tapping a push opens Alerts (or the route in its data payload). The app had
+  // no response handler before, so taps never navigated anywhere.
+  useEffect(() => {
+    const go = (resp: Notifications.NotificationResponse | null) => {
+      if (!resp) return;
+      const data = resp.notification.request.content.data as { route?: string; alertRef?: string } | undefined;
+      const pathname = data?.route ?? "/(app)/alerts";
+      try {
+        router.push((data?.alertRef ? { pathname, params: { focus: String(data.alertRef) } } : pathname) as never);
+      } catch { /* not signed in / bad route */ }
+    };
+    const sub = Notifications.addNotificationResponseReceivedListener(go);
+    Notifications.getLastNotificationResponseAsync().then(go);
+    return () => sub.remove();
   }, []);
 
   if (!ready) return (
@@ -49,6 +80,7 @@ export default function RootLayout() {
         <Stack.Screen name="(admin)" />
         <Stack.Screen name="ref/[id]" />
       </Stack>
+      <WhatsNew />
     </SafeAreaProvider>
   );
 }

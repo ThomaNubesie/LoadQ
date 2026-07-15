@@ -25,6 +25,9 @@ function startOfToday4am(): number {
   return d.getTime();
 }
 
+// The customer side always lands on the Universal Grocery board by default.
+const DEFAULT_ZONE_ID = "ottawa-universal-grocery";
+
 export default function PassengerBoardScreen() {
   const router = useRouter();
   const { t } = useStrings();
@@ -82,20 +85,11 @@ export default function PassengerBoardScreen() {
     if (zones.length === 0) return;
     didInitialDetect.current = true;
     if (paramZoneId) return; // focus handler will resolve it
-    (async () => {
-      const stored = await loadActiveZone();
-      if (stored) {
-        const z = zones.find(z => z.id === stored.zoneId);
-        if (z) {
-          setActiveZone(z);
-          manualPickRef.current = stored.manual;
-          // If the user explicitly picked, don't auto-override with GPS now.
-          if (stored.manual) return;
-        }
-      }
-      detectViaGPS();
-    })();
-  }, [zones.length, paramZoneId, detectViaGPS]);
+    // Customer side always defaults to the Universal Grocery board. They can
+    // still switch via the Zones tab or the 📍 (use-my-location) button.
+    const ug = zones.find(z => z.id === DEFAULT_ZONE_ID);
+    setActiveZone(ug ?? zones[0]);
+  }, [zones.length, paramZoneId]);
 
   // Param-driven zone changes: fires on every focus, but only acts when a
   // zoneId param is present (i.e., the user just picked a zone via Zones
@@ -111,18 +105,8 @@ export default function PassengerBoardScreen() {
     }
   }, [paramZoneId, zones]));
 
-  // App foreground re-detect — only when the user hasn't pinned a zone,
-  // throttled to one GPS read per 8s.
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", state => {
-      if (state !== "active" || manualPickRef.current) return;
-      const now = Date.now();
-      if (now - lastForegroundDetectRef.current < 8000) return;
-      lastForegroundDetectRef.current = now;
-      detectViaGPS();
-    });
-    return () => sub.remove();
-  }, [detectViaGPS]);
+  // No foreground GPS auto-detect on the customer side — the board stays on
+  // Universal Grocery (the default) until the user changes it manually.
 
   const handleUseMyLocation = () => {
     manualPickRef.current = false;

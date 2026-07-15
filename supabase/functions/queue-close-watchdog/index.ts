@@ -94,12 +94,15 @@ interface ZoneRow {
   longitude: number | null;
   radius_meters: number | null;
   manual_queue: boolean | null;
+  last_purge_date: string | null;     // zone-local date of the last daily purge (purge-once guard)
+  auto_pause_depart: boolean | null;  // off by default — gates the GPS pause/depart escalation
 }
 
-type PushMsg = { to: string; title: string; body: string; sound: "default" };
+type PushMsg = { to: string; title: string; body: string; sound: "default"; data?: Record<string, unknown> };
 
 function bi(en: string, fr: string): string {
-  return `${en}\n${fr}`;
+  // 🇬🇧 English, a blank line, then 🇫🇷 French — flags per language, spaced apart.
+  return `🇬🇧 ${en}\n\n🇫🇷 ${fr}`;
 }
 
 // Insert an alert row (idempotent via the alerts (user_id, ref) unique index)
@@ -122,7 +125,8 @@ async function recordAndQueue(
   const { data: drv } = await supabase
     .from("drivers").select("push_token").eq("id", userId).maybeSingle();
   const token = (drv as { push_token: string | null } | null)?.push_token;
-  if (token) pushQueue.push({ to: token, title, body, sound: "default" });
+  // Carry the alert ref so a tapped notification deep-links to that exact alert.
+  if (token) pushQueue.push({ to: token, title, body, sound: "default", data: { route: "/(app)/alerts", alertRef: ref } });
 }
 
 async function flushPush(pushQueue: PushMsg[]) {
@@ -227,7 +231,7 @@ Deno.serve(async () => {
   const pushQueue: PushMsg[] = [];
 
   const { data: zoneRows, error: zoneErr } = await supabase
-    .from("zones").select("id, timezone, name, latitude, longitude, radius_meters, manual_queue");
+    .from("zones").select("id, timezone, name, latitude, longitude, radius_meters, manual_queue, last_purge_date, auto_pause_depart");
   if (zoneErr) {
     return new Response(JSON.stringify({ error: `zones lookup failed: ${zoneErr.message}` }), { status: 500 });
   }
@@ -260,6 +264,18 @@ Deno.serve(async () => {
       : (e.load_start_at ? new Date(e.load_start_at).getTime() + DEFAULT_CAP_MS : null);
     const expired    = deadlineMs !== null && now.getTime() >= deadlineMs;
 
+    // Pre-open guard: before the load window opens (e.g. a client that exposes
+    // the load button at the registration hour, midnight), loading shouldn't be
+    // running yet. Revert to waiting so the timer doesn't tick before 5 AM and
+    // the driver keeps their spot for the morning promotion.
+    if (partsInTz(now, tz).hour < LOAD_OPEN_HOUR) {
+      await supabase.from("queue_entries")
+        .update({ status: "waiting", load_start_at: null, load_deadline: null, expiry_stage: 0, expiry_msg_at: null, left_zone_at: null })
+        .eq("id", e.id);
+      affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
+      continue;
+    }
+
     // ── Presence grace (Q2): a loader who leaves the zone gets a 10-min grace,
     //    then drops to standby and the slot frees. Only while the window is open.
     if (!zoneClosed) {
@@ -267,10 +283,12 @@ Deno.serve(async () => {
       if (!present) {
         const since  = e.left_zone_at ? new Date(e.left_zone_at).getTime() : null;
         const awayMs = since == null ? 0 : now.getTime() - since;
-        const distKm = distanceKm(e.drivers, zone, now);
+        const auto   = !!zone?.auto_pause_depart;  // GPS pause/depart enabled for this zone? (off by default)
+        const distKm = auto ? distanceKm(e.drivers, zone, now) : null;
 
-        // DEPART (+50% escalation): away ≥15 min OR ≥15 km → end the spot for good.
-        if (awayMs >= DEPART_MS || (distKm != null && distKm >= DEPART_KM)) {
+        // DEPART (+50% escalation): away ≥15 min OR ≥15 km → end the spot. Only
+        // when GPS pause/depart is enabled for the zone.
+        if (auto && (awayMs >= DEPART_MS || (distKm != null && distKm >= DEPART_KM))) {
           affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
           await supabase.from("loading_history").insert({
             driver_id: e.driver_id, zone_id: e.zone_id, destination_region: e.destination_region,
@@ -300,7 +318,8 @@ Deno.serve(async () => {
         if (awayMs >= GRACE_MS || (distKm != null && distKm >= PAUSE_KM)) {
           affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
           const { error: sbErr } = await supabase.from("queue_entries")
-            .update({ status: "standby", left_zone_at: e.left_zone_at ?? now.toISOString(),
+            .update({ status: "standby",
+                      left_zone_at: auto ? (e.left_zone_at ?? now.toISOString()) : null,
                       expiry_stage: 0, expiry_msg_at: null })
             .eq("id", e.id);
           if (!sbErr) {
@@ -308,10 +327,13 @@ Deno.serve(async () => {
             await recordAndQueue(supabase, e.driver_id, "standby",
               `standby:${e.id}:${day}`,
               "You're on standby",
-              bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return within 15 minutes and stay within 15 km, or you'll be marked departed. Come back to the zone and you'll be reinserted at the front automatically.",
-                 "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez dans 15 minutes et restez à moins de 15 km, sinon vous serez marqué parti. Revenez à la zone et vous serez réinséré à l'avant automatiquement."),
+              auto
+                ? bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return within 15 minutes and stay within 15 km, or you'll be marked departed. Come back to the zone and you'll be reinserted at the front automatically.",
+                     "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez dans 15 minutes et restez à moins de 15 km, sinon vous serez marqué parti. Revenez à la zone et vous serez réinséré à l'avant automatiquement.")
+                : bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return to the zone and you'll be reinserted at the front automatically.",
+                     "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez à la zone et vous serez réinséré à l'avant automatiquement."),
               pushQueue);
-            await notifyEntryPassengers(supabase, e.id, "Your driver is on standby",
+            if (auto) await notifyEntryPassengers(supabase, e.id, "Your driver is on standby",
               bi("Your driver stepped away, so they're on standby and the next driver in line is now loading.",
                  "Votre chauffeur s'est absenté; il est en attente et le prochain chauffeur de la file charge maintenant."),
               pushQueue);
@@ -436,7 +458,12 @@ Deno.serve(async () => {
     const { hour } = partsInTz(now, tz);
 
     if (hour === PURGE_HOUR) {
-      // Midnight: wipe the whole zone for a fresh day (joining reopens at 00:00).
+      // Midnight: wipe the zone ONCE for a fresh day, then stop — so drivers who
+      // self-join later in the midnight hour aren't wiped too. Guarded by a
+      // per-zone last_purge_date (zone-local).
+      const tzDate = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+      if (z.last_purge_date === tzDate) continue;            // already purged today
+      await supabase.from("zones").update({ last_purge_date: tzDate }).eq("id", z.id);
       const { data: all } = await supabase
         .from("queue_entries").select("id").eq("zone_id", z.id);
       const ids = ((all ?? []) as { id: string }[]).map(r => r.id);
@@ -446,8 +473,12 @@ Deno.serve(async () => {
       continue;
     }
 
-    if (!isWindowClosedInTz(now, tz)) continue;
-    // Window closed (8 PM–midnight): end anyone still waiting or on standby.
+    // Only end leftovers AFTER the daily close (≥ LOAD_CLOSE_HOUR), NOT before the
+    // 5 AM open. isWindowClosedInTz is true both before-open and after-close, which
+    // previously removed pre-5 AM joiners — they should keep their spot for the
+    // morning promotion, not be ended.
+    if (hour < LOAD_CLOSE_HOUR) continue;
+    // Past the 11 PM close: end anyone still waiting or on standby.
     const { data: leftovers } = await supabase
       .from("queue_entries").select("id, driver_id")
       .eq("zone_id", z.id).in("status", ["waiting", "standby"]);
@@ -488,7 +519,9 @@ Deno.serve(async () => {
       if (!reErr) affectedRoutes.add(routeKey(s.zone_id, s.destination_region));
       continue;
     }
-    // Still away → escalate to departed once ≥15 min OR ≥15 km from when they left.
+    // Still away → escalate to departed once ≥15 min OR ≥15 km from when they
+    // left — only when GPS pause/depart is enabled for the zone (off by default).
+    if (!zone?.auto_pause_depart) continue;
     const awayMs = s.left_zone_at ? now.getTime() - new Date(s.left_zone_at).getTime() : 0;
     const distKm = distanceKm(s.drivers, zone, now);
     if (awayMs >= DEPART_MS || (distKm != null && distKm >= DEPART_KM)) {

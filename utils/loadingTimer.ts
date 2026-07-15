@@ -72,9 +72,10 @@ export function formatRemaining(ms: number): string {
 // Loading window in the zone's local time. Pass `tz` (IANA) to evaluate it
 // for a specific zone; omit to use the device's local time.
 //   Open  04:00
-//   Close 20:00 (8 PM) — window is [04:00, 20:00)
+//   Close 23:00 (11 PM) — window is [04:00, 23:00). Remote-controlled via
+//   public.queue_window; these are the static fallbacks.
 export const LOAD_WINDOW_OPEN_HOUR  = 4;
-export const LOAD_WINDOW_CLOSE_HOUR = 20;
+export const LOAD_WINDOW_CLOSE_HOUR = 23;
 export const LOAD_WINDOW_CLOSE_MIN  = 0;
 
 function partsInTz(d: Date, tz?: string): { hour: number; minute: number } {
@@ -99,11 +100,11 @@ export function isWithinLoadingWindow(now: Date = new Date(), tz?: string): bool
 
 // Registration window: drivers may JOIN the queue (and hold pole position) from
 // 00:00 (midnight), even though the loading clock doesn't start until 05:00 (the
-// watchdog promotes/loads from 5 AM). Registration closes with the day at 20:00.
+// watchdog promotes/loads from 5 AM). Registration closes with the day at 23:00.
 //   Open  00:00 (midnight)
-//   Close 20:00 (8 PM) — window is [00:00, 20:00)
+//   Close 23:00 (11 PM) — window is [00:00, 23:00)
 export const REGISTER_WINDOW_OPEN_HOUR  = 0;
-export const REGISTER_WINDOW_CLOSE_HOUR = 20;
+export const REGISTER_WINDOW_CLOSE_HOUR = 23;
 
 export function isWithinRegistrationWindow(now: Date = new Date(), tz?: string): boolean {
   const { hour } = partsInTz(now, tz);

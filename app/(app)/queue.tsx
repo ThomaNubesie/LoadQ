@@ -41,6 +41,7 @@ export default function QueueScreen() {
   const [refreshing,   setRefreshing]   = useState(false);
   const [myId,         setMyId]         = useState<string|null>(null);
   const [myVehicle,    setMyVehicle]    = useState<Vehicle|null>(null);
+  const [vehicles,     setVehicles]     = useState<Vehicle[]>([]);
   const [previewEntry, setPreviewEntry] = useState<QueueEntry|null>(null);
   const [userRegion,   setUserRegion]   = useState<RegionCode|null>(null);
   const [activeZone,   setActiveZone]   = useState<ZoneLocation|null>(null);
@@ -146,6 +147,8 @@ export default function QueueScreen() {
   const [joinError,    setJoinError]    = useState("");
   const [myEntry,      setMyEntry]      = useState<QueueEntry|null>(null);
   const [showDestPicker, setShowDestPicker] = useState(false);
+  const [showCarPicker, setShowCarPicker] = useState(false);
+  const [pendingDest, setPendingDest] = useState<string|null>(null);
   const [expandedId,     setExpandedId]     = useState<string | null>(null);
   const [unread,         setUnread]         = useState(0);
   // Per-sender unread count (sender_id → count). Drives the red dot badge
@@ -203,8 +206,13 @@ export default function QueueScreen() {
     const sorted = zones
       .map(z => ({ ...z, dist: getDistanceKm(lat, lon, z.latitude, z.longitude) }))
       .sort((a: any, b: any) => a.dist - b.dist);
-    return sorted[0] || zones[0];
+    return sorted[0] || defaultZone();
   };
+
+  // Sensible fallback when GPS is unavailable — the main zone, not an arbitrary
+  // first entry (which was landing drivers on Saint-Raymond).
+  const defaultZone = (): ZoneLocation | null =>
+    zones.find(z => z.id === "ottawa-universal-grocery") || zones[0] || null;
 
   // `silent` re-detects in the background without flashing the full-screen
   // spinner — used by the focus/foreground re-detect so reopening the app
@@ -226,9 +234,9 @@ export default function QueueScreen() {
       // After that the loading location changes only by manual selection.
       if (!activeZoneRef.current && !manualPickRef.current) setActiveZone(resolveZone(lat, lon));
     } else if (!activeZoneRef.current && !manualPickRef.current) {
-      // GPS denied or timed out — use param or fall back to first zone.
+      // GPS denied or timed out — use param or fall back to the main zone.
       const z = paramZoneId ? zones.find(z => z.id === paramZoneId) : null;
-      setActiveZone(prev => prev ?? z ?? zones[0] ?? null);
+      setActiveZone(prev => prev ?? z ?? defaultZone());
     }
 
     const [driver, vehicles] = await Promise.all([
@@ -236,6 +244,7 @@ export default function QueueScreen() {
       DriversAPI.getVehicles(),
     ]);
     setMyId(driver?.id || null);
+    setVehicles(vehicles);
     setMyVehicle(vehicles.find(v => v.is_active) || vehicles[0] || null);
     // Refresh the board for the (sticky) active zone.
     const zid = activeZoneRef.current?.id;
@@ -350,11 +359,10 @@ export default function QueueScreen() {
     );
   };
 
-  const handleJoinWithDestination = async (destinationRegion: string) => {
-    if (!activeZone || !myVehicle) return;
-    setShowDestPicker(false);
+  const doJoin = async (vehicleId: string, destinationRegion: string) => {
+    if (!activeZone) return;
     setJoining(true);
-    const { error } = await QueueAPI.joinQueue(activeZone.id, myVehicle.id, destinationRegion);
+    const { error } = await QueueAPI.joinQueue(activeZone.id, vehicleId, destinationRegion);
     setJoining(false);
     if (error) { setJoinError(error); return; }
     QueueAPI.getZoneQueue(activeZone.id).then(q => {
@@ -362,6 +370,28 @@ export default function QueueScreen() {
       const me = q.find(e => e.driver_id === myId);
       setMyEntry(me || null);
     });
+  };
+
+  const handleJoinWithDestination = async (destinationRegion: string) => {
+    if (!activeZone || !myVehicle) return;
+    setShowDestPicker(false);
+    // Multiple cars → let the driver pick which one for this trip.
+    if (vehicles.length > 1) {
+      setPendingDest(destinationRegion);
+      setShowCarPicker(true);
+      return;
+    }
+    await doJoin(myVehicle.id, destinationRegion);
+  };
+
+  // Driver chose which car to use (after picking the city). This car becomes
+  // the "in use" car everywhere — it's what the queue entry is joined with.
+  const handleJoinWithVehicle = async (vehicle: Vehicle) => {
+    setMyVehicle(vehicle);
+    setShowCarPicker(false);
+    const dest = pendingDest;
+    setPendingDest(null);
+    if (dest) await doJoin(vehicle.id, dest);
   };
 
   // Load queue when activeZone changes
@@ -531,7 +561,7 @@ export default function QueueScreen() {
             )}
           </TouchableOpacity>
           <View style={s.info}>
-            <Text style={s.name}>{entry.driver?.full_name || t.driverLabel}{isMe ? ` ${t.youSuffix}` : ""}</Text>
+            <Text style={s.name}>{entry.driver?.full_name || t.driverLabel}{isMe ? ` ${t.youSuffix}` : ""}{(entry as any).note ? ` (${(entry as any).note})` : ""}</Text>
             <Text style={s.vehicleName}>{vehicle ? `${vehicle.make} ${vehicle.model}` : t.vehicleFallback}</Text>
             {!isEnded && (
               <>
@@ -971,6 +1001,50 @@ export default function QueueScreen() {
               )}
             </View>
             <TouchableOpacity onPress={() => setShowDestPicker(false)} style={s.destCancel}>
+              <Text style={s.destCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Car picker — shown after choosing the city when the driver has >1 car */}
+      <Modal visible={showCarPicker} transparent animationType="slide" onRequestClose={() => { setShowCarPicker(false); setPendingDest(null); }}>
+        <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => { setShowCarPicker(false); setPendingDest(null); }}>
+          <View style={s.modalSheet}>
+            <TouchableOpacity
+              onPress={() => { setShowCarPicker(false); setPendingDest(null); }}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+            >
+              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            </TouchableOpacity>
+            <View style={s.modalHandle} />
+            <Text style={s.modalTitle}>{t.whichCar ?? "Which car are you using?"}</Text>
+            <Text style={s.destSub}>
+              {pendingDest ? `→ ${getRegionName(pendingDest)}. ` : ""}{t.whichCarSub ?? "This car shows on the board and everywhere for this trip."}
+            </Text>
+            <View style={s.destList}>
+              {vehicles.map(v => (
+                <TouchableOpacity
+                  key={v.id}
+                  style={[s.destOption, { flexDirection: "row", alignItems: "center", gap: 12 }]}
+                  onPress={() => handleJoinWithVehicle(v)}
+                  activeOpacity={0.85}
+                  disabled={joining}
+                >
+                  <Image
+                    source={{ uri: getVehicleImageUrl(v.make, v.model, v.year, "side", v.color || undefined) }}
+                    style={{ width: 64, height: 40 }}
+                    resizeMode="contain"
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.destOptionName}>{v.year} {v.make} {v.model}</Text>
+                    <Text style={s.destOptionPrice}>{v.plate} · {v.seats} seats</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity onPress={() => { setShowCarPicker(false); setPendingDest(null); }} style={s.destCancel}>
               <Text style={s.destCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>

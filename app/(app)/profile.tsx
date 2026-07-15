@@ -9,6 +9,8 @@ import { DriversAPI } from "../../services/drivers";
 import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
+import { openStoreListing } from "../../utils/appStore";
+import HowToUse from "../../components/HowToUse";
 import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
 import Constants from "expo-constants";
 import { Colors } from "../../constants/colors";
@@ -22,6 +24,7 @@ import VerifiedBadge from "../../components/VerifiedBadge";
 export default function ProfileScreen() {
   const router      = useRouter();
   const { t, lang } = useStrings();
+  const [showHowTo, setShowHowTo] = useState(false);
   const [driver,    setDriver]    = useState<Driver|null>(null);
   const [vehicles,  setVehicles]  = useState<Vehicle[]>([]);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
@@ -260,14 +263,23 @@ export default function ProfileScreen() {
           <Text style={s.deleteAccountText}>{t.deleteAccountAction}</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => setShowHowTo(true)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, borderRadius: 12, padding: 15, marginTop: 8 }} activeOpacity={0.85}>
+          <Text style={{ color: Colors.t1, fontSize: 14.5, fontWeight: "700" }}>📘 {lang === "fr" ? "Comment utiliser l'application" : "How to use the app"}</Text>
+          <Text style={{ color: Colors.accent, fontSize: 18, fontWeight: "700" }}>›</Text>
+        </TouchableOpacity>
+
         <View style={{ alignItems: "center", marginTop: 20 }}>
           <Text style={{ color: Colors.t3, fontSize: 11.5, textAlign: "center" }}>{t.ownedBy}</Text>
           <TouchableOpacity onPress={() => Linking.openURL("https://www.concordexpress.ca").catch(() => {})}>
             <Text style={{ color: Colors.accent, fontSize: 11.5, fontWeight: "600", marginTop: 2 }}>www.concordexpress.ca</Text>
           </TouchableOpacity>
           <Text style={{ color: Colors.t3, fontSize: 11, marginTop: 8 }}>v{Constants.expoConfig?.version ?? "—"}</Text>
+          <TouchableOpacity onPress={() => openStoreListing()} style={{ marginTop: 8, borderWidth: 1, borderColor: Colors.accent, borderRadius: 9, paddingHorizontal: 16, paddingVertical: 7 }}>
+            <Text style={{ color: Colors.accent, fontSize: 12.5, fontWeight: "700" }}>{lang === "fr" ? "Mettre à jour l'application" : "Update the app"}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+      <HowToUse visible={showHowTo} onClose={() => setShowHowTo(false)} role="driver" />
       <BottomNav />
     </SafeAreaView>
   );

@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { QueueEntry, SeatStatus } from "../constants/types";
-import { isWithinRegistrationWindow } from "../utils/loadingTimer";
+import { isWithinHours } from "../utils/loadingTimer";
 import { getZoneTimezone } from "../hooks/useZones";
 import { DriversAPI } from "./drivers";
 
@@ -77,8 +77,11 @@ export const QueueAPI = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Not authenticated" };
     if (!destinationRegion) return { error: "Destination is required" };
-    if (!isWithinRegistrationWindow(new Date(), getZoneTimezone(zoneId))) {
-      return { error: "Queue closed (registration opens at midnight, until 8:00 PM local)" };
+    // Remote-controlled hours via public.queue_window (no app build to change them):
+    // joining is open from register_open_hour (midnight) until close_hour (11 PM).
+    const qw = await this.getQueueWindow();
+    if (!isWithinHours(new Date(), getZoneTimezone(zoneId), qw.register_open_hour, qw.close_hour)) {
+      return { error: `Queue closed — joining is open from midnight until ${qw.close_hour}:00 local.` };
     }
 
     const gate = await this.canJoin();
@@ -271,12 +274,17 @@ export const QueueAPI = {
   },
 
   async leaveQueue(entryId: string) {
-    // P96: persist for the day — mark ended instead of deleting.
-    const { error } = await supabase
-      .from("queue_entries")
-      .update({ status: "ended", end_reason: "cancelled" })
-      .eq("id", entryId);
-    return { error: error?.message };
+    // Driver asked to cancel — remove them completely so their card disappears
+    // from the board immediately (RLS: queue_delete_own). Falls back to a
+    // soft-end if the delete is blocked, so cancel never silently no-ops.
+    const del = await supabase.from("queue_entries").delete().eq("id", entryId).select("id");
+    if (del.error) {
+      const upd = await supabase.from("queue_entries")
+        .update({ status: "ended", end_reason: "cancelled" }).eq("id", entryId);
+      return { error: upd.error?.message };
+    }
+    if (!del.data || del.data.length === 0) return { error: "Couldn't cancel — please try again." };
+    return { error: undefined };
   },
 
   // Driver-initiated departure: log the session to loading_history, delete

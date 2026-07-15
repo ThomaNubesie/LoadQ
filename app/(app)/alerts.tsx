@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import BottomNav from "../../components/BottomNav";
@@ -16,7 +16,18 @@ const ICON: Record<AlertRow["kind"], string> = {
   expiry_nudge: "⏳",
   released:     "🙂",
   headback:     "📣",
+  message:      "💬",
 };
+
+// Show bilingual alert bodies ("EN\nFR") split by 🇬🇧/🇫🇷 flags. Bodies that are
+// single-language or already flag-prefixed are left as-is.
+function flagBody(body: string): string {
+  const parts = body.split("\n").map(p => p.trim()).filter(Boolean);
+  if (parts.length === 2 && !parts[0].startsWith("🇬🇧") && !parts[0].startsWith("🇫🇷")) {
+    return `🇬🇧 ${parts[0]}\n🇫🇷 ${parts[1]}`;
+  }
+  return body;
+}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -31,9 +42,12 @@ function timeAgo(iso: string): string {
 export default function AlertsScreen() {
   const router = useRouter();
   const { t }  = useStrings();
+  const { focus } = useLocalSearchParams<{ focus?: string }>();
   const [items, setItems]       = useState<AlertRow[]>([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const listRef = useRef<FlatList<AlertRow>>(null);
 
   const load = useCallback(async () => {
     const rows = await AlertsAPI.list();
@@ -43,6 +57,19 @@ export default function AlertsScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Arrived from a tapped notification → scroll to + highlight that alert.
+  useEffect(() => {
+    if (!focus || items.length === 0) return;
+    const idx = items.findIndex(i => i.ref === focus || i.id === focus);
+    if (idx < 0) return;
+    setHighlightId(items[idx].id);
+    const t1 = setTimeout(() => {
+      try { listRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 }); } catch { /* out of range */ }
+    }, 350);
+    const t2 = setTimeout(() => setHighlightId(null), 4500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [focus, items]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -68,16 +95,20 @@ export default function AlertsScreen() {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={items}
           keyExtractor={i => i.id}
           contentContainerStyle={{ padding:16, paddingBottom:96 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+          onScrollToIndexFailed={info => {
+            setTimeout(() => { try { listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.3 }); } catch { /* ignore */ } }, 450);
+          }}
           renderItem={({ item }) => (
-            <View style={[s.row, !item.read_at && s.rowUnread]}>
+            <View style={[s.row, !item.read_at && s.rowUnread, item.id === highlightId && s.rowFocus]}>
               <Text style={s.rowIcon}>{ICON[item.kind] ?? "🔔"}</Text>
               <View style={{ flex:1 }}>
                 <Text style={s.rowTitle}>{item.title}</Text>
-                <Text style={s.rowBody}>{item.body}</Text>
+                <Text style={s.rowBody}>{flagBody(item.body)}</Text>
                 <Text style={s.rowTime}>{timeAgo(item.created_at)}</Text>
               </View>
             </View>
@@ -100,6 +131,7 @@ const s = StyleSheet.create({
   emptySub:   { fontSize:13, color:Colors.t3, textAlign:"center", lineHeight:20 },
   row:        { flexDirection:"row", gap:12, backgroundColor:Colors.card, borderRadius:12, padding:14, marginBottom:10, borderWidth:1, borderColor:Colors.border },
   rowUnread:  { borderColor:Colors.accent, backgroundColor:Colors.accent+"08" },
+  rowFocus:   { borderColor:Colors.accent, borderWidth:2, backgroundColor:Colors.accent+"20" },
   rowIcon:    { fontSize:22 },
   rowTitle:   { fontSize:14, fontWeight:"700", color:Colors.t1, marginBottom:3 },
   rowBody:    { fontSize:13, color:Colors.t2, lineHeight:19 },

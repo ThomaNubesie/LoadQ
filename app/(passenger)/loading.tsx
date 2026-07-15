@@ -126,21 +126,16 @@ export default function PassengerLoadingScreen() {
     setLoading(false); setRefreshing(false);
   }, [activeZone?.id, zones, zoneIdParam]);
 
-  const inGeo = !!(activeZone && userCoords &&
-    getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude) * 1000 <= activeZone.radius_meters);
-
-  // Driver details (name, vehicle, plate) are now always visible — the
-  // earlier 300m privacy gate was lifted per UX feedback. Only the Call /
-  // Message buttons need a proximity check, gated at 500m. Confirmed
-  // reservations also unlock contact regardless of distance (passenger
-  // may be walking around mid-board).
+  // Reserve / Call / Text are enabled within 50 km of the zone — close enough
+  // to realistically catch a ride here. Confirmed reservations keep contact
+  // unlocked regardless of distance.
   const distanceM = (activeZone && userCoords)
     ? Math.round(getDistanceKm(userCoords.lat, userCoords.lon, activeZone.latitude, activeZone.longitude) * 1000)
     : null;
-  const within500m = distanceM !== null && distanceM <= 500;
+  const within50km = distanceM !== null && distanceM <= 50000;
 
   const handleClaim = async (entry: QueueEntry) => {
-    if (!inGeo) {
+    if (!within50km) {
       Alert.alert(t.outOfRangeTitle, t.outOfRange);
       return;
     }
@@ -259,10 +254,10 @@ export default function PassengerLoadingScreen() {
     const isExpanded = expandedId === entry.id;
     const confirmed = seatClaims[entry.id] || [];
 
-    // Driver details are ALWAYS visible. Call / Message remain gated at 500m
+    // Driver details are ALWAYS visible. Call / Message gated at 50 km
     // proximity OR an existing confirmed reservation.
     const isMyReservation = confirmedEntries.has(entry.id);
-    const canContact      = within500m || isMyReservation;
+    const canContact      = within50km || isMyReservation;
     const unreadFromThis  = entry.driver_id ? (unreadByDriver.get(entry.driver_id) ?? 0) : 0;
 
     const myClaimState = openClaims[entry.id]
@@ -323,7 +318,7 @@ export default function PassengerLoadingScreen() {
                 resizeMode="contain"
               />
             )}
-            {isMyReservation && !within500m && (
+            {isMyReservation && !within50km && (
               <View style={s.yourTripBanner}>
                 <Text style={s.yourTripText}>
                   {t("yourReservation", { distance: distanceM !== null ? t("metersFromZone", { m: String(distanceM) }) : t.outsideZone })}
@@ -476,11 +471,11 @@ export default function PassengerLoadingScreen() {
                   s.claimBtn,
                   myClaimState === "confirmed" && s.claimBtnClaimed,
                   myClaimState === "requested" && s.claimBtnRequested,
-                  !myClaimState && !inGeo && s.claimBtnDisabled,
+                  !myClaimState && !within50km && s.claimBtnDisabled,
                   claiming === entry.id && s.claimBtnDisabled,
                 ]}
                 onPress={() => handleClaim(entry)}
-                disabled={!!myClaimState || !inGeo || claiming === entry.id}
+                disabled={!!myClaimState || !within50km || claiming === entry.id}
                 activeOpacity={0.85}
               >
                 <Text style={s.claimBtnText}>
@@ -490,7 +485,7 @@ export default function PassengerLoadingScreen() {
                       ? t.requestedLabel
                       : claiming === entry.id
                         ? t.loading
-                        : !inGeo
+                        : !within50km
                           ? t.outOfRange
                           : t.requestSeat}
                 </Text>

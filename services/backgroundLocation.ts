@@ -31,6 +31,12 @@ TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
 // Ask for Always/background permission and start streaming. Idempotent — safe to
 // call on every loading/carrying transition. Returns true if tracking is running.
 export async function startBackgroundTracking(): Promise<boolean> {
+  // Foreground-only build (1.2.9): background location is disabled so we don't
+  // declare ACCESS_BACKGROUND_LOCATION / a location foreground service. The
+  // foreground loop in services/location.ts keeps position fresh while the app
+  // is open. Re-enable by removing this guard + restoring the permissions.
+  return false;
+  // eslint-disable-next-line no-unreachable
   try {
     const fg = await Location.requestForegroundPermissionsAsync();
     if (fg.status !== "granted") return false;

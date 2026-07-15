@@ -13,6 +13,9 @@ export type KolisParcel = {
   pickup_zone?: string | null;
   pickup_hub_name?: string | null;
   pickup_addr?: string | null; // present only in carrying (post-accept)
+  dropoff_addr?: string | null;    // carrying only, revealed after pickup
+  recipient_name?: string | null;  // carrying only, revealed after pickup
+  recipient_phone?: string | null; // carrying only, revealed after pickup
   driver_payout_cents: number | null;
   dropoff_type: string;
   status?: string;
@@ -27,10 +30,26 @@ export const KolisAPI = {
     return (data ?? []) as KolisParcel[];
   },
 
-  // Accept an available parcel that matches the driver's queue.
-  async accept(id: string): Promise<boolean> {
-    const { data } = await supabase.rpc("kolis_accept_parcel", { p_id: id, p_via: "loadq" });
+  // Accept an available parcel. etaMinutes = pickup ETA shown to the sender.
+  async accept(id: string, etaMinutes?: number | null): Promise<boolean> {
+    const { data } = await supabase.rpc("kolis_accept_parcel", { p_id: id, p_via: "loadq", p_eta_minutes: etaMinutes ?? null });
     return data === true;
+  },
+
+  // Auto pickup ETA (driving minutes) from the driver's coords to the pickup
+  // address. Returns null when unavailable (no Maps key / stale GPS).
+  async pickupEta(parcelId: string, lat: number, lng: number): Promise<number | null> {
+    try {
+      const { data } = await supabase.functions.invoke("kolis-pickup-eta", { body: { parcel_id: parcelId, lat, lng } });
+      return data?.ok ? (data.eta_minutes as number) : null;
+    } catch { return null; }
+  },
+
+  // Confirm possession with the SENDER's pickup code: matched -> picked_up.
+  // Returns "ok" | "bad_code" | "fail".
+  async markPickedUp(id: string, code: string): Promise<string> {
+    const { data } = await supabase.rpc("kolis_courier_pickup", { p_id: id, p_code: code });
+    return (data as string) ?? "fail";
   },
 
   // Decline a parcel that dispatch targeted to me — returns it to the pool.

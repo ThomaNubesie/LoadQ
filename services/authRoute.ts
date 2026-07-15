@@ -15,8 +15,10 @@ export type HomeRoute =
 // returning user always lands in the right place regardless of which
 // role button they happened to tap.
 export async function resolveHome(): Promise<HomeRoute> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return "/(auth)/welcome";
+  // Use the local session (not getUser, which hits the network and can hang on a
+  // flaky connection during cold launch).
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return "/(auth)/welcome";
 
   const [driver, passenger] = await Promise.all([
     DriversAPI.getMe(),
