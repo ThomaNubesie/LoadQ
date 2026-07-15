@@ -94,8 +94,11 @@ export default function KolisParcels() {
             <Text style={{ fontSize: 17, marginRight: 9 }}>{emoji(p.size)}</Text>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 13 }} numberOfLines={1}>{sizeLabel(p.size)} {k.forDest} {p.to_city}</Text>
+              {p.pickup_area ? (
+                <Text style={{ color: MAG_LT, fontSize: 11, fontWeight: "700" }} numberOfLines={1}>📍 {k.pickupAt}: {p.pickup_area}</Text>
+              ) : null}
               <Text style={{ color: Colors.t3, fontSize: 10.5 }} numberOfLines={1}>
-                {p.is_request ? `📣 ${k.requestedForYou}` : `${k.pickHere} · 🔒 ${k.senderHidden}`}
+                {p.is_request ? `📣 ${k.requestedForYou}` : `🔒 ${k.senderHidden}`}
               </Text>
             </View>
             <Text style={{ color: Colors.green, fontWeight: "800", fontSize: 14, marginLeft: 8 }}>+C${Math.round((p.driver_payout_cents ?? 0) / 100)}</Text>

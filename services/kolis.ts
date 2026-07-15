@@ -12,6 +12,7 @@ export type KolisParcel = {
   to_city: string;
   pickup_zone?: string | null;
   pickup_hub_name?: string | null;
+  pickup_area?: string | null; // privacy-safe pickup neighbourhood/city shown on offers (pre-accept)
   pickup_addr?: string | null; // present only in carrying (post-accept)
   dropoff_addr?: string | null;    // carrying only, revealed after pickup
   recipient_name?: string | null;  // carrying only, revealed after pickup
