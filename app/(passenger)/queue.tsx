@@ -131,6 +131,11 @@ export default function PassengerBoardScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   useEffect(() => {
     if (!activeZone) return;
+    // Load immediately whenever the zone resolves/changes. useFocusEffect only
+    // fires on focus TRANSITIONS, and the default zone (Universal Grocery)
+    // resolves after the first focus — so the board showed no drivers until the
+    // passenger left and came back. This does the initial fetch.
+    load();
     const sub = QueueAPI.subscribeToZone(activeZone.id, () => load());
     return () => { sub.unsubscribe(); };
   }, [activeZone?.id, load]);
