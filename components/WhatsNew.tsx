@@ -14,16 +14,16 @@ const MAG = "#E11D6B";
 // Highlights for the current release. Update this list each version.
 const NOTES: Record<"en" | "fr", string[]> = {
   en: [
-    "Cancelling now removes you from the queue completely.",
-    "Kolis parcels: pickup code + tap-to-navigate, delivery address, and call recipient.",
+    "Kolis parcel offers now show the pickup area, so you can pick which to take first.",
+    "Faster, more reliable startup — no more getting stuck on the loading screen.",
+    "Cancelling removes you from the queue completely.",
     "Senders see your pickup ETA; recipients get their delivery code up front.",
-    "Bilingual notifications and a new “How to use” guide in your profile.",
   ],
   fr: [
+    "Les colis Kolis affichent le secteur de ramassage — choisissez lequel prendre en premier.",
+    "Démarrage plus rapide et fiable — fini l’écran de chargement bloqué.",
     "Annuler vous retire complètement de la file.",
-    "Colis Kolis : code de ramassage + itinéraire, adresse de livraison et appel au destinataire.",
     "L’expéditeur voit votre heure d’arrivée; le destinataire reçoit son code de livraison.",
-    "Notifications bilingues et un nouveau guide « Comment utiliser » dans votre profil.",
   ],
 };
 
