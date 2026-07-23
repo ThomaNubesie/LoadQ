@@ -16,38 +16,66 @@ import { supabase } from "../services/supabase";
 import { Colors } from "../constants/colors";
 import WhatsNew from "../components/WhatsNew";
 
+const safe = (fn: () => void) => { try { fn(); } catch { /* never trap the splash */ } };
+
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+
+  // 1) SPLASH CONTROL ONLY. Nothing native/heavy runs here, so the UI always
+  // reveals — as soon as language loads, and forced after 4s no matter what.
   useEffect(() => {
-    // Failsafe: the app must NEVER stay on the splash. Reveal the UI as soon as
-    // language is loaded, but force it after 4s no matter what (a hung native
-    // init must not trap users on the load screen).
     let settled = false;
     const finish = () => { if (!settled) { settled = true; setReady(true); } };
     const splashTimer = setTimeout(finish, 4000);
     initLang().then(finish).catch(finish);
-
-    // None of the below may block startup — wrap everything defensively.
-    try {
-      BillingAPI.configure();
-      supabase.auth.getUser().then(({ data }) => {
-        if (data.user) { BillingAPI.identify(data.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
-      }).catch(() => {});
-    } catch { /* never trap the splash */ }
-
-    let sub: { subscription: { unsubscribe: () => void } } | null = null;
-    try {
-      sub = supabase.auth.onAuthStateChange((_e, session) => {
-        if (session?.user) { BillingAPI.identify(session.user.id); PushAPI.register(); LocationAPI.start(); MessageEvents.start(); }
-        else { LocationAPI.stop(); MessageEvents.stop(); stopBackgroundTracking(); }
-      }).data;
-    } catch { /* ignore */ }
-    return () => { clearTimeout(splashTimer); sub?.subscription.unsubscribe(); LocationAPI.stop(); MessageEvents.stop(); };
+    return () => clearTimeout(splashTimer);
   }, []);
 
-  // Tapping a push opens Alerts (or the route in its data payload). The app had
-  // no response handler before, so taps never navigated anywhere.
+  // 2) NATIVE SERVICES — started only AFTER the first frame paints (gated on
+  // `ready` + a short delay), individually guarded. This keeps crashy native
+  // inits (RevenueCat / FCM / location on old Google Play Services) entirely off
+  // the launch path, so they can never trap or kill the splash on old devices.
+  // (A true native-load crash isn't JS-catchable, so deferring is the real
+  // mitigation here, not the try/catch.)
   useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    const startFor = (userId?: string) => {
+      safe(() => BillingAPI.configure());
+      if (userId) safe(() => BillingAPI.identify(userId));
+      safe(() => PushAPI.register());
+      safe(() => LocationAPI.start());
+      safe(() => MessageEvents.start());
+    };
+
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      supabase.auth.getUser()
+        .then(({ data }) => { if (!cancelled && data.user) startFor(data.user.id); })
+        .catch(() => {});
+    }, 600);
+
+    let sub: { subscription: { unsubscribe: () => void } } | null = null;
+    safe(() => {
+      sub = supabase.auth.onAuthStateChange((_e, session) => {
+        if (cancelled) return;
+        if (session?.user) startFor(session.user.id);
+        else safe(() => { LocationAPI.stop(); MessageEvents.stop(); stopBackgroundTracking(); });
+      }).data;
+    });
+
+    return () => {
+      cancelled = true; clearTimeout(t);
+      sub?.subscription.unsubscribe();
+      safe(() => { LocationAPI.stop(); MessageEvents.stop(); });
+    };
+  }, [ready]);
+
+  // 3) Push-tap routing — also gated on `ready` + guarded, since touching
+  // expo-notifications at cold mount can crash on old FCM / Play Services.
+  useEffect(() => {
+    if (!ready) return;
+    let sub: { remove: () => void } | null = null;
     const go = (resp: Notifications.NotificationResponse | null) => {
       if (!resp) return;
       const data = resp.notification.request.content.data as { route?: string; alertRef?: string } | undefined;
@@ -56,10 +84,12 @@ export default function RootLayout() {
         router.push((data?.alertRef ? { pathname, params: { focus: String(data.alertRef) } } : pathname) as never);
       } catch { /* not signed in / bad route */ }
     };
-    const sub = Notifications.addNotificationResponseReceivedListener(go);
-    Notifications.getLastNotificationResponseAsync().then(go);
-    return () => sub.remove();
-  }, []);
+    safe(() => {
+      sub = Notifications.addNotificationResponseReceivedListener(go);
+      Notifications.getLastNotificationResponseAsync().then(go).catch(() => {});
+    });
+    return () => sub?.remove();
+  }, [ready]);
 
   if (!ready) return (
     <SafeAreaProvider>

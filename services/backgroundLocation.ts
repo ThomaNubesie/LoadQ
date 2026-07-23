@@ -13,20 +13,27 @@ import { supabase } from "./supabase";
 // it writes drivers.current_lat/lng/location_at that the watchdog reads.
 export const BG_LOCATION_TASK = "loadq-bg-location";
 
-TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
-  if (error) return;
-  const locs = (data as { locations?: Location.LocationObject[] } | undefined)?.locations;
-  const loc = locs?.[locs.length - 1];
-  if (!loc) return;
-  try {
-    await supabase.rpc("update_my_location", {
-      p_lat: loc.coords.latitude,
-      p_lng: loc.coords.longitude,
-    });
-  } catch {
-    /* best effort — the next fix retries */
-  }
-});
+// Guard the registration: defineTask runs at module-load (import side-effect).
+// On a device where expo-task-manager can't initialize (old Android / missing
+// Play Services), this must no-op rather than crash the app on launch.
+try {
+  TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
+    if (error) return;
+    const locs = (data as { locations?: Location.LocationObject[] } | undefined)?.locations;
+    const loc = locs?.[locs.length - 1];
+    if (!loc) return;
+    try {
+      await supabase.rpc("update_my_location", {
+        p_lat: loc.coords.latitude,
+        p_lng: loc.coords.longitude,
+      });
+    } catch {
+      /* best effort — the next fix retries */
+    }
+  });
+} catch {
+  /* TaskManager unavailable — background tracking will simply not run */
+}
 
 // Ask for Always/background permission and start streaming. Idempotent — safe to
 // call on every loading/carrying transition. Returns true if tracking is running.
