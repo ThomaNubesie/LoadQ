@@ -8,6 +8,7 @@ import { useStrings } from "../../hooks/useStrings";
 import { REGIONS, RegionCode, ZoneLocation } from "../../constants/zones";
 import { Colors } from "../../constants/colors";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import { X, MapPin } from "lucide-react-native";
 
 const REGION_ORDER: RegionCode[] = ["ottawa", "gatineau", "montreal", "quebec", "toronto"];
 
@@ -92,7 +93,7 @@ export default function PassengerZonesScreen() {
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>{selected?.name}</Text>
               <TouchableOpacity onPress={() => setSelected(null)}>
-                <Text style={s.modalClose}>✕</Text>
+                <X size={20} color={Colors.t3} strokeWidth={2} />
               </TouchableOpacity>
             </View>
             <Text style={s.modalSub}>
@@ -100,7 +101,7 @@ export default function PassengerZonesScreen() {
             </Text>
 
             <View style={s.modalAddrBlock}>
-              <Text style={s.modalAddrIcon}>📍</Text>
+              <MapPin size={16} color={Colors.t1} strokeWidth={2} />
               <Text style={s.modalAddr}>{selected?.address || selected?.name}</Text>
             </View>
 

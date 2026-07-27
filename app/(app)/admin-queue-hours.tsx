@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { QueueAPI } from "../../services/queue";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft } from "lucide-react-native";
 
 export default function AdminQueueHoursScreen() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function AdminQueueHoursScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><Text style={s.back}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>{t.queueHoursTitle}</Text>
           <View style={{ width: 24 }} />
         </View>
@@ -91,7 +92,7 @@ export default function AdminQueueHoursScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>{t.queueHoursTitle}</Text>
         <View style={{ width: 24 }} />
       </View>

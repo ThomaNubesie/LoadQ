@@ -7,6 +7,7 @@ import { Colors } from "../../constants/colors";
 import { DriversAPI } from "../../services/drivers";
 import { StripeWebCheckoutAPI } from "../../services/billing";
 import { Driver } from "../../constants/types";
+import { ArrowLeft, Lock, Pause, Gift } from "lucide-react-native";
 
 // Apple-compliant 3.1.5(a) flow: the in-app button opens system Safari to
 // the public checkout page on loadq.ca. Stripe processes the card on the
@@ -91,7 +92,10 @@ export default function SubscribeScreen() {
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.inner}>
         <TouchableOpacity onPress={() => router.replace("/(auth)/welcome")} style={s.backBtn}>
-          <Text style={s.backText}>← {t.back}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ArrowLeft size={14} color={Colors.t2} strokeWidth={2} />
+            <Text style={s.backText}>{t.back}</Text>
+          </View>
         </TouchableOpacity>
 
         <View style={s.logoBox}>
@@ -101,12 +105,18 @@ export default function SubscribeScreen() {
 
         {onHold ? (
           <View style={s.holdBanner}>
-            <Text style={s.holdTitle}>⏸ {t.accountOnHold}</Text>
+            <View style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6, marginBottom:4 }}>
+              <Pause size={14} color={Colors.red} strokeWidth={2} />
+              <Text style={s.holdTitle}>{t.accountOnHold}</Text>
+            </View>
             <Text style={s.holdSub}>{t.accountOnHoldSub}</Text>
           </View>
         ) : (
           <View style={s.trialBanner}>
-            <Text style={s.trialText}>🎁 {t.freeTrial}</Text>
+            <View style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6 }}>
+              <Gift size={13} color={Colors.yellow} strokeWidth={2} />
+              <Text style={s.trialText}>{t.freeTrial}</Text>
+            </View>
           </View>
         )}
 
@@ -156,7 +166,10 @@ export default function SubscribeScreen() {
         <Text style={s.disclaimer}>{t.subscribeDisclaimer}</Text>
 
         <View style={s.secureRow}>
-          <Text style={s.secureBadge}>🔒 {t.thirtyDayFreeTrial}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Lock size={11} color={Colors.t3} strokeWidth={2} />
+            <Text style={s.secureBadge}>{t.thirtyDayFreeTrial}</Text>
+          </View>
           <Text style={s.secureBadge}>{t.cancelAnytime}</Text>
         </View>
       </ScrollView>

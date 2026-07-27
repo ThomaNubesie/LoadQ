@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { ArrowRight } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { TripsAPI, ActiveTrip } from "../services/trips";
 import { getRegionName } from "../constants/pricing";
@@ -34,9 +35,12 @@ export default function ActiveTripBanner() {
         <Text style={s.title} numberOfLines={1}>
           Traveling with {trip.driver_name}
         </Text>
-        <Text style={s.sub} numberOfLines={1}>
-          → {trip.destination_region ? getRegionName(trip.destination_region) : "destination"}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <ArrowRight size={11} color={Colors.accentText} strokeWidth={2} />
+          <Text style={s.sub} numberOfLines={1}>
+            {trip.destination_region ? getRegionName(trip.destination_region) : "destination"}
+          </Text>
+        </View>
       </View>
       <Text style={s.arrow}>›</Text>
     </TouchableOpacity>

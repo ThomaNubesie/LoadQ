@@ -9,6 +9,7 @@ import {
   detectUserRegion, getZonesByRegion, getDistanceKm
 } from "../../constants/zones";
 import { useZones } from "../../hooks/useZones";
+import { ArrowLeft, MapPin, Lock, ArrowRight } from "lucide-react-native";
 
 export default function ZoneSelectScreen() {
   const router     = useRouter();
@@ -74,17 +75,21 @@ export default function ZoneSelectScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/queue")} style={{ padding:4 }}>
-          <Text style={{ color:Colors.t2, fontSize:16 }}>←</Text>
+          <ArrowLeft size={16} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         {loading ? (
           <ActivityIndicator color={Colors.accent} size="small" />
         ) : userRegion ? (
-          <View style={s.locationBadge}>
-            <Text style={s.locationText}>📍 {REGIONS.find(r => r.code === userRegion)?.name}</Text>
+          <View style={[s.locationBadge, { flexDirection:"row", alignItems:"center", gap:6 }]}>
+            <MapPin size={12} color={Colors.accent} strokeWidth={2} />
+            <Text style={s.locationText}>{REGIONS.find(r => r.code === userRegion)?.name}</Text>
           </View>
         ) : (
-          <Text style={s.noLocation}>📍 Location unavailable</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <MapPin size={12} color={Colors.t3} strokeWidth={2} />
+            <Text style={s.noLocation}>Location unavailable</Text>
+          </View>
         )}
       </View>
 
@@ -106,15 +111,16 @@ export default function ZoneSelectScreen() {
       </ScrollView>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollInner}>
-        <View style={s.watchingBanner}>
-          <Text style={s.watchingText}>
-            🔒 You can only Join zones you're physically inside. Watch any zone to see its board.
+        <View style={[s.watchingBanner, { flexDirection:"row", alignItems:"center", gap:6 }]}>
+          <Lock size={12} color={Colors.yellow} strokeWidth={2} />
+          <Text style={[s.watchingText, { flex:1 }]}>
+            You can only Join zones you're physically inside. Watch any zone to see its board.
           </Text>
         </View>
 
         {zonesInTab.length === 0 ? (
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>📍</Text>
+            <MapPin size={40} color={Colors.t2} strokeWidth={2} style={s.emptyEmoji} />
             <Text style={s.emptyText}>No zones in this region yet</Text>
           </View>
         ) : (
@@ -127,17 +133,21 @@ export default function ZoneSelectScreen() {
                   <Text style={s.zoneName}>{zone.name}</Text>
                   <Text style={s.zoneAddr}>{zone.address}</Text>
                   {dist ? (
-                    <Text style={[s.zoneDist, !inside && { color: Colors.t3 }]}>
-                      📍 {dist}{inside ? "  ·  Inside zone" : ""}
-                    </Text>
+                    <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:4 }}>
+                      <MapPin size={11} color={inside ? Colors.accent : Colors.t3} strokeWidth={2} />
+                      <Text style={[s.zoneDist, { marginTop:0 }, !inside && { color: Colors.t3 }]}>
+                        {dist}{inside ? "  ·  Inside zone" : ""}
+                      </Text>
+                    </View>
                   ) : null}
                 </View>
                 <View style={s.zoneRight}>
                   <View style={s.liveDot} />
                   <Text style={s.liveText}>Live</Text>
                   {inside ? (
-                    <TouchableOpacity style={s.joinBtn} onPress={() => handleJoin(zone)} activeOpacity={0.85}>
-                      <Text style={s.joinBtnText}>Join →</Text>
+                    <TouchableOpacity style={[s.joinBtn, { flexDirection:"row", alignItems:"center", gap:4 }]} onPress={() => handleJoin(zone)} activeOpacity={0.85}>
+                      <Text style={s.joinBtnText}>Join</Text>
+                      <ArrowRight size={12} color={Colors.accentText} strokeWidth={2} />
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity style={s.watchBtn} onPress={() => handleJoin(zone)} activeOpacity={0.85}>

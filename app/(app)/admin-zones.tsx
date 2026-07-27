@@ -9,6 +9,7 @@ import { ZonesAPI, ZoneRow } from "../../services/zones";
 import { useZones } from "../../hooks/useZones";
 import { DriversAPI } from "../../services/drivers";
 import { supabase } from "../../services/supabase";
+import { ArrowLeft, Lock, MapPin, Pencil } from "lucide-react-native";
 
 const COMMON_TZS = [
   "America/Toronto",    // Eastern (ON, QC)
@@ -150,12 +151,15 @@ export default function AdminZonesScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><Text style={s.back}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Admin · Zones</Text>
           <View style={{ width:24 }} />
         </View>
         <View style={s.center}>
-          <Text style={s.denyTitle}>🔒 Not authorised</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Lock size={18} color={Colors.t1} strokeWidth={2} />
+            <Text style={s.denyTitle}>Not authorised</Text>
+          </View>
           <Text style={s.denyText}>This screen is for LoadQ admins only.</Text>
         </View>
       </SafeAreaView>
@@ -165,7 +169,7 @@ export default function AdminZonesScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>Admin · Zones</Text>
         <View style={{ width:24 }} />
       </View>
@@ -202,7 +206,10 @@ export default function AdminZonesScreen() {
         <TouchableOpacity style={s.gpsBtn} onPress={handleUseGps} disabled={gpsLoading} activeOpacity={0.85}>
           {gpsLoading
             ? <ActivityIndicator color={Colors.accent} size="small" />
-            : <Text style={s.gpsBtnText}>📍 Use my current location</Text>}
+            : <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <MapPin size={13} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.gpsBtnText}>Use my current location</Text>
+              </View>}
         </TouchableOpacity>
 
         <View style={s.row2}>
@@ -260,7 +267,7 @@ export default function AdminZonesScreen() {
                 </View>
                 <View style={s.zoneActions}>
                   <TouchableOpacity onPress={() => startEditZone(z)} style={s.zoneEditBtn} activeOpacity={0.7}>
-                    <Text style={s.zoneEditText}>✏️</Text>
+                    <Pencil size={16} color={Colors.t1} strokeWidth={2} />
                   </TouchableOpacity>
                   <Switch value={z.is_active} onValueChange={() => handleToggleActive(z)} trackColor={{ false:Colors.border, true:Colors.accent }} thumbColor="#fff" />
                 </View>

@@ -5,6 +5,7 @@ import { Colors } from "../../constants/colors";
 import MessageThreadView from "../../components/MessageThreadView";
 import UserActionMenu from "../../components/UserActionMenu";
 import { useStrings } from "../../hooks/useStrings";
+import { ArrowLeft, Phone } from "lucide-react-native";
 
 export default function ThreadScreen() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function ThreadScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>{t("messages")}</Text>
           <View style={{ width: 24 }} />
         </View>
@@ -36,12 +37,12 @@ export default function ThreadScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title} numberOfLines={1}>{displayName}</Text>
         <View style={s.headerActions}>
           {phone && (
             <TouchableOpacity onPress={call} style={s.callBtn} activeOpacity={0.7}>
-              <Text style={s.callBtnText}>📞</Text>
+              <Phone size={18} color={Colors.t1} strokeWidth={2} />
             </TouchableOpacity>
           )}
           <UserActionMenu userId={id} userName={displayName} />

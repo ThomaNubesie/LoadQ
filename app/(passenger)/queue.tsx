@@ -15,6 +15,7 @@ import { useNow } from "../../hooks/useNow";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import { saveActiveZone, loadActiveZone } from "../../utils/zoneStore";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import { MapPin } from "lucide-react-native";
 
 // Start of the current loading day (4 AM local). Matches the History tab and
 // the 4 AM daily reset, so "earlier today" shows only this day's events.
@@ -187,7 +188,7 @@ export default function PassengerBoardScreen() {
           <Text style={s.activeCount}>{activeCount} {t.activeShort}</Text>
         </View>
         <TouchableOpacity onPress={handleUseMyLocation} style={s.locBtn} activeOpacity={0.7}>
-          <Text style={s.locBtnText}>📍</Text>
+          <MapPin size={16} color={Colors.t1} strokeWidth={2} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/(passenger)/zones" as any)}>
           <Text style={s.changeZone}>{t.changeShort}</Text>

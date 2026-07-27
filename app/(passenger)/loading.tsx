@@ -23,6 +23,7 @@ import SeatSvg from "../../components/SeatSvg";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import UserActionMenu from "../../components/UserActionMenu";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import { Timer, X, MapPin, CircleUserRound, MessageSquare, Lock, AlertTriangle, Phone, Bus, Pause } from "lucide-react-native";
 
 // Sort priority within a destination group: the loader first, then waiting,
 // then standby/penalised — mirrors the driver board in app/(app)/queue.tsx.
@@ -274,7 +275,7 @@ export default function PassengerLoadingScreen() {
           {entry.driver?.avatar_url ? (
             <Image source={{ uri: entry.driver.avatar_url }} style={s.avatar} />
           ) : (
-            <View style={s.avatarFallback}><Text style={{ fontSize: 22 }}>👤</Text></View>
+            <View style={s.avatarFallback}><CircleUserRound size={22} color={Colors.t1} strokeWidth={2} /></View>
           )}
           <View style={{ flex: 1 }}>
             <View style={s.driverNameRow}>
@@ -294,10 +295,16 @@ export default function PassengerLoadingScreen() {
               <View style={[s.tagPill, { backgroundColor: tag.color + "22", borderColor: tag.color }]}>
                 <Text style={[s.tagText, { color: tag.color }]}>{tag.label}</Text>
               </View>
-              <Text style={s.tagMeta}>
-                {boarded}/{required}
-                {isLoading && lstate ? `  ·  ⏱ ${formatRemaining(lstate.remainingMs)}` : ""}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={s.tagMeta}>{boarded}/{required}</Text>
+                {isLoading && lstate && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={s.tagMeta}>·</Text>
+                    <Timer size={11} color={Colors.t3} strokeWidth={2} />
+                    <Text style={s.tagMeta}>{formatRemaining(lstate.remainingMs)}</Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
           {price !== null && (
@@ -394,7 +401,7 @@ export default function PassengerLoadingScreen() {
                     )}
                     {isExpired && !isFilled && (
                       <View pointerEvents="none" style={s.seatExpiredX}>
-                        <Text style={s.seatExpiredText}>✕</Text>
+                        <X size={30} color={Colors.red} strokeWidth={2} />
                       </View>
                     )}
                   </View>
@@ -403,8 +410,9 @@ export default function PassengerLoadingScreen() {
             </View>
 
             {lstate?.showWarning && (
-              <View style={s.warnBanner}>
-                <Text style={s.warnText}>⚠ {t.windowClosingSoon}</Text>
+              <View style={[s.warnBanner, { flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6 }]}>
+                <AlertTriangle size={11} color={Colors.red} strokeWidth={2} />
+                <Text style={s.warnText}>{t.windowClosingSoon}</Text>
               </View>
             )}
 
@@ -422,7 +430,9 @@ export default function PassengerLoadingScreen() {
                     }}
                     activeOpacity={0.85}
                   >
-                    <Text style={s.passengerContactEmoji}>{canContact ? "📞" : "🔒"}</Text>
+                    {canContact
+                      ? <Phone size={14} color={Colors.t1} strokeWidth={2} />
+                      : <Lock size={14} color={Colors.t1} strokeWidth={2} />}
                     <Text style={s.passengerContactLabel}>{t.callDriver}</Text>
                   </TouchableOpacity>
                 )}
@@ -452,7 +462,9 @@ export default function PassengerLoadingScreen() {
                   }}
                   activeOpacity={0.85}
                 >
-                  <Text style={s.passengerContactEmoji}>{canContact ? "💬" : "🔒"}</Text>
+                  {canContact
+                    ? <MessageSquare size={14} color={Colors.accentText} strokeWidth={2} />
+                    : <Lock size={14} color={Colors.accentText} strokeWidth={2} />}
                   <Text style={[s.passengerContactLabel, { color: Colors.accentText }]}>{t.messageLabel}</Text>
                   {unreadFromThis > 0 && (
                     <View style={s.passengerContactBadge}>
@@ -504,7 +516,10 @@ export default function PassengerLoadingScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.title}>🚌 {t.todaysDrivers}</Text>
+        <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+          <Bus size={18} color={Colors.t1} strokeWidth={2} />
+          <Text style={s.title}>{t.todaysDrivers}</Text>
+        </View>
         <View style={{ flex: 1 }} />
         <Text style={s.subtitle}>{activeZone?.name}</Text>
       </View>
@@ -513,7 +528,7 @@ export default function PassengerLoadingScreen() {
 
       {activeZone && (
         <TouchableOpacity style={s.addressBar} onPress={handleAddressTap} activeOpacity={0.7}>
-          <Text style={s.addressIcon}>📍</Text>
+          <MapPin size={16} color={Colors.t1} strokeWidth={2} />
           <Text style={s.addressText} numberOfLines={2}>{activeZone.address || activeZone.name}</Text>
           <Text style={s.addressArrow}>›</Text>
         </TouchableOpacity>
@@ -537,7 +552,9 @@ export default function PassengerLoadingScreen() {
           </View>
         ) : sortedDestKeys.length === 0 ? (
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>⏸</Text>
+            <View style={{ marginBottom:12 }}>
+              <Pause size={48} color={Colors.t2} strokeWidth={2} />
+            </View>
             <Text style={s.emptyText}>{t.noDriversToday}</Text>
           </View>
         ) : (
@@ -564,7 +581,7 @@ export default function PassengerLoadingScreen() {
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
             >
-              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t2} strokeWidth={2} />
             </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>{t.allDestinations}</Text>

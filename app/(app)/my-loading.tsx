@@ -20,6 +20,7 @@ import { supabase } from "../../services/supabase";
 import { useZones } from "../../hooks/useZones";
 import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../constants/pricing";
 import { useDestinations } from "../../hooks/useDestinations";
+import { ArrowLeft, MessageSquare, CarFront, CircleUserRound, MapPin, Clock, Timer, X, Lock, Hand, BellRing, Calendar, AlertTriangle, Hourglass, Bus } from "lucide-react-native";
 
 // seat_states can come back from the DB as a JSON string, null, an array of
 // the wrong length, or with junk values. Always normalize to a clean array
@@ -298,7 +299,7 @@ export default function MyLoadingScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/zone-select")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>{t.myLoading}</Text>
         <TouchableOpacity
@@ -307,7 +308,7 @@ export default function MyLoadingScreen() {
           activeOpacity={0.7}
           hitSlop={8}
         >
-          <Text style={s.msgBtnText}>💬</Text>
+          <MessageSquare size={18} color={Colors.t1} strokeWidth={2} />
           {unread > 0 && (
             <View style={s.msgBadge}>
               <Text style={s.msgBadgeText}>{unread > 9 ? "9+" : unread}</Text>
@@ -324,12 +325,14 @@ export default function MyLoadingScreen() {
           </View>
         ) : !entry ? (
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>🚗</Text>
+            <CarFront size={48} color={Colors.t1} strokeWidth={2} />
             <Text style={s.emptyText}>{t.youAreNotInQueue}</Text>
           </View>
         ) : entry.status === "ended" ? (
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>👋</Text>
+            <View style={{ marginBottom:12 }}>
+              <Hand size={48} color={Colors.t2} strokeWidth={2} />
+            </View>
             <Text style={s.emptyText}>
               {t("youLeftQueue", { reason: entry.end_reason || "ended" })}
             </Text>
@@ -356,7 +359,10 @@ export default function MyLoadingScreen() {
 
             {pendingClaims.length > 0 && (
               <View style={s.claimsCard}>
-                <Text style={s.claimsTitle}>🛎 {t.pendingClaims} · {pendingClaims.length}</Text>
+                <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginBottom:10 }}>
+                  <BellRing size={13} color={Colors.yellow} strokeWidth={2} />
+                  <Text style={[s.claimsTitle, { marginBottom:0 }]}>{t.pendingClaims} · {pendingClaims.length}</Text>
+                </View>
                 {boarded >= required && (
                   <Text style={s.claimsCap}>
                     {t("cappedByTimer", { n: String(required) })}
@@ -369,7 +375,7 @@ export default function MyLoadingScreen() {
                       {claim.passenger?.avatar_url ? (
                         <Image source={{ uri: claim.passenger.avatar_url }} style={s.claimAvatar} />
                       ) : (
-                        <View style={s.claimAvatarFallback}><Text style={{ fontSize: 18 }}>👤</Text></View>
+                        <View style={s.claimAvatarFallback}><CircleUserRound size={18} color={Colors.t1} strokeWidth={2} /></View>
                       )}
                       <Text style={s.claimName} numberOfLines={1}>
                         {claim.passenger?.full_name || t.passengerLabel}
@@ -399,15 +405,24 @@ export default function MyLoadingScreen() {
             {entry.load_start_at && (
               <View style={s.metaCard}>
                 <View style={s.metaRow}>
-                  <Text style={s.metaKey}>📍 Address</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <MapPin size={11} color={Colors.t3} strokeWidth={2} />
+                    <Text style={s.metaKey}>Address</Text>
+                  </View>
                   <Text style={s.metaVal} numberOfLines={2}>{zoneAddress}</Text>
                 </View>
                 <View style={s.metaRow}>
-                  <Text style={s.metaKey}>📅 Date</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Calendar size={11} color={Colors.t3} strokeWidth={2} />
+                    <Text style={s.metaKey}>Date</Text>
+                  </View>
                   <Text style={s.metaVal}>{startedDate}</Text>
                 </View>
                 <View style={[s.metaRow, { borderBottomWidth: 0 }]}>
-                  <Text style={s.metaKey}>🕒 Started</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Clock size={11} color={Colors.t3} strokeWidth={2} />
+                    <Text style={s.metaKey}>Started</Text>
+                  </View>
                   <Text style={s.metaVal}>{startedTime}</Text>
                 </View>
               </View>
@@ -420,7 +435,10 @@ export default function MyLoadingScreen() {
                   : lstate.phase === "reduced3" ? s.timerRowWarn
                   : null,
               ]}>
-                <Text style={s.timerLabel}>⏱ {t.timeLeft}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Timer size={12} color={Colors.t2} strokeWidth={2} />
+                  <Text style={s.timerLabel}>{t.timeLeft}</Text>
+                </View>
                 <Text style={[
                   s.timerVal,
                   lstate.phase === "warning" || lstate.phase === "expired" ? { color:Colors.red }
@@ -430,8 +448,9 @@ export default function MyLoadingScreen() {
               </View>
             )}
             {lstate?.showWarning && (
-              <View style={s.warnBanner}>
-                <Text style={s.warnText}>⚠ {t.twoHourWarning}</Text>
+              <View style={[s.warnBanner, { flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6 }]}>
+                <AlertTriangle size={12} color={Colors.red} strokeWidth={2} />
+                <Text style={s.warnText}>{t.twoHourWarning}</Text>
               </View>
             )}
             {lstate && required !== seats && (
@@ -501,7 +520,7 @@ export default function MyLoadingScreen() {
                     )}
                     {isExpired && !isFilled && (
                       <View pointerEvents="none" style={s.seatExpiredX}>
-                        <Text style={s.seatExpiredText}>✕</Text>
+                        <X size={32} color={Colors.red} strokeWidth={2} />
                       </View>
                     )}
                   </View>
@@ -533,13 +552,15 @@ export default function MyLoadingScreen() {
             </View>
 
             {locked > 0 && (
-              <View style={s.lockedBar}>
-                <Text style={s.lockedText}>🔒 {locked} {t.seatLocked}</Text>
+              <View style={[s.lockedBar, { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}>
+                <Lock size={12} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.lockedText}>{locked} {t.seatLocked}</Text>
               </View>
             )}
             {boarded - locked > 0 && (
-              <View style={s.pendingBar}>
-                <Text style={s.pendingText}>⏱ {boarded - locked} {t.seatPending}</Text>
+              <View style={[s.pendingBar, { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}>
+                <Timer size={12} color={Colors.yellow} strokeWidth={2} />
+                <Text style={s.pendingText}>{boarded - locked} {t.seatPending}</Text>
               </View>
             )}
 
@@ -565,7 +586,10 @@ export default function MyLoadingScreen() {
 
             {lstate?.phase === "expired" && (
               <View style={s.timeUpBanner}>
-                <Text style={s.timeUpTitle}>⏳ {t.timesUp}</Text>
+                <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginBottom:6 }}>
+                  <Hourglass size={14} color={Colors.accent} strokeWidth={2} />
+                  <Text style={[s.timeUpTitle, { marginBottom:0 }]}>{t.timesUp}</Text>
+                </View>
                 <Text style={s.timeUpBody}>
                   Whenever you're ready, tap Depart (with your passengers) or Cancel so the next driver can go.
                 </Text>
@@ -584,8 +608,9 @@ export default function MyLoadingScreen() {
               <TouchableOpacity style={s.cancelBtn} onPress={handleCancel} activeOpacity={0.85}>
                 <Text style={s.cancelBtnText}>{t.cancel}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.departBtn} onPress={handleDepart} activeOpacity={0.85}>
-                <Text style={s.departBtnText}>🚌 {t.depart} ({boarded}/{seats})</Text>
+              <TouchableOpacity style={[s.departBtn, { flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6 }]} onPress={handleDepart} activeOpacity={0.85}>
+                <Bus size={15} color={Colors.accentText} strokeWidth={2} />
+                <Text style={s.departBtnText}>{t.depart} ({boarded}/{seats})</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -601,7 +626,7 @@ export default function MyLoadingScreen() {
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
             >
-              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t2} strokeWidth={2} />
             </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>Change destination</Text>

@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 export default function SignInScreen() {
   const router  = useRouter();
@@ -55,7 +56,10 @@ export default function SignInScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
         <TouchableOpacity onPress={() => router.replace("/(auth)/welcome")} style={s.backBtn}>
-          <Text style={s.backText}>← {t.back}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ArrowLeft size={14} color={Colors.t2} strokeWidth={2} />
+            <Text style={s.backText}>{t.back}</Text>
+          </View>
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         <Text style={s.title}>
@@ -98,7 +102,10 @@ export default function SignInScreen() {
           disabled={!canSend || loading}
           activeOpacity={0.85}
         >
-          <Text style={s.btnText}>{loading ? t.loading : t.sendCode + " →"}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Text style={s.btnText}>{loading ? t.loading : t.sendCode}</Text>
+            {!loading && <ArrowRight size={16} color={Colors.accentText} strokeWidth={2} />}
+          </View>
         </TouchableOpacity>
 
       </KeyboardAvoidingView>

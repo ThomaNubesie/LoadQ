@@ -2,6 +2,7 @@
 // never have to open a separate app. Self-hides when there's nothing to show.
 import { useCallback, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Modal } from "react-native";
+import { ArrowRight, MapPin, Mail, Briefcase, Package } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { Colors } from "../constants/colors";
@@ -39,7 +40,11 @@ export default function KolisParcels() {
   if (avail.length === 0 && carry.length === 0) return null;
 
   const sizeLabel = (s: string) => (s === "envelope" ? k.envelope : s === "large" ? k.large : k.small);
-  const emoji = (s: string) => (s === "envelope" ? "✉️" : s === "large" ? "🧳" : "📦");
+  const SizeIcon = ({ s }: { s: string }) => {
+    if (s === "envelope") return <Mail size={17} color={Colors.t1} strokeWidth={2} />;
+    if (s === "large")    return <Briefcase size={17} color={Colors.t1} strokeWidth={2} />;
+    return <Package size={17} color={Colors.t1} strokeWidth={2} />;
+  };
 
   const openAccept = async (p: KolisParcel) => {
     setEtaFor(p); setEtaSel(null); setEtaAuto(null); setEtaLoading(true);
@@ -81,8 +86,9 @@ export default function KolisParcels() {
         </View>
         <Text style={{ color: "#ffd9e8", fontWeight: "800", fontSize: 14 }}>{k.parcels}</Text>
         {carry.length > 0 && (
-          <TouchableOpacity onPress={() => router.push("/(app)/kolis-carrying" as any)} style={{ marginLeft: "auto" }}>
-            <Text style={{ color: MAG_LT, fontWeight: "700", fontSize: 12 }}>{k.carrying} ({carry.length}) →</Text>
+          <TouchableOpacity onPress={() => router.push("/(app)/kolis-carrying" as any)} style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ color: MAG_LT, fontWeight: "700", fontSize: 12 }}>{k.carrying} ({carry.length})</Text>
+            <ArrowRight size={12} color={MAG_LT} strokeWidth={2} />
           </TouchableOpacity>
         )}
       </View>
@@ -91,11 +97,16 @@ export default function KolisParcels() {
         <View key={p.id} style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: "rgba(225,29,107,0.2)" }}>
           {/* Info row — text gets the full width so it can't collapse to one char per line */}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ fontSize: 17, marginRight: 9 }}>{emoji(p.size)}</Text>
+            <View style={{ marginRight: 9 }}>
+              <SizeIcon s={p.size} />
+            </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 13 }} numberOfLines={1}>{sizeLabel(p.size)} {k.forDest} {p.to_city}</Text>
               {p.pickup_area ? (
-                <Text style={{ color: MAG_LT, fontSize: 11, fontWeight: "700" }} numberOfLines={1}>📍 {k.pickupAt}: {p.pickup_area}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <MapPin size={11} color={MAG_LT} strokeWidth={2} />
+                  <Text style={{ color: MAG_LT, fontSize: 11, fontWeight: "700" }} numberOfLines={1}>{k.pickupAt}: {p.pickup_area}</Text>
+                </View>
               ) : null}
               <Text style={{ color: Colors.t3, fontSize: 10.5 }} numberOfLines={1}>
                 {p.is_request ? `📣 ${k.requestedForYou}` : `🔒 ${k.senderHidden}`}
@@ -132,7 +143,10 @@ export default function KolisParcels() {
                 <ActivityIndicator color={MAG} /><Text style={{ color: Colors.t2, fontSize: 12.5 }}>{k.etaLocating}</Text>
               </View>
             ) : etaAuto ? (
-              <Text style={{ fontSize: 12.5, color: "#4ade9c", fontWeight: "700", marginBottom: 12 }}>📍 {k.etaAuto.replace("{min}", String(etaAuto))}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                <MapPin size={12.5} color="#4ade9c" strokeWidth={2} />
+                <Text style={{ fontSize: 12.5, color: "#4ade9c", fontWeight: "700" }}>{k.etaAuto.replace("{min}", String(etaAuto))}</Text>
+              </View>
             ) : (
               <Text style={{ fontSize: 12.5, color: Colors.t3, marginBottom: 12 }}>{k.etaManual}</Text>
             )}

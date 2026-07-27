@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft, CarFront, Backpack } from "lucide-react-native";
 
 type Role = "driver" | "passenger";
 
@@ -38,7 +39,7 @@ export default function AdminAddUserScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>Add user</Text>
         <View style={{ width: 24 }} />
       </View>
@@ -56,14 +57,20 @@ export default function AdminAddUserScreen() {
             onPress={() => setRole("driver")}
             activeOpacity={0.85}
           >
-            <Text style={[s.roleBtnText, role === "driver" && s.roleBtnTextActive]}>🚗  Driver</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <CarFront size={14} color={role === "driver" ? Colors.accent : Colors.t1} strokeWidth={2} />
+              <Text style={[s.roleBtnText, role === "driver" && s.roleBtnTextActive]}>Driver</Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.roleBtn, role === "passenger" && s.roleBtnActive]}
             onPress={() => setRole("passenger")}
             activeOpacity={0.85}
           >
-            <Text style={[s.roleBtnText, role === "passenger" && s.roleBtnTextActive]}>🎒  Passenger</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Backpack size={14} color={role === "passenger" ? Colors.accent : Colors.t1} strokeWidth={2} />
+              <Text style={[s.roleBtnText, role === "passenger" && s.roleBtnTextActive]}>Passenger</Text>
+            </View>
           </TouchableOpacity>
         </View>
 

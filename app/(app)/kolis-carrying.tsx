@@ -2,6 +2,7 @@
 import { useCallback, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ArrowLeft, ScanLine, Building2, DoorOpen, Navigation, Lock, MessageSquare, Package, CircleCheckBig, MapPin, Phone } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
@@ -70,11 +71,11 @@ export default function KolisCarrying() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={{ color: Colors.t2, marginBottom: 8, fontSize: 15 }}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 8 }}><ArrowLeft size={18} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.t1, marginBottom: 6 }}>{k.carrying}</Text>
         <TouchableOpacity onPress={() => router.push("/(app)/kolis-scan" as any)}
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: MAG, borderRadius: 12, paddingVertical: 13, marginBottom: 12 }}>
-          <Text style={{ fontSize: 16 }}>📷</Text>
+          <ScanLine size={16} color="#fff" strokeWidth={2} />
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{lang === "fr" ? "Scanner le QR du colis" : "Scan parcel QR"}</Text>
         </TouchableOpacity>
         <View style={{ borderRadius: 12, backgroundColor: "rgba(16,185,129,0.12)", borderWidth: 1, borderColor: "rgba(16,185,129,0.3)", padding: 12, marginBottom: 10, flexDirection: "row", justifyContent: "space-between" }}>
@@ -104,28 +105,49 @@ export default function KolisCarrying() {
               {pickupWhere ? (
                 <TouchableOpacity onPress={() => openDirections(pickupWhere)} style={{ backgroundColor: Colors.surface, borderRadius: 11, padding: 11, marginBottom: 10 }}>
                   <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{isHub ? k.pickupHub : k.pickupDoor}</Text>
-                  <Text style={{ fontSize: 13.5, color: Colors.t1, fontWeight: "700" }}>{isHub ? "🏢 " : "🚪 "}{pickupWhere}</Text>
-                  <Text style={{ fontSize: 11.5, color: MAG_LT, fontWeight: "800", marginTop: 4 }}>🧭 {k.directions}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    {isHub ? <Building2 size={13.5} color={Colors.t1} strokeWidth={2} /> : <DoorOpen size={13.5} color={Colors.t1} strokeWidth={2} />}
+                    <Text style={{ fontSize: 13.5, color: Colors.t1, fontWeight: "700" }}>{pickupWhere}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <Navigation size={11.5} color={MAG_LT} strokeWidth={2} />
+                    <Text style={{ fontSize: 11.5, color: MAG_LT, fontWeight: "800" }}>{k.directions}</Text>
+                  </View>
                 </TouchableOpacity>
               ) : null}
-              <Text style={{ color: Colors.t3, fontSize: 12, marginBottom: 10 }}>🔒 {k.recipientMasked}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <Lock size={12} color={Colors.t3} strokeWidth={2} />
+                <Text style={{ color: Colors.t3, fontSize: 12 }}>{k.recipientMasked}</Text>
+              </View>
               <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{k.enterPickupCode}</Text>
               <TextInput value={pcodes[p.id] || ""} onChangeText={(v) => setPcodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
                 style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 11, padding: 12, fontSize: 20, fontWeight: "800", letterSpacing: 8, textAlign: "center", color: Colors.t1, backgroundColor: Colors.surface, marginBottom: 6 }} />
-              <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 10 }}>💬 {k.askPickupCode}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <MessageSquare size={11} color={Colors.t3} strokeWidth={2} />
+                <Text style={{ fontSize: 11, color: Colors.t3 }}>{k.askPickupCode}</Text>
+              </View>
               <TouchableOpacity onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ backgroundColor: MAG, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
-                {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>📦 {k.confirmPickup}</Text>}
+                {busyId === p.id ? <ActivityIndicator color="#fff" /> : <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Package size={14} color="#fff" strokeWidth={2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{k.confirmPickup}</Text></View>}
               </TouchableOpacity>
             </>)}
 
             {/* STAGE 2 — after pickup: delivery address + navigate + recipient + deliver code */}
             {gotIt && (<>
-              <Text style={{ fontSize: 11, color: "#4ade9c", fontWeight: "700", marginBottom: 10 }}>✅ {k.pickedUpNote}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <CircleCheckBig size={11} color="#4ade9c" strokeWidth={2} />
+                <Text style={{ fontSize: 11, color: "#4ade9c", fontWeight: "700" }}>{k.pickedUpNote}</Text>
+              </View>
               {p.dropoff_addr ? (
                 <TouchableOpacity onPress={() => openDirections(p.dropoff_addr!)} style={{ backgroundColor: Colors.surface, borderRadius: 11, padding: 11, marginBottom: 10 }}>
                   <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{k.deliveryAddress}</Text>
-                  <Text style={{ fontSize: 13.5, color: Colors.t1, fontWeight: "700" }}>📍 {p.dropoff_addr}</Text>
-                  <Text style={{ fontSize: 11.5, color: MAG_LT, fontWeight: "800", marginTop: 4 }}>🧭 {k.directions}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <MapPin size={13.5} color={Colors.t1} strokeWidth={2} />
+                    <Text style={{ fontSize: 13.5, color: Colors.t1, fontWeight: "700" }}>{p.dropoff_addr}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <Navigation size={11.5} color={MAG_LT} strokeWidth={2} />
+                    <Text style={{ fontSize: 11.5, color: MAG_LT, fontWeight: "800" }}>{k.directions}</Text>
+                  </View>
                 </TouchableOpacity>
               ) : null}
               {(p.recipient_name || p.recipient_phone) ? (
@@ -135,8 +157,9 @@ export default function KolisCarrying() {
                     <Text style={{ fontSize: 13, color: Colors.t1, fontWeight: "700" }}>{p.recipient_name || "—"}</Text>
                   </View>
                   {p.recipient_phone ? (
-                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${p.recipient_phone}`)} style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}>
-                      <Text style={{ color: MAG_LT, fontWeight: "800", fontSize: 12.5 }}>📞 {k.callRecipient}</Text>
+                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${p.recipient_phone}`)} style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Phone size={12.5} color={MAG_LT} strokeWidth={2} />
+                      <Text style={{ color: MAG_LT, fontWeight: "800", fontSize: 12.5 }}>{k.callRecipient}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>

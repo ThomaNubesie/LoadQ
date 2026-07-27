@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { Colors } from "../../constants/colors";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import { ArrowLeft, CircleUserRound, MessageSquare, Save, Mail, Phone, Pencil, Printer, Ban, Hand, Trash2 } from "lucide-react-native";
 
 type Role = "driver" | "passenger";
 
@@ -320,7 +321,7 @@ export default function AdminUserScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>User</Text><View style={{ width: 24 }} />
         </View>
         <Text style={s.empty}>{loading ? "Loading…" : "User not found"}</Text>
@@ -331,7 +332,7 @@ export default function AdminUserScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>User</Text>
         <View style={{ width: 24 }} />
       </View>
@@ -345,7 +346,7 @@ export default function AdminUserScreen() {
         <View style={s.hero}>
           {user.avatar_url
             ? <Image source={{ uri: user.avatar_url }} style={s.avatar} />
-            : <View style={s.avatarPh}><Text style={{ fontSize: 36 }}>👤</Text></View>}
+            : <View style={s.avatarPh}><CircleUserRound size={36} color={Colors.t1} strokeWidth={2} /></View>}
           <View style={s.nameRow}>
             <Text style={s.name}>{user.full_name || "(no name)"}</Text>
             {user.verified && <VerifiedBadge size={18} />}
@@ -442,7 +443,14 @@ export default function AdminUserScreen() {
         {editing ? (
           <View style={s.actionGrid}>
             <TouchableOpacity style={[s.actionBtn, s.actAccent]} disabled={busy} onPress={saveEdit} activeOpacity={0.85}>
-              <Text style={[s.actionText, s.txtAccent]}>{busy ? "Saving…" : "💾  Save"}</Text>
+              {busy ? (
+                <Text style={[s.actionText, s.txtAccent]}>Saving…</Text>
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Save size={13} color={Colors.accent} strokeWidth={2} />
+                  <Text style={[s.actionText, s.txtAccent]}>Save</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity style={[s.actionBtn, s.actNeutral]} disabled={busy} onPress={cancelEdit} activeOpacity={0.85}>
               <Text style={[s.actionText, s.txtT1]}>Cancel</Text>
@@ -473,21 +481,36 @@ export default function AdminUserScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.actionBtn, s.actNeutral]} onPress={sendEmail} activeOpacity={0.85}>
-              <Text style={[s.actionText, s.txtT1]}>✉️  Email</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Mail size={13} color={Colors.t1} strokeWidth={2} />
+                <Text style={[s.actionText, s.txtT1]}>Email</Text>
+              </View>
             </TouchableOpacity>
             {!!user.phone && (
               <TouchableOpacity style={[s.actionBtn, s.actNeutral]} onPress={callPhone} activeOpacity={0.85}>
-                <Text style={[s.actionText, s.txtT1]}>📞  Call</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Phone size={13} color={Colors.t1} strokeWidth={2} />
+                  <Text style={[s.actionText, s.txtT1]}>Call</Text>
+                </View>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={[s.actionBtn, s.actAccent]} onPress={openThread} activeOpacity={0.85}>
-              <Text style={[s.actionText, s.txtAccent]}>💬  Message</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <MessageSquare size={13} color={Colors.accent} strokeWidth={2} />
+                <Text style={[s.actionText, s.txtAccent]}>Message</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={[s.actionBtn, s.actNeutral]} onPress={startEdit} activeOpacity={0.85}>
-              <Text style={[s.actionText, s.txtT1]}>✏️  Edit</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Pencil size={13} color={Colors.t1} strokeWidth={2} />
+                <Text style={[s.actionText, s.txtT1]}>Edit</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={[s.actionBtn, s.actNeutral]} onPress={openPrint} activeOpacity={0.85}>
-              <Text style={[s.actionText, s.txtT1]}>🖨  Print</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Printer size={13} color={Colors.t1} strokeWidth={2} />
+                <Text style={[s.actionText, s.txtT1]}>Print</Text>
+              </View>
             </TouchableOpacity>
             {isDriver && queueEntryId && (
               <TouchableOpacity
@@ -496,7 +519,10 @@ export default function AdminUserScreen() {
                 onPress={removeFromQueue}
                 activeOpacity={0.85}
               >
-                <Text style={[s.actionText, s.txtRed]}>🚫  Remove from queue</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ban size={13} color={Colors.red} strokeWidth={2} />
+                  <Text style={[s.actionText, s.txtRed]}>Remove from queue</Text>
+                </View>
               </TouchableOpacity>
             )}
             {!isDriver && (
@@ -506,7 +532,10 @@ export default function AdminUserScreen() {
                 onPress={forceCancelReservations}
                 activeOpacity={0.85}
               >
-                <Text style={[s.actionText, s.txtRed]}>✋  Cancel reservations</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Hand size={13} color={Colors.red} strokeWidth={2} />
+                  <Text style={[s.actionText, s.txtRed]}>Cancel reservations</Text>
+                </View>
               </TouchableOpacity>
             )}
             {!isDriver && (
@@ -516,7 +545,10 @@ export default function AdminUserScreen() {
                 onPress={deletePassenger}
                 activeOpacity={0.85}
               >
-                <Text style={[s.actionText, s.txtRed]}>🗑  Delete passenger</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Trash2 size={13} color={Colors.red} strokeWidth={2} />
+                  <Text style={[s.actionText, s.txtRed]}>Delete passenger</Text>
+                </View>
               </TouchableOpacity>
             )}
           </View>

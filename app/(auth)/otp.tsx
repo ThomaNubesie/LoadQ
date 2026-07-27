@@ -8,6 +8,7 @@ import { PassengersAPI } from "../../services/passengers";
 import { resolveHome } from "../../services/authRoute";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 export default function OTPScreen() {
   const router     = useRouter();
@@ -98,7 +99,10 @@ export default function OTPScreen() {
       >
       <View style={s.inner}>
         <TouchableOpacity onPress={() => router.replace("/(auth)/sign-in")} style={s.backBtn}>
-          <Text style={s.backText}>← {t.back}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ArrowLeft size={14} color={Colors.t2} strokeWidth={2} />
+            <Text style={s.backText}>{t.back}</Text>
+          </View>
         </TouchableOpacity>
         <Text style={s.logo}>LOADQ</Text>
         <Text style={s.title}>{t.verifyCode}</Text>
@@ -131,11 +135,17 @@ export default function OTPScreen() {
           disabled={otp.some(d => !d) || loading}
           activeOpacity={0.85}
         >
-          <Text style={s.btnText}>{t.verifyCode} →</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Text style={s.btnText}>{t.verifyCode}</Text>
+            <ArrowRight size={16} color={Colors.accentText} strokeWidth={2} />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace("/(auth)/sign-in")} style={s.wrongNum}>
-          <Text style={s.wrongNumText}>← {isEmail === "true" ? t.wrongEmail : t.wrongNumber}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ArrowLeft size={13} color={Colors.t3} strokeWidth={2} />
+            <Text style={s.wrongNumText}>{isEmail === "true" ? t.wrongEmail : t.wrongNumber}</Text>
+          </View>
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>

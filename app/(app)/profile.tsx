@@ -20,6 +20,7 @@ import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { VEHICLE_TYPES } from "../../constants/vehicles";
 import BottomNav from "../../components/BottomNav";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, Clock, Pencil, Gift, Map, Inbox, BookOpen } from "lucide-react-native";
 
 export default function ProfileScreen() {
   const router      = useRouter();
@@ -103,7 +104,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/zone-select")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>{t.profile}</Text>
         <View style={{ width:24 }} />
@@ -117,12 +118,12 @@ export default function ProfileScreen() {
               {driver?.avatar_url ? (
                 <Image source={{ uri: driver.avatar_url }} style={s.avatarImg} />
               ) : (
-                <Text style={s.avatarEmoji}>👤</Text>
+                <CircleUserRound size={40} color={Colors.t1} strokeWidth={2} />
               )}
               <View style={s.avatarEditBadge}>
                 {uploading
                   ? <ActivityIndicator size="small" color={Colors.accentText} />
-                  : <Text style={s.avatarEditIcon}>✎</Text>}
+                  : <Pencil size={14} color={Colors.accentText} strokeWidth={2} />}
               </View>
             </View>
           </TouchableOpacity>
@@ -217,16 +218,23 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/loading-history")} activeOpacity={0.85}>
-          <Text style={s.historyBtnText}>📋  {t.loadingHistoryLabel}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ListOrdered size={16} color={Colors.t1} strokeWidth={2} />
+            <Text style={s.historyBtnText}>{t.loadingHistoryLabel}</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/referral")} activeOpacity={0.85}>
-          <Text style={s.historyBtnText}>🎁  {t.referAndEarn}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Gift size={16} color={Colors.t1} strokeWidth={2} />
+            <Text style={s.historyBtnText}>{t.referAndEarn}</Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/messages" as any)} activeOpacity={0.85}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={s.historyBtnText}>💬  {t.messagesLabel}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <MessageSquare size={16} color={Colors.t1} strokeWidth={2} />
+            <Text style={s.historyBtnText}>{t.messagesLabel}</Text>
             {unread > 0 && (
               <View style={s.unreadBadge}>
                 <Text style={s.unreadBadgeText}>{unread > 99 ? "99+" : unread}</Text>
@@ -238,19 +246,34 @@ export default function ProfileScreen() {
         {driver?.is_admin && (
           <>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-zones")} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>🛠  {t.adminZones}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Wrench size={16} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.adminBtnText}>{t.adminZones}</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-destinations")} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>🗺  {t.adminDestinations}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Map size={16} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.adminBtnText}>{t.adminDestinations}</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-verify")} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>👥  {t.adminUsers}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Users size={16} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.adminBtnText}>{t.adminUsers}</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-inbox" as any)} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>📨  {t.adminInbox}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Inbox size={16} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.adminBtnText}>{t.adminInbox}</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-queue-hours" as any)} activeOpacity={0.85}>
-              <Text style={s.adminBtnText}>🕐  {t.adminQueueHours}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Clock size={16} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.adminBtnText}>{t.adminQueueHours}</Text>
+              </View>
             </TouchableOpacity>
           </>
         )}
@@ -264,7 +287,10 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => setShowHowTo(true)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, borderRadius: 12, padding: 15, marginTop: 8 }} activeOpacity={0.85}>
-          <Text style={{ color: Colors.t1, fontSize: 14.5, fontWeight: "700" }}>📘 {lang === "fr" ? "Comment utiliser l'application" : "How to use the app"}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <BookOpen size={16} color={Colors.t1} strokeWidth={2} />
+            <Text style={{ color: Colors.t1, fontSize: 14.5, fontWeight: "700" }}>{lang === "fr" ? "Comment utiliser l'application" : "How to use the app"}</Text>
+          </View>
           <Text style={{ color: Colors.accent, fontSize: 18, fontWeight: "700" }}>›</Text>
         </TouchableOpacity>
 

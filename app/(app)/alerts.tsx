@@ -6,18 +6,23 @@ import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import BottomNav from "../../components/BottomNav";
 import { AlertsAPI, AlertRow } from "../../services/alerts";
+import { ArrowLeft, Bell, CircleCheckBig, Timer, MessageSquare, Car, Moon, AlarmClock, Hourglass, Smile, Megaphone } from "lucide-react-native";
 
-const ICON: Record<AlertRow["kind"], string> = {
-  return:       "🚕",
-  slot_open:    "✅",
-  moved_back:   "⏱",
-  removed:      "🌙",
-  lowtime:      "⏰",
-  expiry_nudge: "⏳",
-  released:     "🙂",
-  headback:     "📣",
-  message:      "💬",
-};
+// Every alert kind renders as a vector icon; unmapped kinds fall back to a bell.
+function AlertIcon({ kind }: { kind: AlertRow["kind"] }) {
+  switch (kind) {
+    case "return":       return <Car size={22} color={Colors.t1} strokeWidth={2} />;
+    case "slot_open":    return <CircleCheckBig size={22} color={Colors.t1} strokeWidth={2} />;
+    case "moved_back":   return <Timer size={22} color={Colors.t1} strokeWidth={2} />;
+    case "removed":      return <Moon size={22} color={Colors.t1} strokeWidth={2} />;
+    case "lowtime":      return <AlarmClock size={22} color={Colors.t1} strokeWidth={2} />;
+    case "expiry_nudge": return <Hourglass size={22} color={Colors.t1} strokeWidth={2} />;
+    case "released":     return <Smile size={22} color={Colors.t1} strokeWidth={2} />;
+    case "headback":     return <Megaphone size={22} color={Colors.t1} strokeWidth={2} />;
+    case "message":      return <MessageSquare size={22} color={Colors.t1} strokeWidth={2} />;
+    default:             return <Bell size={22} color={Colors.t1} strokeWidth={2} />;
+  }
+}
 
 // Show bilingual alert bodies ("EN\nFR") split by 🇬🇧/🇫🇷 flags. Bodies that are
 // single-language or already flag-prefixed are left as-is.
@@ -81,7 +86,7 @@ export default function AlertsScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/zone-select")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>{t.notifications}</Text>
         <View style={{ width:24 }} />
@@ -89,7 +94,7 @@ export default function AlertsScreen() {
 
       {!loading && items.length === 0 ? (
         <View style={s.empty}>
-          <Text style={s.emptyEmoji}>🔔</Text>
+          <Bell size={48} color={Colors.t1} strokeWidth={2} style={s.emptyEmoji} />
           <Text style={s.emptyText}>No alerts yet</Text>
           <Text style={s.emptySub}>You'll be notified when your slot opens or it's time to head back to the zone</Text>
         </View>
@@ -105,7 +110,7 @@ export default function AlertsScreen() {
           }}
           renderItem={({ item }) => (
             <View style={[s.row, !item.read_at && s.rowUnread, item.id === highlightId && s.rowFocus]}>
-              <Text style={s.rowIcon}>{ICON[item.kind] ?? "🔔"}</Text>
+              <AlertIcon kind={item.kind} />
               <View style={{ flex:1 }}>
                 <Text style={s.rowTitle}>{item.title}</Text>
                 <Text style={s.rowBody}>{flagBody(item.body)}</Text>

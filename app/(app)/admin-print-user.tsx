@@ -7,6 +7,7 @@ import { supabase } from "../../services/supabase";
 import { Colors } from "../../constants/colors";
 import { ReferralAPI } from "../../services/referral";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import { ArrowLeft, CircleUserRound } from "lucide-react-native";
 
 type Role = "driver" | "passenger";
 
@@ -96,7 +97,7 @@ Joined: ${fmtDate(data.created_at)}`;
     return (
       <SafeAreaView style={s.container}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Print</Text><View style={{ width: 24 }} />
         </View>
         <Text style={s.empty}>{loading ? "Loading…" : "User not found"}</Text>
@@ -110,7 +111,7 @@ Joined: ${fmtDate(data.created_at)}`;
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>Print</Text>
         <TouchableOpacity onPress={onShare}><Text style={s.share}>Share</Text></TouchableOpacity>
       </View>
@@ -123,7 +124,7 @@ Joined: ${fmtDate(data.created_at)}`;
           <View style={s.row}>
             {data.avatar_url
               ? <Image source={{ uri: data.avatar_url }} style={s.avatar} />
-              : <View style={[s.avatar, s.avatarPh]}><Text style={{ fontSize: 28 }}>👤</Text></View>}
+              : <View style={[s.avatar, s.avatarPh]}><CircleUserRound size={28} color={Colors.t1} strokeWidth={2} /></View>}
             <View style={{ flex: 1, marginLeft: 16 }}>
               <View style={s.nameRow}>
                 <Text style={s.name}>{data.full_name || "(no name)"}</Text>

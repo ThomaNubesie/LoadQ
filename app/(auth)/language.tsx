@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { setLang } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { Lang, STRINGS } from "../../constants/i18n";
+import { ArrowRight } from "lucide-react-native";
 
 const LANGS: { code: Lang; label: string; flag: string; sub: string }[] = [
   { code: "en", label: "English",  flag: "🇨🇦", sub: "Continue in English"  },
@@ -52,7 +53,10 @@ export default function LanguageScreen() {
         </View>
 
         <TouchableOpacity style={s.btn} onPress={handleContinue} activeOpacity={0.85}>
-          <Text style={s.btnText}>{STRINGS[selected].getStarted} →</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Text style={s.btnText}>{STRINGS[selected].getStarted}</Text>
+            <ArrowRight size={16} color={Colors.accentText} strokeWidth={2} />
+          </View>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

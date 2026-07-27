@@ -1,11 +1,12 @@
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { useRouter, usePathname } from "expo-router";
+import { ListOrdered, CarFront, Bell, CircleUserRound, LucideIcon } from "lucide-react-native";
 import { useStrings } from "../hooks/useStrings";
 import { useMyAvatar } from "../hooks/useMyAvatar";
 import { Colors } from "../constants/colors";
 
 export interface NavItem {
-  icon:  string;
+  icon:  LucideIcon;
   label: string;
   route: string;
   match: string;        // path fragment used to decide if this item is the active one
@@ -23,10 +24,10 @@ export default function BottomNav({ items }: Props) {
   const avatar   = useMyAvatar();
 
   const defaultItems: NavItem[] = [
-    { icon: "📋", label: t.queue,         route: "/(app)/queue",      match: "/queue"      },
-    { icon: "🚗", label: t.myLoading,     route: "/(app)/my-loading", match: "/my-loading" },
-    { icon: "🔔", label: t.notifications, route: "/(app)/alerts",     match: "/alerts"     },
-    { icon: "👤", label: t.profile,       route: "/(app)/profile",    match: "/profile", isProfile: true },
+    { icon: ListOrdered,     label: t.queue,         route: "/(app)/queue",      match: "/queue"      },
+    { icon: CarFront,        label: t.myLoading,     route: "/(app)/my-loading", match: "/my-loading" },
+    { icon: Bell,            label: t.notifications, route: "/(app)/alerts",     match: "/alerts"     },
+    { icon: CircleUserRound, label: t.profile,       route: "/(app)/profile",    match: "/profile", isProfile: true },
   ];
 
   const list = items ?? defaultItems;
@@ -49,7 +50,7 @@ export default function BottomNav({ items }: Props) {
                 style={[s.avatar, active && s.avatarActive]}
               />
             ) : (
-              <Text style={[s.icon, active && s.iconActive]}>{item.icon}</Text>
+              <item.icon size={18} color={active ? Colors.accent : Colors.t3} strokeWidth={2} />
             )}
             <Text style={[s.label, active && s.labelActive]} numberOfLines={1}>{item.label}</Text>
             {active && <View style={s.indicator} />}

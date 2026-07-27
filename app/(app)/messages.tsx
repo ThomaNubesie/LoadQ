@@ -7,6 +7,7 @@ import { MessagesAPI } from "../../services/messages";
 import { useStrings } from "../../hooks/useStrings";
 import MessageThreadView from "../../components/MessageThreadView";
 import UserActionMenu from "../../components/UserActionMenu";
+import { ArrowLeft } from "lucide-react-native";
 
 export default function DriverMessagesScreen() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function DriverMessagesScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>{t.messagesLabel}</Text>
         <View style={{ width: 24, alignItems: "flex-end" }}>

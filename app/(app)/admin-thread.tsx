@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import MessageThreadView from "../../components/MessageThreadView";
 import UserActionMenu from "../../components/UserActionMenu";
+import { ArrowLeft } from "lucide-react-native";
 
 export default function AdminThreadScreen() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function AdminThreadScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Thread</Text>
           <View style={{ width: 24 }} />
         </View>
@@ -26,7 +27,7 @@ export default function AdminThreadScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title} numberOfLines={1}>{displayName}</Text>
         <View style={{ width: 24, alignItems: "flex-end" }}>
           <UserActionMenu userId={id} userName={displayName} />

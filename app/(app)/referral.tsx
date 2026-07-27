@@ -8,6 +8,7 @@ import { ReferralAPI, ReferralProgress } from "../../services/referral";
 import { Colors } from "../../constants/colors";
 import BottomNav from "../../components/BottomNav";
 import { useStrings } from "../../hooks/useStrings";
+import { ArrowLeft } from "lucide-react-native";
 
 const GOAL = 10;
 
@@ -42,7 +43,7 @@ export default function ReferralScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>{t.referTitle}</Text>
         <View style={{ width: 24 }} />

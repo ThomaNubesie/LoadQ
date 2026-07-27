@@ -27,6 +27,7 @@ import { useDestinations } from "../../hooks/useDestinations";
 import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../constants/pricing";
+import { ArrowRight, X, MapPin, CircleUserRound, MessageSquare, CarFront, Timer, DoorOpen, Star, Phone, Pencil, Moon } from "lucide-react-native";
 
 export default function QueueScreen() {
   const router = useRouter();
@@ -556,7 +557,7 @@ export default function QueueScreen() {
               <Image source={{ uri: entry.driver.avatar_url }} style={s.rowAvatar} />
             ) : (
               <View style={[s.rowAvatar, s.rowAvatarFallback, { borderColor: sc+"40" }]}>
-                <Text style={{ fontSize:18 }}>👤</Text>
+                <CircleUserRound size={18} color={Colors.t1} strokeWidth={2} />
               </View>
             )}
           </TouchableOpacity>
@@ -576,10 +577,13 @@ export default function QueueScreen() {
                   {lstate && required !== seats ? `  (was ${seats})` : ""}
                 </Text>
                 {lstate && (
-                  <Text style={[s.timerText, { color: timerColor }]}>
-                    ⏱ {formatRemaining(lstate.remainingMs)}
-                    {lstate.showWarning ? "  ⚠ 3-hour close approaching" : ""}
-                  </Text>
+                  <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                    <Timer size={10} color={timerColor} strokeWidth={2} />
+                    <Text style={[s.timerText, { color: timerColor }]}>
+                      {formatRemaining(lstate.remainingMs)}
+                      {lstate.showWarning ? "  ⚠ 3-hour close approaching" : ""}
+                    </Text>
+                  </View>
                 )}
               </>
             )}
@@ -596,7 +600,7 @@ export default function QueueScreen() {
                   activeOpacity={0.7}
                   hitSlop={8}
                 >
-                  <Text style={s.contactBtnText}>📞</Text>
+                  <Phone size={14} color={Colors.t1} strokeWidth={2} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -625,7 +629,7 @@ export default function QueueScreen() {
                 activeOpacity={0.7}
                 hitSlop={8}
               >
-                <Text style={s.contactBtnText}>💬</Text>
+                <MessageSquare size={14} color={Colors.t1} strokeWidth={2} />
                 {unreadFromThis > 0 && (
                   <View style={s.contactBtnBadge}>
                     <Text style={s.contactBtnBadgeText}>
@@ -637,7 +641,7 @@ export default function QueueScreen() {
             </View>
           )}
           {isExpandable && <Text style={s.expandChevron}>{isExpanded ? "▾" : "▸"}</Text>}
-          {entry.status === "called_back" && <Text style={{ fontSize:16 }}>⏱</Text>}
+          {entry.status === "called_back" && <Timer size={16} color={Colors.t1} strokeWidth={2} />}
         </TouchableOpacity>
 
         {isExpanded && lstate && (
@@ -686,8 +690,9 @@ export default function QueueScreen() {
             )}
             {isMe && (
               <>
-                <TouchableOpacity style={s.openLoadingBtn} onPress={() => router.replace("/(app)/my-loading")}>
-                  <Text style={s.openLoadingBtnText}>Open loading screen →</Text>
+                <TouchableOpacity style={[s.openLoadingBtn, { flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6 }]} onPress={() => router.replace("/(app)/my-loading")}>
+                  <Text style={s.openLoadingBtnText}>Open loading screen</Text>
+                  <ArrowRight size={12} color={Colors.accent} strokeWidth={2} />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.leaveBtn} onPress={handleLeaveQueue}>
                   <Text style={s.leaveBtnText}>Leave queue</Text>
@@ -699,10 +704,17 @@ export default function QueueScreen() {
         {isAdmin && !isEnded && (
           <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingBottom: 10, marginTop: -2 }}>
             <TouchableOpacity onPress={() => openAdminMove(entry)} style={{ backgroundColor: Colors.cardAlt, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
-              <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>#{entry.position} ✎ Move</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>#{entry.position}</Text>
+                <Pencil size={12} color={Colors.t1} strokeWidth={2} />
+                <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>Move</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => confirmAdminDepart(entry)} style={{ backgroundColor: Colors.cardAlt, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
-              <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>🚪 {t.depart}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <DoorOpen size={12} color={Colors.t1} strokeWidth={2} />
+                <Text style={{ color: Colors.t1, fontWeight: "700", fontSize: 12 }}>{t.depart}</Text>
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -743,7 +755,7 @@ export default function QueueScreen() {
           activeOpacity={0.7}
           hitSlop={8}
         >
-          <Text style={s.msgBtnText}>💬</Text>
+          <MessageSquare size={20} color={Colors.t1} strokeWidth={2} />
           {unread > 0 && (
             <View style={s.msgBadge}>
               <Text style={s.msgBadgeText}>{unread > 9 ? "9+" : unread}</Text>
@@ -767,13 +779,14 @@ export default function QueueScreen() {
           {isMyRegion && (
             myEntry ? (
               <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
-                <TouchableOpacity style={s.joinBtn} onPress={() => router.replace("/(app)/my-loading")} activeOpacity={0.85}>
+                <TouchableOpacity style={[s.joinBtn, { flexDirection:"row", alignItems:"center", gap:6 }]} onPress={() => router.replace("/(app)/my-loading")} activeOpacity={0.85}>
                   <Text style={s.joinBtnText}>
-                    #{myEntry.position} · {myEntry.status === "loading" ? t.loadingNow : getRegionName(myEntry.destination_region)} →
+                    #{myEntry.position} · {myEntry.status === "loading" ? t.loadingNow : getRegionName(myEntry.destination_region)}
                   </Text>
+                  <ArrowRight size={11} color={Colors.accent} strokeWidth={2} />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.leaveChip} onPress={handleLeaveQueue} activeOpacity={0.7}>
-                  <Text style={s.leaveChipText}>✕</Text>
+                  <X size={12} color={Colors.red} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
             ) : (
@@ -816,7 +829,10 @@ export default function QueueScreen() {
 
       {!windowOpen && (
         <View style={s.closedBanner}>
-          <Text style={s.closedTitle}>🌙 {t.queueClosed}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Moon size={13} color={Colors.yellow} strokeWidth={2} />
+            <Text style={s.closedTitle}>{t.queueClosed}</Text>
+          </View>
           <Text style={s.closedSub}>
             {t.queueClosedSub}{nextOpen ? `  ·  ${nextOpen.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}` : ""}
           </Text>
@@ -826,9 +842,12 @@ export default function QueueScreen() {
       {/* Join error */}
       {!!joinError && (
         <View style={s.geoError}>
-          <Text style={s.geoErrorText}>📍 {joinError}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6, flex:1 }}>
+            <MapPin size={12} color={Colors.red} strokeWidth={2} />
+            <Text style={s.geoErrorText}>{joinError}</Text>
+          </View>
           <TouchableOpacity onPress={() => setJoinError("")}>
-            <Text style={{ color:Colors.t3, fontSize:16 }}>✕</Text>
+            <X size={16} color={Colors.t3} strokeWidth={2} />
           </TouchableOpacity>
         </View>
       )}
@@ -847,7 +866,9 @@ export default function QueueScreen() {
           </View>
         ) : entries.length === 0 ? (
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>🚗</Text>
+            <View style={{ marginBottom:12 }}>
+              <CarFront size={48} color={Colors.t1} strokeWidth={2} />
+            </View>
             <Text style={s.emptyText}>Queue is empty</Text>
             <Text style={s.emptySub}>Be the first to join</Text>
           </View>
@@ -858,9 +879,12 @@ export default function QueueScreen() {
             return (
               <View key={destKey} style={{ marginTop:14 }}>
                 <View style={s.destHeader}>
-                  <Text style={s.destHeaderName}>
-                    → {destKey === "_unknown" ? t.destinationNotSet : getRegionName(destKey)}
-                  </Text>
+                  <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                    <ArrowRight size={13} color={Colors.t1} strokeWidth={2} />
+                    <Text style={s.destHeaderName}>
+                      {destKey === "_unknown" ? t.destinationNotSet : getRegionName(destKey)}
+                    </Text>
+                  </View>
                   <View style={{ flexDirection:"row", alignItems:"center", gap:8 }}>
                     <Text style={s.destHeaderCount}>{list.length}</Text>
                     {price !== null && (
@@ -895,18 +919,21 @@ export default function QueueScreen() {
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
             >
-              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t2} strokeWidth={2} />
             </TouchableOpacity>
             <View style={s.previewAvatarBox}>
               {previewEntry?.driver?.avatar_url ? (
                 <Image source={{ uri: previewEntry.driver.avatar_url }} style={s.previewAvatar} />
               ) : (
-                <View style={s.previewAvatarFallback}><Text style={{ fontSize: 48 }}>👤</Text></View>
+                <View style={s.previewAvatarFallback}><CircleUserRound size={48} color={Colors.t1} strokeWidth={2} /></View>
               )}
             </View>
             <Text style={s.previewName}>{previewEntry?.driver?.full_name || "Driver"}</Text>
             {previewEntry?.driver?.trust_score !== undefined && (
-              <Text style={s.previewTrust}>⭐ Trust score: {previewEntry.driver.trust_score}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginBottom:6 }}>
+                <Star size={12} color={Colors.yellow} strokeWidth={2} />
+                <Text style={s.previewTrust}>Trust score: {previewEntry.driver.trust_score}</Text>
+              </View>
             )}
             <Text style={s.previewId}>#{previewEntry?.driver?.id?.slice(0, 8).toUpperCase()}</Text>
 
@@ -939,7 +966,10 @@ export default function QueueScreen() {
                     onPress={() => { Linking.openURL(`tel:${previewEntry.driver!.phone}`); }}
                     activeOpacity={0.85}
                   >
-                    <Text style={s.previewActText}>📞  Call</Text>
+                    <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                      <Phone size={14} color={Colors.t1} strokeWidth={2} />
+                      <Text style={s.previewActText}>Call</Text>
+                    </View>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -953,7 +983,10 @@ export default function QueueScreen() {
                   }}
                   activeOpacity={0.85}
                 >
-                  <Text style={s.previewActText}>💬  Message</Text>
+                  <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                    <MessageSquare size={14} color={Colors.t1} strokeWidth={2} />
+                    <Text style={s.previewActText}>Message</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}
@@ -974,7 +1007,7 @@ export default function QueueScreen() {
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
             >
-              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t2} strokeWidth={2} />
             </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>Where are you going?</Text>
@@ -991,7 +1024,10 @@ export default function QueueScreen() {
                     onPress={() => handleJoinWithDestination(dest)}
                     activeOpacity={0.85}
                   >
-                    <Text style={s.destOptionName}>→ {getRegionName(dest)}</Text>
+                    <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                      <ArrowRight size={14} color={Colors.t1} strokeWidth={2} />
+                      <Text style={s.destOptionName}>{getRegionName(dest)}</Text>
+                    </View>
                     <Text style={s.destOptionPrice}>C${price} / seat</Text>
                   </TouchableOpacity>
                 );
@@ -1016,7 +1052,7 @@ export default function QueueScreen() {
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
             >
-              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t2} strokeWidth={2} />
             </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>{t.whichCar ?? "Which car are you using?"}</Text>
@@ -1059,7 +1095,7 @@ export default function QueueScreen() {
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
             >
-              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t2} strokeWidth={2} />
             </TouchableOpacity>
             <View style={s.modalHandle} />
             <Text style={s.modalTitle}>Select loading zone</Text>
@@ -1125,7 +1161,7 @@ export default function QueueScreen() {
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
             >
-              <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t2} strokeWidth={2} />
             </TouchableOpacity>
             <View style={{ alignItems: "center", paddingTop: 6 }}>
               <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border }} />
@@ -1188,7 +1224,10 @@ export default function QueueScreen() {
                     return dests.map(dest => (
                       <TouchableOpacity key={dest} onPress={() => setAddDest(dest)}
                         style={[s.adminChip, addDest === dest && s.adminChipActive]}>
-                        <Text style={[s.adminChipText, addDest === dest && { color: Colors.accent }]}>→ {getRegionName(dest)}</Text>
+                        <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                          <ArrowRight size={13} color={addDest === dest ? Colors.accent : Colors.t2} strokeWidth={2} />
+                          <Text style={[s.adminChipText, addDest === dest && { color: Colors.accent }]}>{getRegionName(dest)}</Text>
+                        </View>
                       </TouchableOpacity>
                     ));
                   })()}

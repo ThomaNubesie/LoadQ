@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { HistoryAPI, LoadingHistoryRow } from "../../services/history";
 import { getRegionName } from "../../constants/pricing";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft, ArrowRight, CircleUserRound, Inbox } from "lucide-react-native";
 
 const REASON_LABEL: Record<string, string> = {
   departed:   "Departed",
@@ -42,7 +43,7 @@ export default function LoadingHistoryScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>Loading history</Text>
         <View style={{ width: 24 }} />
@@ -58,7 +59,9 @@ export default function LoadingHistoryScreen() {
         <View style={s.center}><ActivityIndicator color={Colors.accent} /></View>
       ) : rows.length === 0 ? (
         <View style={s.center}>
-          <Text style={s.emptyEmoji}>📭</Text>
+          <View style={{ marginBottom:10 }}>
+            <Inbox size={44} color={Colors.t2} strokeWidth={2} />
+          </View>
           <Text style={s.emptyText}>No loading sessions recorded yet.</Text>
         </View>
       ) : (
@@ -73,13 +76,15 @@ export default function LoadingHistoryScreen() {
                   {isAdmin && (
                     r.driver?.avatar_url
                       ? <Image source={{ uri: r.driver.avatar_url }} style={s.avatar} />
-                      : <View style={s.avatarFallback}><Text>👤</Text></View>
+                      : <View style={s.avatarFallback}><CircleUserRound size={18} color={Colors.t1} strokeWidth={2} /></View>
                   )}
                   <View style={{ flex: 1 }}>
                     {isAdmin && <Text style={s.driverName}>{r.driver?.full_name || "Driver"}</Text>}
-                    <Text style={s.route}>
-                      {r.zone_id} → {getRegionName(r.destination_region) || "—"}
-                    </Text>
+                    <View style={{ flexDirection:"row", alignItems:"center", gap:4 }}>
+                      <Text style={s.route}>{r.zone_id}</Text>
+                      <ArrowRight size={12} color={Colors.t2} strokeWidth={2} />
+                      <Text style={s.route}>{getRegionName(r.destination_region) || "—"}</Text>
+                    </View>
                   </View>
                   <View style={[s.reasonBadge, { backgroundColor: (REASON_COLOR[r.end_reason] || Colors.t3) + "22", borderColor: (REASON_COLOR[r.end_reason] || Colors.t3) + "55" }]}>
                     <Text style={[s.reasonText, { color: REASON_COLOR[r.end_reason] || Colors.t3 }]}>

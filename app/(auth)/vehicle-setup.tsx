@@ -10,6 +10,7 @@ import { Colors } from "../../constants/colors";
 import { VehicleType } from "../../constants/types";
 import { getSeatsForType, getSeatsForModel, CAR_COLORS } from "../../constants/vehicles";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 // Years: newest first, sorted correctly
 const CURRENT_YEAR = new Date().getFullYear();
@@ -194,7 +195,10 @@ export default function VehicleSetupScreen() {
           else if (step === "model") setStep("make");
           else setStep("model");
         }} style={s.backBtn}>
-          <Text style={s.backText}>← {t.back}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ArrowLeft size={14} color={Colors.t2} strokeWidth={2} />
+            <Text style={s.backText}>{t.back}</Text>
+          </View>
         </TouchableOpacity>
 
         <Text style={s.logo}>LOADQ</Text>
@@ -304,7 +308,10 @@ export default function VehicleSetupScreen() {
               disabled={saving}
               activeOpacity={0.85}
             >
-              <Text style={s.btnText}>{saving ? t.loading : t.next + " →"}</Text>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Text style={s.btnText}>{saving ? t.loading : t.next}</Text>
+                {!saving && <ArrowRight size={16} color={Colors.accentText} strokeWidth={2} />}
+              </View>
             </TouchableOpacity>
           </>
         )}

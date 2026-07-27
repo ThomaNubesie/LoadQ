@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 export default function ProfileSetupScreen() {
   const router     = useRouter();
@@ -88,7 +89,10 @@ export default function ProfileSetupScreen() {
       >
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => router.replace("/(auth)/sign-in")} style={s.backBtn}>
-          <Text style={s.backText}>← {t.back}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ArrowLeft size={14} color={Colors.t2} strokeWidth={2} />
+            <Text style={s.backText}>{t.back}</Text>
+          </View>
         </TouchableOpacity>
 
         <Text style={s.logo}>LOADQ</Text>
@@ -128,7 +132,10 @@ export default function ProfileSetupScreen() {
         {!!error && <Text style={s.error}>{error}</Text>}
 
         <TouchableOpacity style={[s.btn, loading && s.btnOff]} onPress={handleNext} disabled={loading} activeOpacity={0.85}>
-          <Text style={s.btnText}>{loading ? t.loading : t.next + " →"}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Text style={s.btnText}>{loading ? t.loading : t.next}</Text>
+            {!loading && <ArrowRight size={16} color={Colors.accentText} strokeWidth={2} />}
+          </View>
         </TouchableOpacity>
       </ScrollView>
       </KeyboardAvoidingView>

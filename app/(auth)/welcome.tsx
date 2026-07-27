@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft, Bus, User } from "lucide-react-native";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -29,7 +30,10 @@ export default function WelcomeScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.inner}>
         <TouchableOpacity onPress={() => router.replace("/(auth)/language")} style={s.backBtn}>
-          <Text style={s.backText}>← {t.back}</Text>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <ArrowLeft size={14} color={Colors.t2} strokeWidth={2} />
+            <Text style={s.backText}>{t.back}</Text>
+          </View>
         </TouchableOpacity>
 
         <Text style={s.logo}>LOADQ</Text>
@@ -37,13 +41,13 @@ export default function WelcomeScreen() {
         <Text style={s.sub}>{t.pickRoleSub}</Text>
 
         <TouchableOpacity style={[s.card, s.cardDriver]} onPress={() => pick("driver")} activeOpacity={0.85}>
-          <Text style={s.cardEmoji}>🚐</Text>
+          <View style={s.cardEmoji}><Bus size={42} color={Colors.t1} strokeWidth={2} /></View>
           <Text style={s.cardTitle}>{t.iAmDriver}</Text>
           <Text style={s.cardSub}>{t.driverDesc}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[s.card, s.cardPassenger]} onPress={() => pick("passenger")} activeOpacity={0.85}>
-          <Text style={s.cardEmoji}>🧍</Text>
+          <View style={s.cardEmoji}><User size={42} color={Colors.t1} strokeWidth={2} /></View>
           <Text style={s.cardTitle}>{t.iAmPassenger}</Text>
           <Text style={s.cardSub}>{t.passengerDesc}</Text>
         </TouchableOpacity>

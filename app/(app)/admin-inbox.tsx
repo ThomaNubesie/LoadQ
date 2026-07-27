@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { MessagesAPI, ConversationSummary } from "../../services/messages";
 import { Colors } from "../../constants/colors";
 import BottomNav from "../../components/BottomNav";
+import { ArrowLeft, CircleUserRound } from "lucide-react-native";
 
 function fmtWhen(iso: string) {
   const d = new Date(iso);
@@ -44,7 +45,7 @@ export default function AdminInboxScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>Admin · Inbox</Text>
         <View style={{ width: 24 }} />
@@ -64,7 +65,7 @@ export default function AdminInboxScreen() {
           >
             {item.other_avatar
               ? <Image source={{ uri: item.other_avatar }} style={s.avatar} />
-              : <View style={s.avatarPh}><Text style={{ fontSize: 18 }}>👤</Text></View>}
+              : <View style={s.avatarPh}><CircleUserRound size={18} color={Colors.t1} strokeWidth={2} /></View>}
             <View style={{ flex: 1 }}>
               <View style={s.topRow}>
                 <Text style={s.name} numberOfLines={1}>{item.other_name}</Text>

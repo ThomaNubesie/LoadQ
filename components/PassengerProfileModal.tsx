@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet, Image, Linking, Activi
 import { useRouter } from "expo-router";
 import { PassengersAPI, PassengerStats } from "../services/passengers";
 import { Colors } from "../constants/colors";
+import { X, CircleUserRound, MessageSquare, Phone } from "lucide-react-native";
 
 type Props = {
   passengerId: string | null;
@@ -66,7 +67,7 @@ export default function PassengerProfileModal({ passengerId, confirmed, onClose 
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
           >
-            <Text style={{ fontSize: 22, color: Colors.t2, fontWeight: "600" }}>✕</Text>
+            <X size={22} color={Colors.t2} strokeWidth={2} />
           </TouchableOpacity>
           {loading || !stats ? (
             <ActivityIndicator size="large" color={Colors.accent} style={{ paddingVertical: 24 }} />
@@ -78,7 +79,7 @@ export default function PassengerProfileModal({ passengerId, confirmed, onClose 
                 <Image source={{ uri: passenger.avatar_url }} style={s.avatar} />
               ) : (
                 <View style={[s.avatar, s.avatarFallback]}>
-                  <Text style={{ fontSize: 32 }}>👤</Text>
+                  <CircleUserRound size={32} color={Colors.t1} strokeWidth={2} />
                 </View>
               )}
               <Text style={s.name}>{passenger.full_name || "Passenger"}</Text>
@@ -107,12 +108,12 @@ export default function PassengerProfileModal({ passengerId, confirmed, onClose 
                 <View style={s.contactRow}>
                   {passenger.phone && (
                     <TouchableOpacity style={s.contactBtn} onPress={onCall} activeOpacity={0.85}>
-                      <Text style={s.contactBtnEmoji}>📞</Text>
+                      <Phone size={16} color={Colors.t1} strokeWidth={2} />
                       <Text style={s.contactBtnLabel}>Call</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity style={[s.contactBtn, s.contactBtnPrimary]} onPress={onChat} activeOpacity={0.85}>
-                    <Text style={s.contactBtnEmoji}>💬</Text>
+                    <MessageSquare size={16} color={Colors.accentText} strokeWidth={2} />
                     <Text style={[s.contactBtnLabel, { color: Colors.accentText }]}>Message</Text>
                   </TouchableOpacity>
                 </View>

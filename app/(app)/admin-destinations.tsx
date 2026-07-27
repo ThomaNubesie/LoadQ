@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { DestinationsAPI, DestinationRow } from "../../services/destinations";
 import { useDestinations } from "../../hooks/useDestinations";
 import { Colors } from "../../constants/colors";
+import { ArrowLeft, Lock } from "lucide-react-native";
 
 export default function AdminDestinationsScreen() {
   const router = useRouter();
@@ -55,12 +56,15 @@ export default function AdminDestinationsScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><Text style={s.back}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Admin · Destinations</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={s.center}>
-          <Text style={s.denyTitle}>🔒 Not authorised</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Lock size={18} color={Colors.t1} strokeWidth={2} />
+            <Text style={s.denyTitle}>Not authorised</Text>
+          </View>
           <Text style={s.denyText}>This screen is for LoadQ admins only.</Text>
         </View>
       </SafeAreaView>
@@ -70,7 +74,7 @@ export default function AdminDestinationsScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><Text style={s.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>Admin · Destinations</Text>
         <View style={{ width: 24 }} />
       </View>

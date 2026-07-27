@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
 import { Colors } from "../../constants/colors";
@@ -12,6 +12,7 @@ import { useZones } from "../../hooks/useZones";
 import { useStrings } from "../../hooks/useStrings";
 import { loadActiveZone } from "../../utils/zoneStore";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import { RefreshCw, Inbox } from "lucide-react-native";
 
 // Filter chips for the activity feed. Default is "today" (since 4 AM local).
 // "Now" hides historical rows entirely — only in-progress loaders.
@@ -31,11 +32,11 @@ interface ActivityRow {
   timestampMs:  number;
 }
 
-const KIND_META: Record<ActivityRow["kind"], { icon: string; color: string; label: string }> = {
-  loading:    { icon: "⟳", color: Colors.accent, label: "loading" },
-  departed:   { icon: "✓", color: "#22C55E",     label: "departed" },
-  timeout_2h: { icon: "✗", color: Colors.red,    label: "timed out" },
-  eod_close:  { icon: "✗", color: Colors.red,    label: "day close" },
+const KIND_META: Record<ActivityRow["kind"], { icon: ReactNode; color: string; label: string }> = {
+  loading:    { icon: <RefreshCw size={18} color={Colors.accent} strokeWidth={2.5} />, color: Colors.accent, label: "loading" },
+  departed:   { icon: <Text style={{ color: "#22C55E", fontSize: 20, fontWeight: "900" }}>✓</Text>, color: "#22C55E", label: "departed" },
+  timeout_2h: { icon: <Text style={{ color: Colors.red, fontSize: 20, fontWeight: "900" }}>✗</Text>, color: Colors.red, label: "timed out" },
+  eod_close:  { icon: <Text style={{ color: Colors.red, fontSize: 20, fontWeight: "900" }}>✗</Text>, color: Colors.red, label: "day close" },
 };
 
 function startOfToday4am(): number {
@@ -194,7 +195,7 @@ export default function PassengerHistoryScreen() {
           </View>
         ) : rows.length === 0 ? (
           <View style={s.emptyBlock}>
-            <Text style={s.emptyEmoji}>📭</Text>
+            <View style={s.emptyEmoji}><Inbox size={40} color={Colors.t3} strokeWidth={2} /></View>
             <Text style={s.emptyText}>{t.boardActivityEmpty}</Text>
           </View>
         ) : (
@@ -202,7 +203,7 @@ export default function PassengerHistoryScreen() {
             const meta = KIND_META[r.kind];
             return (
               <View key={r.id} style={s.row}>
-                <Text style={[s.rowIcon, { color: meta.color }]}>{meta.icon}</Text>
+                <View style={s.rowIcon}>{meta.icon}</View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.rowRoute} numberOfLines={1}>
                     {zone ? zone.name.split(" ")[0] : "—"} → {getRegionName(r.destination) || "—"}
@@ -259,7 +260,7 @@ const s = StyleSheet.create({
   emptyEmoji:       { fontSize: 40, marginBottom: 10 },
   emptyText:        { fontSize: 13, color: Colors.t3, textAlign: "center" },
   row:              { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
-  rowIcon:          { fontSize: 20, fontWeight: "900", width: 22, textAlign: "center" },
+  rowIcon:          { fontSize: 20, fontWeight: "900", width: 22, textAlign: "center", alignItems: "center" },
   rowRoute:         { color: Colors.t1, fontSize: 13, fontWeight: "700" },
   rowMeta:          { color: Colors.t3, fontSize: 11, marginTop: 3, fontWeight: "500" },
   savingsCard:      { marginTop: 24, padding: 18, borderRadius: 16, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, alignItems: "center" },

@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { Colors } from "../../constants/colors";
 import BottomNav from "../../components/BottomNav";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import { ArrowLeft, CircleUserRound } from "lucide-react-native";
 
 type Role = "driver" | "passenger";
 type Filter = "all" | "pending" | "verified" | "blocked";
@@ -140,7 +141,7 @@ export default function AdminUsersScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
-          <Text style={s.back}>←</Text>
+          <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={s.title}>Manage users</Text>
         <TouchableOpacity onPress={() => router.push("/(app)/admin-add-user" as any)}>
@@ -201,7 +202,7 @@ export default function AdminUsersScreen() {
           >
             {item.avatar_url
               ? <Image source={{ uri: item.avatar_url }} style={s.avatar} />
-              : <View style={s.avatarPh}><Text style={{ fontSize: 18 }}>👤</Text></View>}
+              : <View style={s.avatarPh}><CircleUserRound size={18} color={Colors.t1} strokeWidth={2} /></View>}
 
             <View style={{ flex: 1 }}>
               <View style={s.nameRow}>

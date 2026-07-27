@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ActivityIndicator, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { ScanLine, Lock, X } from "lucide-react-native";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
@@ -73,7 +74,7 @@ export default function KolisScan() {
   if (!perm) return <View style={{ flex: 1, backgroundColor: "#000" }} />;
   if (!perm.granted) return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, alignItems: "center", justifyContent: "center", padding: 30 }}>
-      <Text style={{ fontSize: 40 }}>📷</Text>
+      <ScanLine size={40} color={Colors.t1} strokeWidth={2} />
       <Text style={{ color: Colors.t1, fontSize: 18, fontWeight: "800", marginTop: 12, textAlign: "center" }}>{fr ? "Autoriser la caméra" : "Allow the camera"}</Text>
       <Text style={{ color: Colors.t2, textAlign: "center", marginTop: 6 }}>{fr ? "Pour scanner les codes QR de colis Kolis." : "To scan Kolis parcel QR codes."}</Text>
       <Pressable onPress={requestPerm} style={{ backgroundColor: MAG, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 26, marginTop: 18 }}><Text style={{ color: "#fff", fontWeight: "800" }}>{fr ? "Autoriser" : "Allow"}</Text></Pressable>
@@ -127,7 +128,7 @@ export default function KolisScan() {
         <View style={{ marginTop: "auto", padding: 16 }}>
           {locked ? (
             <View style={{ backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderStyle: "dashed", borderRadius: 13, padding: 16, alignItems: "center" }}>
-              <Text style={{ fontSize: 22 }}>🔒</Text>
+              <Lock size={22} color={Colors.t1} strokeWidth={2} />
               <Text style={{ color: Colors.t2, fontWeight: "700", fontSize: 12.5, marginTop: 6, textAlign: "center" }}>{reason === "location_off" ? (fr ? "Activez la localisation pour débloquer le code" : "Turn on location to unlock the code") : reason === "not_geocoded" ? (fr ? "Position non vérifiable — code masqué" : "Location unverifiable — code hidden") : (fr ? `Code masqué jusqu'à moins de ${res.geofence_m} m` : `Code hidden until within ${res.geofence_m} m`)}</Text>
               {reason === "location_off" ? (
                 <Pressable onPress={() => Linking.openSettings().catch(() => {})} style={{ backgroundColor: MAG, borderRadius: 11, paddingVertical: 11, paddingHorizontal: 22, marginTop: 12 }}>
@@ -157,7 +158,7 @@ export default function KolisScan() {
       <CameraView style={{ flex: 1 }} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={onScan} />
       <SafeAreaView style={{ position: "absolute", top: 0, left: 0, right: 0 }} edges={["top"]}>
         <View style={{ flexDirection: "row", alignItems: "center", padding: 16 }}>
-          <Pressable onPress={() => router.back()} hitSlop={10}><Text style={{ color: "#fff", fontWeight: "800", fontSize: 22 }}>✕</Text></Pressable>
+          <Pressable onPress={() => router.back()} hitSlop={10}><X size={22} color="#fff" strokeWidth={2} /></Pressable>
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16, marginLeft: 12 }}>{fr ? "Scanner le QR du colis" : "Scan the parcel QR"}</Text>
         </View>
       </SafeAreaView>

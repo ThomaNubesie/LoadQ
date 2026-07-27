@@ -15,6 +15,7 @@ import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
 import { Colors } from "../../constants/colors";
 import { Lang } from "../../constants/i18n";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import { CircleUserRound, Pencil, BookOpen } from "lucide-react-native";
 
 export default function PassengerProfileScreen() {
   const router      = useRouter();
@@ -96,12 +97,12 @@ export default function PassengerProfileScreen() {
               {passenger?.avatar_url ? (
                 <Image source={{ uri: passenger.avatar_url }} style={s.avatarImg} />
               ) : (
-                <Text style={s.avatarEmoji}>👤</Text>
+                <CircleUserRound size={40} color={Colors.t1} strokeWidth={2} />
               )}
               <View style={s.avatarEditBadge}>
                 {uploading
                   ? <ActivityIndicator size="small" color={Colors.accentText} />
-                  : <Text style={s.avatarEditIcon}>✎</Text>}
+                  : <Pencil size={14} color={Colors.accentText} strokeWidth={2} />}
               </View>
             </View>
           </TouchableOpacity>
@@ -166,7 +167,10 @@ export default function PassengerProfileScreen() {
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={() => setShowHowTo(true)} activeOpacity={0.85}>
-          <Text style={s.rowBtnText}>📘 {lang === "fr" ? "Comment utiliser" : "How to use"}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <BookOpen size={16} color={Colors.t1} strokeWidth={2} />
+            <Text style={s.rowBtnText}>{lang === "fr" ? "Comment utiliser" : "How to use"}</Text>
+          </View>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("mailto:support@loadq.ca")} activeOpacity={0.85}>
