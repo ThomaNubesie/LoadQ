@@ -72,6 +72,11 @@ export default function KolisCarrying() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <TouchableOpacity onPress={() => router.back()}><Text style={{ color: Colors.t2, marginBottom: 8, fontSize: 15 }}>←</Text></TouchableOpacity>
         <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.t1, marginBottom: 6 }}>{k.carrying}</Text>
+        <TouchableOpacity onPress={() => router.push("/(app)/kolis-scan" as any)}
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: MAG, borderRadius: 12, paddingVertical: 13, marginBottom: 12 }}>
+          <Text style={{ fontSize: 16 }}>📷</Text>
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{lang === "fr" ? "Scanner le QR du colis" : "Scan parcel QR"}</Text>
+        </TouchableOpacity>
         <View style={{ borderRadius: 12, backgroundColor: "rgba(16,185,129,0.12)", borderWidth: 1, borderColor: "rgba(16,185,129,0.3)", padding: 12, marginBottom: 10, flexDirection: "row", justifyContent: "space-between" }}>
           <View><Text style={{ color: Colors.t3, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6 }}>{k.pending}</Text><Text style={{ color: "#4ade9c", fontWeight: "800", fontSize: 20 }}>C${Math.round(earn.pending / 100)}</Text></View>
           <View style={{ alignItems: "flex-end" }}><Text style={{ color: Colors.t3, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6 }}>{k.paid}</Text><Text style={{ color: Colors.t2, fontWeight: "800", fontSize: 20 }}>C${Math.round(earn.paid / 100)}</Text></View>
@@ -79,7 +84,7 @@ export default function KolisCarrying() {
         <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 5 }}>{k.interacEmail}</Text>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 6 }}>
           <TextInput value={interac} onChangeText={setInterac} placeholder="you@email.com" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={Colors.t3}
-            style={{ flex: 1, borderWidth: 1, borderColor: "#3D2E00", borderRadius: 10, padding: 11, color: Colors.t1, backgroundColor: "#1F1500", fontSize: 14 }} />
+            style={{ flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, padding: 11, color: Colors.t1, backgroundColor: Colors.card, fontSize: 14 }} />
           <TouchableOpacity onPress={saveInterac} disabled={savingI} style={{ backgroundColor: MAG, borderRadius: 10, paddingHorizontal: 16, justifyContent: "center" }}>
             {savingI ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800" }}>{k.savePayout}</Text>}
           </TouchableOpacity>
@@ -91,13 +96,13 @@ export default function KolisCarrying() {
           const isHub = p.dropoff_type === "hub";
           const pickupWhere = isHub ? (p.pickup_hub_name || "") : (p.pickup_addr || "");
           return (
-          <View key={p.id} style={{ borderWidth: 1, borderColor: "#3D2E00", backgroundColor: "#1F1500", borderRadius: 15, padding: 14, marginBottom: 12 }}>
+          <View key={p.id} style={{ borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card, borderRadius: 15, padding: 14, marginBottom: 12 }}>
             <Text style={{ color: Colors.t1, fontWeight: "800", fontSize: 15, marginBottom: 8 }}>#{p.code} {k.forDest} {p.to_city}</Text>
 
             {/* STAGE 1 — before pickup: pickup address + navigate + pickup code */}
             {!gotIt && (<>
               {pickupWhere ? (
-                <TouchableOpacity onPress={() => openDirections(pickupWhere)} style={{ backgroundColor: "#150d02", borderRadius: 11, padding: 11, marginBottom: 10 }}>
+                <TouchableOpacity onPress={() => openDirections(pickupWhere)} style={{ backgroundColor: Colors.surface, borderRadius: 11, padding: 11, marginBottom: 10 }}>
                   <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{isHub ? k.pickupHub : k.pickupDoor}</Text>
                   <Text style={{ fontSize: 13.5, color: Colors.t1, fontWeight: "700" }}>{isHub ? "🏢 " : "🚪 "}{pickupWhere}</Text>
                   <Text style={{ fontSize: 11.5, color: MAG_LT, fontWeight: "800", marginTop: 4 }}>🧭 {k.directions}</Text>
@@ -106,7 +111,7 @@ export default function KolisCarrying() {
               <Text style={{ color: Colors.t3, fontSize: 12, marginBottom: 10 }}>🔒 {k.recipientMasked}</Text>
               <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{k.enterPickupCode}</Text>
               <TextInput value={pcodes[p.id] || ""} onChangeText={(v) => setPcodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
-                style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 11, padding: 12, fontSize: 20, fontWeight: "800", letterSpacing: 8, textAlign: "center", color: Colors.t1, backgroundColor: "#150d02", marginBottom: 6 }} />
+                style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 11, padding: 12, fontSize: 20, fontWeight: "800", letterSpacing: 8, textAlign: "center", color: Colors.t1, backgroundColor: Colors.surface, marginBottom: 6 }} />
               <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 10 }}>💬 {k.askPickupCode}</Text>
               <TouchableOpacity onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ backgroundColor: MAG, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
                 {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>📦 {k.confirmPickup}</Text>}
@@ -117,7 +122,7 @@ export default function KolisCarrying() {
             {gotIt && (<>
               <Text style={{ fontSize: 11, color: "#4ade9c", fontWeight: "700", marginBottom: 10 }}>✅ {k.pickedUpNote}</Text>
               {p.dropoff_addr ? (
-                <TouchableOpacity onPress={() => openDirections(p.dropoff_addr!)} style={{ backgroundColor: "#150d02", borderRadius: 11, padding: 11, marginBottom: 10 }}>
+                <TouchableOpacity onPress={() => openDirections(p.dropoff_addr!)} style={{ backgroundColor: Colors.surface, borderRadius: 11, padding: 11, marginBottom: 10 }}>
                   <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{k.deliveryAddress}</Text>
                   <Text style={{ fontSize: 13.5, color: Colors.t1, fontWeight: "700" }}>📍 {p.dropoff_addr}</Text>
                   <Text style={{ fontSize: 11.5, color: MAG_LT, fontWeight: "800", marginTop: 4 }}>🧭 {k.directions}</Text>
@@ -138,7 +143,7 @@ export default function KolisCarrying() {
               ) : null}
               <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{k.enterCode}</Text>
               <TextInput value={codes[p.id] || ""} onChangeText={(v) => setCodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
-                style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 11, padding: 12, fontSize: 20, fontWeight: "800", letterSpacing: 8, textAlign: "center", color: Colors.t1, backgroundColor: "#150d02", marginBottom: 10 }} />
+                style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 11, padding: 12, fontSize: 20, fontWeight: "800", letterSpacing: 8, textAlign: "center", color: Colors.t1, backgroundColor: Colors.surface, marginBottom: 10 }} />
               <TouchableOpacity onPress={() => deliver(p)} disabled={busyId === p.id || (codes[p.id] || "").trim().length < 4} style={{ backgroundColor: MAG, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (codes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
                 {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{k.markDelivered}</Text>}
               </TouchableOpacity>

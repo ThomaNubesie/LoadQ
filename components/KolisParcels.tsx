@@ -124,7 +124,7 @@ export default function KolisParcels() {
       {/* Pickup-ETA sheet */}
       <Modal visible={!!etaFor} transparent animationType="fade" onRequestClose={() => setEtaFor(null)}>
         <TouchableOpacity activeOpacity={1} onPress={() => !accepting && setEtaFor(null)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
-          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: "#1F1500", borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 34, borderTopWidth: 1.5, borderColor: MAG }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: Colors.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 34, borderTopWidth: 1.5, borderColor: MAG }}>
             <Text style={{ fontSize: 18, fontWeight: "800", color: Colors.t1 }}>{k.pickupEtaTitle}</Text>
             <Text style={{ fontSize: 12.5, color: Colors.t3, marginTop: 3, marginBottom: 14 }}>{k.pickupEtaSub}</Text>
             {etaLoading ? (
@@ -140,7 +140,7 @@ export default function KolisParcels() {
               {ETA_CHIPS.map((m) => {
                 const on = etaSel === m;
                 return (
-                  <TouchableOpacity key={m} onPress={() => setEtaSel(m)} style={{ borderWidth: 1.5, borderColor: on ? MAG : "#3D2E00", backgroundColor: on ? MAG : "#150d02", borderRadius: 11, paddingHorizontal: 16, paddingVertical: 11 }}>
+                  <TouchableOpacity key={m} onPress={() => setEtaSel(m)} style={{ borderWidth: 1.5, borderColor: on ? MAG : Colors.border, backgroundColor: on ? MAG : Colors.surface, borderRadius: 11, paddingHorizontal: 16, paddingVertical: 11 }}>
                     <Text style={{ color: on ? "#fff" : Colors.t1, fontWeight: "800", fontSize: 14 }}>{m} {k.minShort}</Text>
                   </TouchableOpacity>
                 );

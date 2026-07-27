@@ -24,6 +24,20 @@ export type KolisParcel = {
   accepted_via?: string | null; // 'loadq' | 'kolis' — which app owns live tracking
 };
 
+export type ScanContact = { name?: string | null; phone?: string | null; address?: string | null };
+// Result of verifying a scanned parcel QR against the server + 100 m geofence.
+// The confirmation `code` is only revealed when the driver is in range.
+export type ScanResult = {
+  error?: string;
+  code?: string | null;
+  in_range?: boolean;
+  reason?: string | null;      // 'location_off' | 'not_geocoded' | 'too_far'
+  distance_m?: number | null;
+  geofence_m?: number | null;
+  sender?: ScanContact | null;
+  recipient?: ScanContact | null;
+};
+
 export const KolisAPI = {
   // Available zone parcels matching the driver's current queue (PII-free RPC).
   async available(): Promise<KolisParcel[]> {
@@ -51,6 +65,14 @@ export const KolisAPI = {
   async markPickedUp(id: string, code: string): Promise<string> {
     const { data } = await supabase.rpc("kolis_courier_pickup", { p_id: id, p_code: code });
     return (data as string) ?? "fail";
+  },
+
+  // Verify a scanned parcel QR (payload "KOLIS|<id>|<pickup|delivery>|<token>")
+  // against the server + geofence. In range, the server reveals the code.
+  async scan(parcelId: string, kind: "pickup" | "delivery", token: string, lat: number | null, lng: number | null): Promise<ScanResult> {
+    const { data, error } = await supabase.functions.invoke("kolis-scan", { body: { parcel_id: parcelId, kind, token, lat, lng } });
+    if (error) return { error: error.message };
+    return (data ?? {}) as ScanResult;
   },
 
   // Decline a parcel that dispatch targeted to me — returns it to the pool.
