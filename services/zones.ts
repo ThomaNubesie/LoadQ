@@ -30,7 +30,10 @@ export const ZonesAPI = {
   },
 
   async update(id: string, patch: Partial<NewZone>): Promise<{ data?: ZoneRow; error?: string }> {
-    const { data, error } = await supabase.from("zones").update(patch).eq("id", id).select().single();
+    // maybeSingle: an admin editing an *inactive* zone would otherwise get a
+    // false "0 rows" error — the SELECT policy only returns is_active rows, so
+    // the update succeeds but the returning representation comes back empty.
+    const { data, error } = await supabase.from("zones").update(patch).eq("id", id).select().maybeSingle();
     return { data: data as ZoneRow | undefined, error: error?.message };
   },
 

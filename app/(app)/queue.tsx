@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Image, Modal, Alert, Linking, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { QueueAPI } from "../../services/queue";
 import { MessagesAPI } from "../../services/messages";
@@ -1154,6 +1154,7 @@ export default function QueueScreen() {
 
       {/* ── Admin queue controls ── */}
       <Modal visible={!!adminModal} transparent animationType="slide" onRequestClose={() => setAdminModal(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setAdminModal(null)}>
           <View style={s.modalSheet}>
             <TouchableOpacity
@@ -1174,7 +1175,7 @@ export default function QueueScreen() {
                   placeholder={t.searchNameOrPhone} placeholderTextColor={Colors.t3}
                   style={{ backgroundColor: Colors.bg, borderColor: Colors.border, borderWidth: 1, borderRadius: 10, color: Colors.t1, padding: 12, fontSize: 16, marginBottom: 10 }}
                 />
-                <ScrollView style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled">
+                <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="none">
                   {driverResults.map(d => {
                     const initials = (d.full_name || "?").trim().split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase();
                     return (
@@ -1285,6 +1286,7 @@ export default function QueueScreen() {
             )}
           </View>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
     </SafeAreaView>

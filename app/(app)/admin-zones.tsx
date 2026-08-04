@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
@@ -174,7 +174,11 @@ export default function AdminZonesScreen() {
         <View style={{ width:24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+      <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
         <Text style={s.section}>NEW ZONE</Text>
 
         <Text style={s.label}>NAME</Text>
@@ -276,6 +280,7 @@ export default function AdminZonesScreen() {
           </View>
         ))}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
