@@ -8,7 +8,7 @@ export type HomeRoute =
   | "/(auth)/passenger-setup"
   | "/(auth)/subscribe"
   | "/(app)/zone-select"
-  | "/(passenger)/queue";
+  | "/(passenger)/board";
 
 // Single source of truth for "where does this signed-in user belong?".
 // Used on cold launch (app/index.tsx) and after OTP verification so a
@@ -33,7 +33,7 @@ export async function resolveHome(): Promise<HomeRoute> {
 
   if (passenger) {
     if (!passenger.full_name) return "/(auth)/passenger-setup";
-    return "/(passenger)/queue";
+    return "/(passenger)/board";
   }
 
   // Authenticated but no profile row yet (sign-up never finished) →

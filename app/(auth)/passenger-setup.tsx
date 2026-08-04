@@ -75,7 +75,7 @@ export default function PassengerSetupScreen() {
       setError(`Couldn't save profile: ${err}`);
       return;
     }
-    router.replace("/(passenger)/queue");
+    router.replace("/(passenger)/board" as any);
   };
 
   const SEX_OPTIONS: { key: Sex; label: string }[] = [

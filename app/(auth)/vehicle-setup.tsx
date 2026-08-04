@@ -149,7 +149,7 @@ export default function VehicleSetupScreen() {
     if (err) { setError(err); return; }
     // New drivers are on a 14-day trial → resolveHome sends them straight
     // into the app. No legacy "recovery email" step, no subscription gate.
-    router.replace(await resolveHome());
+    router.replace((await resolveHome()) as any);
   };
 
   const renderList = (items: string[], onSelect: (v: string) => void) => (

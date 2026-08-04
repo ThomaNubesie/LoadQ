@@ -48,7 +48,7 @@ export default function PassengerZonesScreen() {
 
   const onViewBoard = (z: ZoneLocation) => {
     setSelected(null);
-    router.replace({ pathname: "/(passenger)/queue", params: { zoneId: z.id } });
+    router.replace({ pathname: "/(passenger)/board", params: { zoneId: z.id } } as any);
   };
 
   return (

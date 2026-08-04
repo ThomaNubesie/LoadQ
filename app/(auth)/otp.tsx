@@ -82,7 +82,7 @@ export default function OTPScreen() {
     // what makes returning users "remembered" and removes the old hard
     // role-mismatch lockout.
     if (isSignIn || hasAccount) {
-      router.replace(await resolveHome());
+      router.replace((await resolveHome()) as any);
       return;
     }
 

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { getStrings, Lang } from "../constants/i18n";
+import { supabase } from "../services/supabase";
 
 let _lang: Lang = "en";
 const _listeners = new Set<() => void>();
@@ -17,6 +18,12 @@ export async function setLang(lang: Lang): Promise<void> {
   _lang = lang;
   await AsyncStorage.setItem("userLang", lang);
   _listeners.forEach(fn => fn());
+  // Best-effort: persist a passenger's language to passengers.locale so the
+  // board's server-side copy can honor it. No-op for drivers / logged-out.
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await supabase.from("passengers").update({ locale: lang }).eq("id", user.id);
+  } catch { /* ignore */ }
 }
 
 export function getCurrentLang(): Lang {

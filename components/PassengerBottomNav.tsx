@@ -1,21 +1,19 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
+import { LayoutGrid, Ticket, Bell, User } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
 import ActiveTripBanner from "./ActiveTripBanner";
 
-interface Tab {
-  labelKey: "tabBoard" | "tabZones" | "tabHistory" | "tabMe";
-  route:    string;
-  match:    string;
-}
-
-const TABS: Tab[] = [
-  { labelKey: "tabBoard",   route: "/(passenger)/queue",   match: "/queue"   },
-  { labelKey: "tabZones",   route: "/(passenger)/zones",   match: "/zones"   },
-  { labelKey: "tabHistory", route: "/(passenger)/history", match: "/history" },
-  { labelKey: "tabMe",      route: "/(passenger)/profile", match: "/profile" },
-];
+// Passenger tab bar (v1.2): Board · My trip · Alerts · Profile.
+// Replaces the old Board · Zones · History · Me nav; "Board" is now the live
+// reservation board (app/(passenger)/board.tsx), not the drivers-available page.
+const TABS = [
+  { labelKey: "navBoard",   route: "/(passenger)/board",   match: "/board",   Icon: LayoutGrid },
+  { labelKey: "navMyTrip",  route: "/(passenger)/my-trip", match: "/my-trip", Icon: Ticket },
+  { labelKey: "navAlerts",  route: "/(passenger)/alerts",  match: "/alerts",  Icon: Bell },
+  { labelKey: "navProfile", route: "/(passenger)/profile", match: "/profile", Icon: User },
+] as const;
 
 export default function PassengerBottomNav() {
   const router   = useRouter();
@@ -26,29 +24,24 @@ export default function PassengerBottomNav() {
     <View>
       <ActiveTripBanner />
       <View style={s.bar}>
-      {TABS.map(tab => {
-        const active = pathname.startsWith(tab.match);
-        return (
-          <TouchableOpacity
-            key={tab.route}
-            style={s.item}
-            onPress={() => { if (!active) router.replace(tab.route as any); }}
-            activeOpacity={0.7}
-          >
-            <Text style={[s.label, active && s.labelActive]} numberOfLines={1}>{t[tab.labelKey]}</Text>
-            {active && <View style={s.underline} />}
-          </TouchableOpacity>
-        );
-      })}
+        {TABS.map(({ labelKey, route, match, Icon }) => {
+          const active = pathname.startsWith(match);
+          return (
+            <TouchableOpacity key={route} style={s.item} activeOpacity={0.7}
+              onPress={() => { if (!active) router.replace(route as any); }}>
+              <Icon size={19} color={active ? Colors.accent : Colors.t3} strokeWidth={active ? 2.4 : 2} />
+              <Text style={[s.label, active && s.labelActive]} numberOfLines={1}>{t(labelKey)}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  bar:         { flexDirection:"row", backgroundColor:Colors.card, borderTopWidth:0.5, borderTopColor:Colors.border, paddingTop:12, paddingBottom:14 },
-  item:        { flex:1, alignItems:"center", paddingVertical:4 },
-  label:       { fontSize:12, color:Colors.t3, fontWeight:"700", letterSpacing:1.5 },
-  labelActive: { color:Colors.accent },
-  underline:   { position:"absolute", bottom:-2, width:36, height:2, backgroundColor:Colors.accent, borderRadius:1 },
+  bar:         { flexDirection: "row", backgroundColor: "#101217", borderTopWidth: 0.5, borderTopColor: Colors.border, paddingTop: 8, paddingBottom: 12 },
+  item:        { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 4 },
+  label:       { fontSize: 9.5, color: Colors.t3, fontWeight: "700" },
+  labelActive: { color: Colors.accent },
 });

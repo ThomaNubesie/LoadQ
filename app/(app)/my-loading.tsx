@@ -20,6 +20,7 @@ import { supabase } from "../../services/supabase";
 import { useZones } from "../../hooks/useZones";
 import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../constants/pricing";
 import { useDestinations } from "../../hooks/useDestinations";
+import { PassengerBoardAPI, CarPassenger } from "../../services/passengerBoard";
 import { ArrowLeft, MessageSquare, CarFront, CircleUserRound, MapPin, Clock, Timer, X, Lock, Hand, BellRing, Calendar, AlertTriangle, Hourglass, Bus } from "lucide-react-native";
 
 // seat_states can come back from the DB as a JSON string, null, an array of
@@ -54,6 +55,7 @@ export default function MyLoadingScreen() {
   // corresponds to seat N on the car — used to overlay each filled seat with
   // the passenger's initials so the driver knows who reserved which seat.
   const [confirmedClaims, setConfirmedClaims] = useState<SeatClaim[]>([]);
+  const [carPax, setCarPax] = useState<CarPassenger[]>([]);
   const [showDestPicker, setShowDestPicker] = useState(false);
   // Which passenger's profile is currently open in the popup, if any.
   // Set by tapping a locked seat's avatar.
@@ -69,9 +71,11 @@ export default function MyLoadingScreen() {
       ]);
       setPendingClaims(pend);
       setConfirmedClaims(conf);
+      setCarPax(mine.status === "loading" ? await PassengerBoardAPI.carPassengers(mine.id) : []);
     } else {
       setPendingClaims([]);
       setConfirmedClaims([]);
+      setCarPax([]);
     }
     setLoading(false);
   };
@@ -82,6 +86,12 @@ export default function MyLoadingScreen() {
     const id = setInterval(refreshAll, 8000);
     return () => clearInterval(id);
   }, []);
+
+  // Board a reservation from the live passenger board (loadq_board_passenger).
+  const handleBoardReserved = async (tripId: string) => {
+    await PassengerBoardAPI.boardPassenger(tripId);
+    await refreshAll();
+  };
 
   const handleConfirmClaim = async (claim: SeatClaim) => {
     if (!entry) return;
@@ -596,6 +606,41 @@ export default function MyLoadingScreen() {
                 <Text style={s.timeUpBodyFr}>
                   Dès que vous êtes prêt, touchez Partir ou Annuler pour laisser passer le prochain chauffeur.
                 </Text>
+              </View>
+            )}
+
+            {/* Reserved passengers from the live board (loadq_car_passengers).
+                Tap Board to confirm each rider is in (loadq_board_passenger). */}
+            {isLoadingState && carPax.length > 0 && (
+              <View style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 15, padding: 13, marginTop: 14 }}>
+                <Text style={{ color: Colors.t3, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 4 }}>
+                  {t("reservedPassengers")} · {carPax.length}
+                </Text>
+                {carPax.map((p) => {
+                  const isNew = !p.rating_count;
+                  const ini = (p.passenger_name || "?").trim().split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
+                  return (
+                    <View key={p.trip_id} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 9, borderTopWidth: 0.5, borderTopColor: Colors.border }}>
+                      <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ color: Colors.t1, fontWeight: "800", fontSize: 13 }}>{ini}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ color: Colors.t1, fontSize: 13.5, fontWeight: "700" }} numberOfLines={1}>{p.passenger_name}</Text>
+                          {isNew
+                            ? <Text style={{ color: Colors.t2, fontSize: 9, fontWeight: "800", backgroundColor: Colors.cardAlt, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5 }}>{t("badgeNew")}</Text>
+                            : <Text style={{ color: Colors.yellow, fontSize: 11, fontWeight: "700" }}>★ {(p.rating_avg ?? 0).toFixed(1)}</Text>}
+                        </View>
+                        <Text style={{ color: Colors.t3, fontSize: 10.5, marginTop: 1 }}>{t("seatsN", { n: p.seats })}</Text>
+                      </View>
+                      {p.status === "boarded"
+                        ? <Text style={{ color: Colors.green, fontWeight: "800", fontSize: 12 }}>✓ {t("tripBoarded")}</Text>
+                        : <TouchableOpacity onPress={() => handleBoardReserved(p.trip_id)} style={{ backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 }}>
+                            <Text style={{ color: Colors.accentText, fontWeight: "800", fontSize: 12 }}>{t("boardPassengerBtn")}</Text>
+                          </TouchableOpacity>}
+                    </View>
+                  );
+                })}
               </View>
             )}
 
