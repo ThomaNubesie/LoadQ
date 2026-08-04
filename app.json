@@ -2,7 +2,7 @@
   "expo": {
     "name": "LoadQ",
     "slug": "loadq",
-    "version": "1.2.15",
+    "version": "1.2.16",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "loadq",
@@ -24,7 +24,7 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "buildNumber": "23"
+      "buildNumber": "24"
     },
     "android": {
       "adaptiveIcon": {
@@ -42,7 +42,7 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 55,
+      "versionCode": 56,
       "googleServicesFile": "./google-services.json"
     },
     "plugins": [
