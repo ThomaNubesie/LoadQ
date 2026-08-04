@@ -120,4 +120,34 @@ export const KolisAPI = {
     if (data?.error) return { ok: false, error: data.error };
     return { ok: true };
   },
+
+  // ── Unattended proof-of-delivery ──────────────────────────────────────
+  // Upload one proof photo to the public delivery-proof bucket, return its URL.
+  async uploadProofPhoto(parcelId: string, localUri: string, kind: "door" | "side" | "building"): Promise<{ url?: string; error?: string }> {
+    const FileSystem = await import("expo-file-system/legacy");
+    const { decode } = await import("base64-arraybuffer");
+    try {
+      const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: "base64" as any });
+      const arrayBuffer = decode(base64);
+      if (arrayBuffer.byteLength === 0) return { error: "Empty photo" };
+      const path = `${parcelId}/${kind}-${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from("delivery-proof").upload(path, arrayBuffer, { upsert: true, contentType: "image/jpeg" });
+      if (error) return { error: error.message };
+      const { data: pub } = supabase.storage.from("delivery-proof").getPublicUrl(path);
+      return { url: pub.publicUrl };
+    } catch (e: any) {
+      return { error: e?.message ?? "upload failed" };
+    }
+  },
+
+  // Submit the unattended proof -> marks delivered + emails/SMSes the Kolis card.
+  async submitDeliveryProof(parcelId: string, proof: {
+    door_url: string; side_url?: string; building_url?: string;
+    notes?: string; unit?: string; lat?: number | null; lng?: number | null;
+  }): Promise<{ ok: boolean; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("kolis-deliver-proof", { body: { parcel_id: parcelId, ...proof } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: data.error };
+    return { ok: true };
+  },
 };

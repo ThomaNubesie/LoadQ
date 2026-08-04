@@ -84,27 +84,19 @@ export default function KolisScan() {
 
   // ── Result screen ──
   if (res) {
-    const locked = res.in_range === false;
-    const reason = res.reason;
+    // No geofence — the server's assigned-driver check is the only gate. The
+    // scan location is captured best-effort for the audit trail, never blocks.
     const dist = res.distance_m != null ? `${res.distance_m} m` : "";
-    const lockTitle = reason === "location_off" ? (fr ? "Localisation désactivée" : "Location off")
-      : reason === "not_geocoded" ? (fr ? "Position non vérifiable" : "Can't verify location")
-      : (fr ? "Trop loin" : "Too far");
-    const lockMsg = reason === "location_off"
-      ? (fr ? `Activez la localisation. Le code se débloque à moins de ${res.geofence_m} m du point.` : `Turn on location. The code unlocks within ${res.geofence_m} m of the point.`)
-      : reason === "not_geocoded"
-      ? (fr ? "Ce colis n'a pas de position vérifiée. Contactez la répartition." : "This parcel has no verified location yet. Contact dispatch.")
-      : (fr ? `Vous êtes à ${dist} du point. Le code se débloque à moins de ${res.geofence_m} m.` : `You're ${dist} away. The code unlocks within ${res.geofence_m} m.`);
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top", "bottom"]}>
-        <View style={{ backgroundColor: locked ? "#5a2018" : MAG, padding: 16, flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{locked ? lockTitle : (fr ? "À destination" : "In range")}</Text>
+        <View style={{ backgroundColor: MAG, padding: 16, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{fr ? "Colis vérifié" : "Parcel verified"}</Text>
           <Pressable onPress={() => setRes(null)} style={{ marginLeft: "auto" }}><Text style={{ color: "#fff", fontWeight: "800" }}>{fr ? "Scanner à nouveau" : "Scan again"}</Text></Pressable>
         </View>
 
-        <View style={{ margin: 14, borderRadius: 12, padding: 13, backgroundColor: locked ? "rgba(240,80,60,0.13)" : "rgba(34,192,131,0.13)", borderWidth: 1, borderColor: locked ? "rgba(240,80,60,0.5)" : "rgba(34,192,131,0.45)" }}>
-          <Text style={{ color: locked ? "#ffb3a8" : "#7ee0b3", fontWeight: "700", fontSize: 13, lineHeight: 19 }}>
-            {locked ? lockMsg : (fr ? `À ${dist}. Position enregistrée et partagée.` : `${dist} away. Location captured & shared.`)}
+        <View style={{ margin: 14, borderRadius: 12, padding: 13, backgroundColor: "rgba(34,192,131,0.13)", borderWidth: 1, borderColor: "rgba(34,192,131,0.45)" }}>
+          <Text style={{ color: "#7ee0b3", fontWeight: "700", fontSize: 13, lineHeight: 19 }}>
+            {dist ? (fr ? `À ${dist}. ` : `${dist} away. `) : ""}{fr ? "Position enregistrée et partagée." : "Location captured & shared."}
           </Text>
         </View>
 
@@ -126,27 +118,19 @@ export default function KolisScan() {
         })}
 
         <View style={{ marginTop: "auto", padding: 16 }}>
-          {locked ? (
-            <View style={{ backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderStyle: "dashed", borderRadius: 13, padding: 16, alignItems: "center" }}>
-              <Lock size={22} color={Colors.t1} strokeWidth={2} />
-              <Text style={{ color: Colors.t2, fontWeight: "700", fontSize: 12.5, marginTop: 6, textAlign: "center" }}>{reason === "location_off" ? (fr ? "Activez la localisation pour débloquer le code" : "Turn on location to unlock the code") : reason === "not_geocoded" ? (fr ? "Position non vérifiable — code masqué" : "Location unverifiable — code hidden") : (fr ? `Code masqué jusqu'à moins de ${res.geofence_m} m` : `Code hidden until within ${res.geofence_m} m`)}</Text>
-              {reason === "location_off" ? (
-                <Pressable onPress={() => Linking.openSettings().catch(() => {})} style={{ backgroundColor: MAG, borderRadius: 11, paddingVertical: 11, paddingHorizontal: 22, marginTop: 12 }}>
-                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{fr ? "Ouvrir les réglages" : "Open settings"}</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : (
-            <>
-              <View style={{ backgroundColor: "rgba(225,29,107,0.1)", borderWidth: 1, borderColor: "rgba(225,29,107,0.5)", borderRadius: 13, padding: 14, alignItems: "center" }}>
-                <Text style={{ fontSize: 10.5, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", color: MAG }}>{res.kind === "pickup" ? (fr ? "Code de ramassage" : "Pickup code") : (fr ? "Code de livraison" : "Delivery code")}</Text>
-                <Text style={{ fontSize: 30, fontWeight: "900", letterSpacing: 7, color: Colors.t1 }}>{res.code}</Text>
-              </View>
-              <Pressable onPress={confirm} disabled={confirming} style={{ backgroundColor: MAG, borderRadius: 14, padding: 16, alignItems: "center", marginTop: 12, opacity: confirming ? 0.6 : 1 }}>
-                {confirming ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>{res.kind === "pickup" ? (fr ? "Confirmer le ramassage" : "Confirm pickup") : (fr ? "Confirmer la livraison" : "Confirm delivery")} · {res.code}</Text>}
-              </Pressable>
-            </>
-          )}
+          <View style={{ backgroundColor: "rgba(225,29,107,0.1)", borderWidth: 1, borderColor: "rgba(225,29,107,0.5)", borderRadius: 13, padding: 14, alignItems: "center" }}>
+            <Text style={{ fontSize: 10.5, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", color: MAG }}>{res.kind === "pickup" ? (fr ? "Code de ramassage" : "Pickup code") : (fr ? "Code de livraison" : "Delivery code")}</Text>
+            <Text style={{ fontSize: 30, fontWeight: "900", letterSpacing: 7, color: Colors.t1 }}>{res.code}</Text>
+          </View>
+          <Pressable onPress={confirm} disabled={confirming} style={{ backgroundColor: MAG, borderRadius: 14, padding: 16, alignItems: "center", marginTop: 12, opacity: confirming ? 0.6 : 1 }}>
+            {confirming ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>{res.kind === "pickup" ? (fr ? "Confirmer le ramassage" : "Confirm pickup") : (fr ? "Confirmer la livraison" : "Confirm delivery")} · {res.code}</Text>}
+          </Pressable>
+          {res.kind === "delivery" ? (
+            <Pressable onPress={() => router.push({ pathname: "/(app)/kolis-proof", params: { parcelId: res.parcelId!, code: (res as any).parcel_code ?? "", addr: res.recipient?.address ?? "" } } as any)}
+              style={{ borderWidth: 1.5, borderColor: MAG, borderRadius: 14, padding: 14, alignItems: "center", marginTop: 10 }}>
+              <Text style={{ color: MAG, fontWeight: "800", fontSize: 14 }}>{fr ? "Pas de réponse — laisser à la porte" : "No answer — leave at door"}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </SafeAreaView>
     );
