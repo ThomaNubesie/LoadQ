@@ -44,3 +44,6 @@ supabase/.temp/
 
 # Google Play service account (never commit)
 google-play-key.json
+
+# Local Netlify folder
+.netlify
