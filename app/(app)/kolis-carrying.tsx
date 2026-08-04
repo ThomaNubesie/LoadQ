@@ -20,6 +20,7 @@ export default function KolisCarrying() {
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [pcodes, setPcodes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [labelBusy, setLabelBusy] = useState<string | null>(null);
   const [earn, setEarn] = useState({ paid: 0, pending: 0 });
   const [interac, setInterac] = useState("");
   const [savingI, setSavingI] = useState(false);
@@ -99,6 +100,12 @@ export default function KolisCarrying() {
           return (
           <View key={p.id} style={{ borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card, borderRadius: 15, padding: 14, marginBottom: 12 }}>
             <Text style={{ color: Colors.t1, fontWeight: "800", fontSize: 15, marginBottom: 8 }}>#{p.code} {k.forDest} {p.to_city}</Text>
+            <TouchableOpacity
+              onPress={async () => { setLabelBusy(p.id); const r = await KolisAPI.emailLabel(p.code); setLabelBusy(null); Alert.alert("Kolis", r.ok ? (lang === "fr" ? `Étiquette envoyée à ${r.to}` : `Label emailed to ${r.to}`) : (r.error || (lang === "fr" ? "Erreur" : "Error"))); }}
+              disabled={labelBusy === p.id}
+              style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1.5, borderColor: MAG, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, marginBottom: 10, opacity: labelBusy === p.id ? 0.6 : 1 }}>
+              {labelBusy === p.id ? <ActivityIndicator color={MAG} /> : <Text style={{ color: MAG, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Étiquette par courriel" : "Email label to me"}</Text>}
+            </TouchableOpacity>
 
             {/* STAGE 1 — before pickup: pickup address + navigate + pickup code */}
             {!gotIt && (<>

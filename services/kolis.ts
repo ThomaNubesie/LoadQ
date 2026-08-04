@@ -140,6 +140,18 @@ export const KolisAPI = {
     }
   },
 
+  // Email the parcel's shipping-label PDF to the signed-in courier (kolis-label-pdf
+  // authorizes the assigned driver via kolis_parcel_label — no org needed).
+  async emailLabel(code: string, to?: string): Promise<{ ok: boolean; error?: string; to?: string }> {
+    let dest = to;
+    if (!dest) { const { data: { user } } = await supabase.auth.getUser(); dest = user?.email ?? undefined; }
+    if (!dest) return { ok: false, error: "no email on file" };
+    const { data, error } = await supabase.functions.invoke("kolis-label-pdf", { body: { code, email: dest } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: data.error };
+    return { ok: true, to: dest };
+  },
+
   // Submit the unattended proof -> marks delivered + emails/SMSes the Kolis card.
   async submitDeliveryProof(parcelId: string, proof: {
     door_url: string; side_url?: string; building_url?: string;
