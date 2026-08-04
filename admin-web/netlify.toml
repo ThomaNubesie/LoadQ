@@ -1,0 +1,12 @@
+# Hosts the LoadQ admin web console (zones + queue management).
+# Next.js 14 app living in admin-web/, so the build runs from here and the
+# Next.js runtime plugin handles SSR + routing.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
