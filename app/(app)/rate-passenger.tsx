@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, Star } from "lucide-react-native";
 import { useStrings } from "../../hooks/useStrings";
@@ -25,6 +25,7 @@ function initials(name?: string): string {
 export default function RatePassengerScreen() {
   const router = useRouter();
   const { t } = useStrings();
+  const insets = useSafeAreaInsets();
   const { tripId, passengerName, dest } = useLocalSearchParams<{ tripId: string; passengerName?: string; dest?: string }>();
 
   const [stars, setStars] = useState(0);
@@ -55,7 +56,8 @@ export default function RatePassengerScreen() {
         <View style={{ width: 38 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 30 }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
         <View style={s.who}>
           <View style={s.avatar}><Text style={s.avatarTxt}>{initials(passengerName)}</Text></View>
           <Text style={s.name}>{passengerName || "Passenger"}</Text>
@@ -91,6 +93,7 @@ export default function RatePassengerScreen() {
           {submitting ? <ActivityIndicator color={Colors.accentText} /> : <Text style={s.submitTxt}>{t("submitRating")}</Text>}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
