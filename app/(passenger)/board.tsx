@@ -15,6 +15,7 @@ import PassengerBottomNav from "../../components/PassengerBottomNav";
 import SeatSvg from "../../components/SeatSvg";
 import ZoneMap from "../../components/ZoneMap";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
+import { PushAPI } from "../../services/push";
 
 const DEFAULT_ZONE_ID = "ottawa-universal-grocery";
 
@@ -162,7 +163,15 @@ export default function BoardScreen() {
       return;
     }
     setReserveCar(null);
-    if (data) router.push("/(passenger)/my-trip" as any);
+    if (data) {
+      // Local reminders at the 7-min and 3-min marks of the 15-min hold.
+      if (data.hold_expires_at) {
+        const exp = new Date(data.hold_expires_at).getTime();
+        PushAPI.scheduleLocal(new Date(exp - 7 * 60000), t("holdWarnTitle"), t("holdWarn7"));
+        PushAPI.scheduleLocal(new Date(exp - 3 * 60000), t("holdWarnTitle"), t("holdWarn3"));
+      }
+      router.push("/(passenger)/my-trip" as any);
+    }
   }
 
   function pickZone(id: string, city: string) {

@@ -4,7 +4,8 @@ export interface AlertRow {
   id: string;
   user_id: string;
   kind: "return" | "slot_open" | "moved_back" | "removed"
-      | "lowtime" | "expiry_nudge" | "released" | "headback" | "message";
+      | "lowtime" | "expiry_nudge" | "released" | "headback" | "message"
+      | "reservation_sent" | "driver_accepted" | "hold_warning" | (string & {});
   title: string;
   body: string;
   ref: string;

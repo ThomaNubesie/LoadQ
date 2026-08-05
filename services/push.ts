@@ -67,4 +67,26 @@ export const PushAPI = {
       // Push is best-effort; never block the app on it.
     }
   },
+
+  // Schedule a local (on-device) notification for a future instant. Returns the
+  // scheduled id (to cancel later) or null if it can't be scheduled. Used for
+  // reservation hold-time reminders (7-min / 3-min marks).
+  async scheduleLocal(when: Date, title: string, body: string): Promise<string | null> {
+    try {
+      if (when.getTime() <= Date.now() + 1000) return null;
+      await ensureHandler();
+      const Notifications = await import("expo-notifications");
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") { const r = await Notifications.requestPermissionsAsync(); if (r.status !== "granted") return null; }
+      return await Notifications.scheduleNotificationAsync({
+        content: { title, body, sound: true },
+        trigger: { type: "date", date: when } as any,
+      });
+    } catch { return null; }
+  },
+
+  async cancelLocal(id: string | null): Promise<void> {
+    if (!id) return;
+    try { const Notifications = await import("expo-notifications"); await Notifications.cancelScheduledNotificationAsync(id); } catch { /* best-effort */ }
+  },
 };
