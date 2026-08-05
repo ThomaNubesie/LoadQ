@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, Linking } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator, Linking, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -31,6 +31,20 @@ export default function ProfileScreen() {
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [unread,    setUnread]    = useState<number>(0);
+  const [interacOpen, setInteracOpen] = useState(false);
+  const [iEmail,    setIEmail]    = useState("");
+  const [iPhone,    setIPhone]    = useState("");
+  const [iBusy,     setIBusy]     = useState(false);
+
+  const openInterac = () => { setIEmail(driver?.interac_email ?? ""); setIPhone(driver?.interac_phone ?? ""); setInteracOpen(true); };
+  const saveInterac = async () => {
+    setIBusy(true);
+    await DriversAPI.createOrUpdate({ interac_email: iEmail.trim() || null, interac_phone: iPhone.trim() || null } as Partial<Driver>);
+    const fresh = await DriversAPI.getMe();
+    setIBusy(false);
+    if (fresh) setDriver(fresh);
+    setInteracOpen(false);
+  };
 
   useEffect(() => {
     DriversAPI.getMe().then(setDriver);
@@ -165,6 +179,25 @@ export default function ProfileScreen() {
           <Text style={s.cardSub}>{driver?.subscription_plan === "annual" ? t.annual : t.monthly} {t.planSuffix}</Text>
           {driver?.subscription_ends_at && (
             <Text style={s.cardNote}>{t.renewsOn} {new Date(driver.subscription_ends_at).toLocaleDateString()}</Text>
+          )}
+        </View>
+
+        {/* Interac — where passengers e-Transfer the fare */}
+        <View style={[s.card, !(driver?.interac_email || driver?.interac_phone) && { borderColor: Colors.accent, borderWidth: 1 }]}>
+          <View style={s.cardRow}>
+            <Text style={s.cardTitle}>{t.interacTitle}</Text>
+            <TouchableOpacity onPress={openInterac} hitSlop={8}><Pencil size={15} color={Colors.accent} strokeWidth={2} /></TouchableOpacity>
+          </View>
+          {(driver?.interac_email || driver?.interac_phone) ? (
+            <>
+              {!!driver?.interac_email && <Text style={s.cardSub}>{driver.interac_email}</Text>}
+              {!!driver?.interac_phone && <Text style={s.cardSub}>{driver.interac_phone}</Text>}
+              <Text style={s.cardNote}>{t.interacNote}</Text>
+            </>
+          ) : (
+            <TouchableOpacity onPress={openInterac} activeOpacity={0.85}>
+              <Text style={[s.cardSub, { color: Colors.accent, fontWeight: "700" }]}>{t.interacPrompt}</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -305,6 +338,26 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Interac editor */}
+      <Modal visible={interacOpen} transparent animationType="slide" onRequestClose={() => setInteracOpen(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <Pressable style={s.mOverlay} onPress={() => !iBusy && setInteracOpen(false)} />
+          <View style={s.mSheet}>
+            <View style={s.mGrip} />
+            <Text style={s.mTitle}>{t.interacTitle}</Text>
+            <Text style={s.mSub}>{t.interacModalSub}</Text>
+            <Text style={s.mLabel}>{t.interacEmailLabel}</Text>
+            <TextInput style={s.mInput} value={iEmail} onChangeText={setIEmail} autoCapitalize="none" keyboardType="email-address" placeholder="you@email.com" placeholderTextColor={Colors.t3} />
+            <Text style={s.mLabel}>{t.interacPhoneLabel}</Text>
+            <TextInput style={s.mInput} value={iPhone} onChangeText={setIPhone} keyboardType="phone-pad" placeholder="+1 613 555 0192" placeholderTextColor={Colors.t3} />
+            <TouchableOpacity style={[s.mSave, iBusy && { opacity: 0.6 }]} disabled={iBusy} onPress={saveInterac} activeOpacity={0.85}>
+              <Text style={s.mSaveTxt}>{iBusy ? "…" : t.save}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <HowToUse visible={showHowTo} onClose={() => setShowHowTo(false)} role="driver" />
       <BottomNav />
     </SafeAreaView>
@@ -312,6 +365,15 @@ export default function ProfileScreen() {
 }
 
 const s = StyleSheet.create({
+  mOverlay:          { flex:1, backgroundColor:"rgba(0,0,0,0.55)" },
+  mSheet:            { backgroundColor:Colors.surface, borderTopLeftRadius:20, borderTopRightRadius:20, borderTopWidth:1, borderColor:Colors.border, padding:18, paddingBottom:28 },
+  mGrip:             { width:36, height:4, borderRadius:3, backgroundColor:Colors.border, alignSelf:"center", marginBottom:12 },
+  mTitle:            { color:Colors.t1, fontSize:17, fontWeight:"800" },
+  mSub:              { color:Colors.t3, fontSize:12.5, marginTop:4, marginBottom:12, lineHeight:17 },
+  mLabel:            { color:Colors.t3, fontSize:10, fontWeight:"800", letterSpacing:0.8, textTransform:"uppercase", marginBottom:6, marginTop:6 },
+  mInput:            { backgroundColor:Colors.card, borderWidth:1, borderColor:Colors.border, borderRadius:11, padding:12, color:Colors.t1, fontSize:15, marginBottom:8 },
+  mSave:             { backgroundColor:Colors.accent, borderRadius:12, paddingVertical:13, alignItems:"center", marginTop:12 },
+  mSaveTxt:          { color:Colors.accentText, fontWeight:"800", fontSize:14.5 },
   container:         { flex:1, backgroundColor:Colors.bg },
   header:            { flexDirection:"row", alignItems:"center", justifyContent:"space-between", padding:16 },
   back:              { fontSize:20, color:Colors.t2 },

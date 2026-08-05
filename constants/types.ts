@@ -21,6 +21,8 @@ export interface Driver {
   phone: string;
   email?: string;
   avatar_url?: string;
+  interac_email?: string | null;   // where passengers e-Transfer the fare
+  interac_phone?: string | null;
   is_admin?: boolean;
   blocked?: boolean;
   dob?: string | null;
