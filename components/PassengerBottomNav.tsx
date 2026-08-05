@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LayoutGrid, Ticket, Bell, User } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
@@ -19,11 +20,14 @@ export default function PassengerBottomNav() {
   const router   = useRouter();
   const pathname = usePathname();
   const { t }    = useStrings();
+  const insets   = useSafeAreaInsets();
 
   return (
     <View>
       <ActiveTripBanner />
-      <View style={s.bar}>
+      {/* pad for the Android gesture/nav bar (and iOS home indicator) so the
+          system bar never overlaps the tab row */}
+      <View style={[s.bar, { paddingBottom: 10 + insets.bottom }]}>
         {TABS.map(({ labelKey, route, match, Icon }) => {
           const active = pathname.startsWith(match);
           return (

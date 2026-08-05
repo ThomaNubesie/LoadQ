@@ -1,118 +1,153 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Modal, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Modal, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { MapPin, Star, Navigation } from "lucide-react-native";
+import { Star, MessageSquare, ChevronDown, X, Phone } from "lucide-react-native";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { useZones } from "../../hooks/useZones";
-import { ZoneLocation } from "../../constants/zones";
+import { ZoneLocation, REGIONS } from "../../constants/zones";
 import { getDestinationsFrom, getRegionName } from "../../constants/pricing";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import { useNow } from "../../hooks/useNow";
-import { PassengerBoardAPI, BoardCar, formatFare, ratingLabel } from "../../services/passengerBoard";
+import { PassengerBoardAPI, BoardCar, CityZone, formatFare, ratingLabel } from "../../services/passengerBoard";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import SeatSvg from "../../components/SeatSvg";
+import ZoneMap from "../../components/ZoneMap";
+import { getVehicleImageUrl } from "../../utils/vehicleImage";
 
 const DEFAULT_ZONE_ID = "ottawa-universal-grocery";
 
-// mm:ss until an ISO deadline (clamped at 0:00).
+const regionName = (code?: string | null) => REGIONS.find(r => r.code === code)?.name ?? (code ?? "");
+
+// Human loading-window countdown: "2h 11m" for long windows, "M:SS" near the end.
 function countdown(iso: string | null, nowMs: number): string {
   if (!iso) return "—";
   const ms = new Date(iso).getTime() - nowMs;
-  if (ms <= 0) return "0:00";
+  if (Number.isNaN(ms) || ms <= 0) return "0:00";
   const s = Math.floor(ms / 1000);
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  if (s >= 600) return `${Math.floor(s / 60)}m`;
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 export default function BoardScreen() {
   const router = useRouter();
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
   const { zones } = useZones();
   const { zoneId: paramZoneId } = useLocalSearchParams<{ zoneId?: string }>();
 
-  const [zone, setZone]           = useState<ZoneLocation | null>(null);
-  const [distanceM, setDistanceM] = useState<number | null>(null);
-  const [inRange, setInRange]     = useState<boolean>(true);
-  const [dest, setDest]           = useState<string | null>(null);
-  const [cars, setCars]           = useState<BoardCar[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  // City = region. homeCity is where the rider may reserve; other cities are view-only.
+  const [homeCity, setHomeCity]         = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [zoneId, setZoneId]             = useState<string | null>(null);
+  const [cityZones, setCityZones]       = useState<CityZone[]>([]);
+  const [dest, setDest]                 = useState<string | null>(null);
+  const [cars, setCars]                 = useState<BoardCar[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [pickerOpen, setPickerOpen]     = useState(false);
+  const [expandedId, setExpandedId]     = useState<string | null>(null);
+  const [profileCar, setProfileCar]     = useState<BoardCar | null>(null);
 
   // reserve sheet
-  const [reserveCar, setReserveCar] = useState<BoardCar | null>(null);
+  const [reserveCar, setReserveCar]   = useState<BoardCar | null>(null);
   const [reserveSeats, setReserveSeats] = useState(1);
-  const [reserving, setReserving] = useState(false);
-  const [reserveErr, setReserveErr] = useState<string | null>(null);
+  const [reserving, setReserving]     = useState(false);
+  const [reserveErr, setReserveErr]   = useState<string | null>(null);
 
   const didResolve = useRef(false);
 
-  // Destinations served from this zone's origin region.
-  const destinations = useMemo(
-    () => (zone ? getDestinationsFrom(zone.region) : []),
-    [zone],
+  const reservable = selectedCity != null && selectedCity === homeCity;
+
+  // Cities that actually have active zones (for the city switcher).
+  const cities = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { code: string; name: string }[] = [];
+    for (const z of zones) if (!seen.has(z.region)) { seen.add(z.region); out.push({ code: z.region, name: regionName(z.region) }); }
+    return out;
+  }, [zones]);
+
+  const zoneMeta = useMemo(
+    () => cityZones.find(z => z.id === zoneId) ?? (() => {
+      const z = zones.find(zz => zz.id === zoneId);
+      return z ? { id: z.id, name: z.name, region: z.region, latitude: z.latitude, longitude: z.longitude, address: z.address ?? null, car_count: cars.length, has_loading: cars.some(c => c.status === "loading") } as CityZone : null;
+    })(),
+    [cityZones, zones, zoneId, cars],
   );
 
-  // Resolve nearest pickup zone: GPS → loadq_nearest_zone (authoritative
-  // distance/within_radius) → local zone row for its region. Falls back to the
-  // Universal Grocery board if GPS/zone lookup is unavailable.
-  const resolveZone = useCallback(async () => {
-    const fallback = () => zones.find(z => z.id === DEFAULT_ZONE_ID) ?? zones[0] ?? null;
+  const destinations = useMemo(
+    () => (zoneMeta ? getDestinationsFrom(zoneMeta.region) : []),
+    [zoneMeta],
+  );
+
+  // Resolve the rider's home city via GPS → nearest zone; default to the busiest
+  // zone in that city. Falls back to Ottawa / Universal Grocery.
+  const resolveHome = useCallback(async () => {
+    const fallbackZone = zones.find(z => z.id === DEFAULT_ZONE_ID) ?? zones[0] ?? null;
     const loc = await tryGetUserLocation(8000);
-    if (!loc) { setZone(prev => prev ?? fallback()); return; }
-    const near = await PassengerBoardAPI.nearestZone(loc.coords.latitude, loc.coords.longitude);
-    if (!near) { setZone(prev => prev ?? fallback()); return; }
-    const local = zones.find(z => z.id === near.id) ?? fallback();
-    setZone(local);
-    setDistanceM(near.distance_m);
-    setInRange(near.within_radius);
+    let region = fallbackZone?.region ?? "ottawa";
+    if (loc) {
+      const near = await PassengerBoardAPI.nearestZone(loc.coords.latitude, loc.coords.longitude);
+      if (near) { const nz = zones.find(z => z.id === near.id); if (nz) region = nz.region; }
+    }
+    setHomeCity(region);
+    setSelectedCity(prev => prev ?? region);
   }, [zones]);
 
   useEffect(() => {
     if (didResolve.current || zones.length === 0) return;
     didResolve.current = true;
-    // Explicit pick from the Zones screen wins over GPS detection.
     if (paramZoneId) {
       const picked = zones.find(z => z.id === paramZoneId);
-      if (picked) { setZone(picked); setInRange(true); setLoading(false); return; }
+      if (picked) { setHomeCity(picked.region); setSelectedCity(picked.region); setZoneId(picked.id); }
     }
-    resolveZone().finally(() => setLoading(false));
-  }, [zones, resolveZone, paramZoneId]);
+    resolveHome().finally(() => setLoading(false));
+  }, [zones, resolveHome, paramZoneId]);
 
-  // Default destination once the zone resolves — prefer Montréal, else first.
+  // When the viewed city changes, load its zones (busiest first) + default zone.
   useEffect(() => {
-    if (!dest && destinations.length) {
+    if (!selectedCity) return;
+    const cached = PassengerBoardAPI.cachedCityZones(selectedCity);
+    if (cached) setCityZones(cached);
+    PassengerBoardAPI.cityZones(selectedCity).then(rows => {
+      setCityZones(rows);
+      setZoneId(prev => (prev && rows.some(r => r.id === prev)) ? prev : (rows[0]?.id ?? prev));
+    });
+  }, [selectedCity]);
+
+  // Default destination once a zone resolves — prefer Montréal, else first.
+  useEffect(() => {
+    if (destinations.length && (!dest || !destinations.includes(dest as any))) {
       setDest(destinations.includes("montreal") ? "montreal" : destinations[0]);
     }
   }, [destinations, dest]);
 
   const loadBoard = useCallback(async () => {
-    if (!zone || !dest) { setCars([]); return; }
-    const rows = await PassengerBoardAPI.board(zone.id, dest);
-    setCars(rows);
-  }, [zone, dest]);
+    if (!zoneId || !dest) { setCars([]); return; }
+    setCars(await PassengerBoardAPI.board(zoneId, dest));
+  }, [zoneId, dest]);
 
-  // Fetch + subscribe to live queue changes for this zone.
+  // Cache-first paint, then live subscribe.
   useEffect(() => {
-    if (!zone || !dest) return;
+    if (!zoneId || !dest) return;
+    const cached = PassengerBoardAPI.cachedBoard(zoneId, dest);
+    if (cached) setCars(cached);
     loadBoard();
-    const sub = PassengerBoardAPI.subscribeBoard(zone.id, loadBoard);
+    const sub = PassengerBoardAPI.subscribeBoard(zoneId, loadBoard);
     return () => { sub.unsubscribe(); };
-  }, [zone?.id, dest, loadBoard]);
+  }, [zoneId, dest, loadBoard]);
 
   const now = useNow(cars.length ? 1000 : 30000, true);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await resolveZone();
+    if (selectedCity) setCityZones(await PassengerBoardAPI.cityZones(selectedCity));
     await loadBoard();
     setRefreshing(false);
-  }, [resolveZone, loadBoard]);
+  }, [selectedCity, loadBoard]);
 
-  function openReserve(car: BoardCar) {
-    setReserveCar(car);
-    setReserveSeats(1);
-    setReserveErr(null);
-  }
+  function openReserve(car: BoardCar) { setReserveCar(car); setReserveSeats(1); setReserveErr(null); }
 
   async function confirmReserve() {
     if (!reserveCar) return;
@@ -121,9 +156,7 @@ export default function BoardScreen() {
     setReserving(false);
     if (error) {
       const map: Record<string, string> = {
-        not_loading_car: t("errNotLoadingCar"),
-        seats_full:      t("errSeatsFull"),
-        already_reserved:t("errAlreadyReserved"),
+        not_loading_car: t("errNotLoadingCar"), seats_full: t("errSeatsFull"), already_reserved: t("errAlreadyReserved"),
       };
       setReserveErr(map[error] ?? t("errReserve"));
       return;
@@ -132,16 +165,31 @@ export default function BoardScreen() {
     if (data) router.push("/(passenger)/my-trip" as any);
   }
 
+  function pickZone(id: string, city: string) {
+    setSelectedCity(city);
+    setZoneId(id);
+    setExpandedId(null);
+    setPickerOpen(false);
+  }
+
+  const queueCount = zoneMeta?.car_count ?? cars.length;
+  const dateLabel = new Date().toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { weekday: "long", month: "long", day: "numeric" });
+
   /* ---------------------------------------------------------------- render */
 
   const CarCard = ({ car }: { car: BoardCar }) => {
     const isLoading = car.status === "loading";
     const rating = ratingLabel(car.rating_avg, car.rating_count);
     const vehicle = [car.make, car.model].filter(Boolean).join(" ") || t("newDriver");
+    const isExpanded = expandedId === car.queue_entry_id;
     return (
       <View style={[s.car, isLoading && s.carLoading]}>
-        <View style={s.carTop}>
-          <View style={s.avatar}><Text style={s.avatarTxt}>{initials(car.driver_name)}</Text></View>
+        <TouchableOpacity style={s.carTop} activeOpacity={0.85} onPress={() => setExpandedId(isExpanded ? null : car.queue_entry_id)}>
+          <TouchableOpacity onPress={() => setProfileCar(car)} activeOpacity={0.7}>
+            {car.avatar_url
+              ? <Image source={{ uri: car.avatar_url }} style={s.avatar} />
+              : <View style={s.avatar}><Text style={s.avatarTxt}>{initials(car.driver_name)}</Text></View>}
+          </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <View style={s.nameRow}>
               <Text style={s.name} numberOfLines={1}>{car.driver_name}</Text>
@@ -152,12 +200,13 @@ export default function BoardScreen() {
             <Text style={s.vehicle} numberOfLines={1}>{vehicle}</Text>
           </View>
           <Text style={s.fare}>{formatFare(car.fare_cents)}</Text>
-        </View>
+          <Text style={s.chevron}>{isExpanded ? "▾" : "▸"}</Text>
+        </TouchableOpacity>
 
         {isLoading && (
           <View style={s.seats}>
             {Array.from({ length: car.seats }).map((_, i) => (
-              <View key={i} style={[s.seatDot, i < car.seats_taken && s.seatDotFull]} />
+              <SeatSvg key={i} size="mini" filled={i < car.seats_taken} color={Colors.accent} disabled />
             ))}
             <Text style={s.seatTxt}>{t("seatsOf", { taken: car.seats_taken, total: car.seats })} · {t("seatsLeftN", { n: car.seats_left })}</Text>
           </View>
@@ -172,7 +221,16 @@ export default function BoardScreen() {
             : <Text style={s.timer}>{t("seatsOpenN", { n: car.seats_left })}</Text>}
         </View>
 
-        {isLoading && (
+        {isExpanded && (
+          <View style={s.expand}>
+            {car.make && <Image source={{ uri: getVehicleImageUrl(car.make || "", car.model || "", undefined, "side") }} style={s.expandVehicle} resizeMode="contain" />}
+            <View style={s.expandRow}><Text style={s.expandKey}>{t("destinationLabel")}</Text><Text style={s.expandVal}>{getRegionName(dest)}</Text></View>
+            <View style={s.expandRow}><Text style={s.expandKey}>{t("seatsLabel")}</Text><Text style={s.expandVal}>{car.seats_taken} / {car.seats} · {t("seatsLeftN", { n: car.seats_left })}</Text></View>
+            <View style={s.expandRow}><Text style={s.expandKey}>{t("fareLabel")}</Text><Text style={[s.expandVal, { color: Colors.accent, fontWeight: "800" }]}>{formatFare(car.fare_cents)} · {formatFare((car.fare_cents ?? 0) * car.seats)} {t("fullVan")}</Text></View>
+          </View>
+        )}
+
+        {isLoading && reservable && (
           <TouchableOpacity
             style={[s.reserveBtn, car.seats_left <= 0 && s.reserveBtnDisabled]}
             disabled={car.seats_left <= 0}
@@ -188,31 +246,37 @@ export default function BoardScreen() {
 
   return (
     <SafeAreaView style={s.screen} edges={["top"]}>
-      {/* header */}
+      {/* header — driver-style zone selector */}
       <View style={s.header}>
-        <View style={s.brand}><View style={s.lqTile}><Text style={s.lqTileTxt}>LQ</Text></View><Text style={s.brandTxt}>LoadQ</Text></View>
-        <TouchableOpacity style={s.locBtn} onPress={resolveZone} activeOpacity={0.7}><Navigation size={18} color={Colors.t2} /></TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity style={s.zonePicker} onPress={() => setPickerOpen(true)} activeOpacity={0.8}>
+            <Text style={s.zoneName} numberOfLines={1}>{zoneMeta?.name ?? t("findingZone")}</Text>
+            <Text style={s.zoneCity}>{regionName(zoneMeta?.region)} <ChevronDown size={13} color={Colors.accent} /></Text>
+          </TouchableOpacity>
+          {zoneMeta && (
+            <View style={s.liveRow}>
+              <View style={s.liveDot} />
+              <Text style={s.liveTxt}>{t("liveInQueue", { n: queueCount })}</Text>
+              {!reservable && <Text style={s.watchTag}> · {t("viewOnlyTag")}</Text>}
+            </View>
+          )}
+          {zoneMeta && <Text style={s.dateTxt}>{dateLabel}</Text>}
+        </View>
+        <TouchableOpacity onPress={() => router.push("/(passenger)/messages" as any)} style={s.msgBtn} activeOpacity={0.7} hitSlop={8}>
+          <MessageSquare size={20} color={Colors.t1} strokeWidth={2} />
+        </TouchableOpacity>
       </View>
+
+      {/* zone map */}
+      {zoneMeta && <ZoneMap latitude={zoneMeta.latitude} longitude={zoneMeta.longitude} label={zoneMeta.name} height={130} />}
 
       <ScrollView
         contentContainerStyle={{ padding: 14, paddingBottom: 28 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       >
-        {/* zone */}
-        <View style={s.zone}>
-          <View style={s.pin}><MapPin size={16} color={Colors.t2} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.zoneLbl}>{t("pickupZone")}</Text>
-            <Text style={s.zoneName} numberOfLines={1}>{zone?.name ?? t("findingZone")}</Text>
-          </View>
-          {zone && (
-            <View style={[s.rangeChip, !inRange && s.rangeChipOut]}>
-              <Text style={[s.rangeChipTxt, !inRange && s.rangeChipTxtOut]}>
-                {inRange ? t("inRange") : t("zoneOutOfRange")}{distanceM != null ? ` · ${distanceM} m` : ""}
-              </Text>
-            </View>
-          )}
-        </View>
+        {!reservable && (
+          <View style={s.viewOnlyBanner}><Text style={s.viewOnlyTxt}>{t("viewOnlyBanner", { city: regionName(homeCity) })}</Text></View>
+        )}
 
         {/* destinations */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pills} contentContainerStyle={{ gap: 8 }}>
@@ -223,10 +287,7 @@ export default function BoardScreen() {
           ))}
         </ScrollView>
 
-        {/* live queue */}
-        <Text style={s.sectionLbl}>
-          {t("liveQueue")} · {cars.length === 1 ? t("carOne") : t("carsCount", { n: cars.length })}
-        </Text>
+        <Text style={s.sectionLbl}>{t("liveQueue")} · {cars.length === 1 ? t("carOne") : t("carsCount", { n: cars.length })}</Text>
 
         {loading ? (
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} />
@@ -238,6 +299,69 @@ export default function BoardScreen() {
           cars.map(car => <CarCard key={car.queue_entry_id} car={car} />)
         )}
       </ScrollView>
+
+      {/* city / zone picker */}
+      <Modal visible={pickerOpen} transparent animationType="slide" onRequestClose={() => setPickerOpen(false)}>
+        <Pressable style={s.sheetDim} onPress={() => setPickerOpen(false)} />
+        <View style={[s.sheet, { maxHeight: "80%" }]}>
+          <View style={s.grip} />
+          <Text style={s.sheetTitle}>{t("choosePickup")}</Text>
+          {/* city chips */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 8 }}>
+            {cities.map(c => (
+              <TouchableOpacity key={c.code} style={[s.cityChip, selectedCity === c.code && s.cityChipOn]} onPress={() => setSelectedCity(c.code)} activeOpacity={0.8}>
+                <Text style={[s.cityChipTxt, selectedCity === c.code && s.cityChipTxtOn]}>{c.name}{c.code === homeCity ? " ★" : ""}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {selectedCity !== homeCity && (
+            <Text style={s.pickerNote}>{t("viewOnlyBanner", { city: regionName(homeCity) })}</Text>
+          )}
+          <ScrollView style={{ maxHeight: 360 }}>
+            {cityZones.map((z, i) => (
+              <TouchableOpacity key={z.id} style={[s.zoneRow, z.id === zoneId && s.zoneRowOn]} onPress={() => pickZone(z.id, z.region)} activeOpacity={0.8}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={s.zoneRowName} numberOfLines={1}>{z.name}</Text>
+                    {i === 0 && z.car_count > 0 && <View style={s.busyTag}><Text style={s.busyTagTxt}>{t("busiestTag")}</Text></View>}
+                  </View>
+                  <Text style={s.zoneRowAddr} numberOfLines={1}>{z.address ?? regionName(z.region)}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={[s.zoneRowCount, z.car_count > 0 && { color: Colors.accent }]}>{t("carsCount", { n: z.car_count })}</Text>
+                  {z.has_loading && <Text style={s.zoneRowLoading}>● {t("statusLoading")}</Text>}
+                </View>
+              </TouchableOpacity>
+            ))}
+            {cityZones.length === 0 && <Text style={s.empty}>{t("noCarsRoute")}</Text>}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* driver profile */}
+      <Modal visible={!!profileCar} transparent animationType="fade" onRequestClose={() => setProfileCar(null)}>
+        <Pressable style={s.centerDim} onPress={() => setProfileCar(null)}>
+          <Pressable style={s.profileCard} onPress={() => {}}>
+            <TouchableOpacity style={s.profileClose} onPress={() => setProfileCar(null)} hitSlop={10}><X size={20} color={Colors.t2} /></TouchableOpacity>
+            {profileCar && (() => {
+              const r = ratingLabel(profileCar.rating_avg, profileCar.rating_count);
+              return (
+                <>
+                  {profileCar.avatar_url
+                    ? <Image source={{ uri: profileCar.avatar_url }} style={s.profileAvatar} />
+                    : <View style={s.profileAvatar}><Text style={s.profileAvatarTxt}>{initials(profileCar.driver_name)}</Text></View>}
+                  <Text style={s.profileName}>{profileCar.driver_name}</Text>
+                  {r.isNew
+                    ? <View style={s.newBadge}><Text style={s.newBadgeTxt}>{t("badgeNew")}</Text></View>
+                    : <View style={s.ratingRow}><Star size={13} color={Colors.yellow} fill={Colors.yellow} /><Text style={[s.rating, { fontSize: 14 }]}>{r.stars} · {t("ratingsCount", { n: profileCar.rating_count })}</Text></View>}
+                  {profileCar.make && <Image source={{ uri: getVehicleImageUrl(profileCar.make || "", profileCar.model || "", undefined, "side") }} style={s.profileVehicle} resizeMode="contain" />}
+                  <Text style={s.profileVehTxt}>{[profileCar.make, profileCar.model].filter(Boolean).join(" ")} · {t("seatsN", { n: profileCar.seats })}</Text>
+                </>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* reserve sheet */}
       <Modal visible={!!reserveCar} transparent animationType="slide" onRequestClose={() => setReserveCar(null)}>
@@ -254,7 +378,6 @@ export default function BoardScreen() {
                   <Text style={s.vehicle}>{[reserveCar.make, reserveCar.model].filter(Boolean).join(" ")} · {getRegionName(dest)}</Text>
                 </View>
               </View>
-
               <View style={s.stepper}>
                 <Text style={s.stepperLbl}>{t("seatsLabel")}</Text>
                 <View style={s.stepperCtrl}>
@@ -263,14 +386,12 @@ export default function BoardScreen() {
                   <TouchableOpacity style={s.stepBtn} disabled={reserveSeats >= reserveCar.seats_left} onPress={() => setReserveSeats(n => Math.min(reserveCar.seats_left, n + 1))}><Text style={s.stepBtnTxt}>+</Text></TouchableOpacity>
                 </View>
               </View>
-
               <View style={s.priceRow}>
                 <Text style={s.priceLeft}>{reserveSeats} × {formatFare(reserveCar.fare_cents)}</Text>
                 <Text style={s.priceRight}>{formatFare((reserveCar.fare_cents ?? 0) * reserveSeats)}</Text>
               </View>
               <Text style={s.holdNote}>🔒 {t("holdNote")}</Text>
               {reserveErr && <Text style={s.reserveErr}>{reserveErr}</Text>}
-
               <TouchableOpacity style={[s.reserveBtn, { marginTop: 14 }, reserving && { opacity: 0.6 }]} disabled={reserving} onPress={confirmReserve} activeOpacity={0.85}>
                 <Text style={s.reserveBtnTxt}>
                   {reserving ? t("reserving") : (reserveSeats === 1 ? t("holdSeatBtn", { n: 1, fare: formatFare(reserveCar.fare_cents) }) : t("holdSeatsBtn", { n: reserveSeats, fare: formatFare((reserveCar.fare_cents ?? 0) * reserveSeats) }))}
@@ -294,21 +415,19 @@ function initials(name?: string): string {
 
 const s = StyleSheet.create({
   screen:      { flex: 1, backgroundColor: Colors.bg },
-  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10 },
-  brand:       { flexDirection: "row", alignItems: "center", gap: 8 },
-  lqTile:      { width: 26, height: 26, borderRadius: 7, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center" },
-  lqTileTxt:   { color: Colors.accentText, fontWeight: "900", fontSize: 12 },
-  brandTxt:    { color: Colors.t1, fontWeight: "800", fontSize: 16 },
-  locBtn:      { width: 38, height: 38, borderRadius: 11, backgroundColor: Colors.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
+  header:      { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 10 },
+  zonePicker:  { flexDirection: "column" },
+  zoneName:    { fontSize: 22, fontWeight: "800", color: Colors.t1 },
+  zoneCity:    { fontSize: 13.5, color: Colors.accent, fontWeight: "700", marginTop: 1 },
+  liveRow:     { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 },
+  liveDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.accent },
+  liveTxt:     { fontSize: 12, color: Colors.t2, fontWeight: "600" },
+  watchTag:    { fontSize: 12, color: Colors.yellow, fontWeight: "700" },
+  dateTxt:     { color: Colors.t2, fontSize: 11.5, fontWeight: "700", marginTop: 3 },
+  msgBtn:      { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
 
-  zone:        { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, padding: 12, marginBottom: 12 },
-  pin:         { width: 32, height: 32, borderRadius: 9, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" },
-  zoneLbl:     { color: Colors.t3, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.3, textTransform: "uppercase" },
-  zoneName:    { color: Colors.t1, fontWeight: "800", fontSize: 14, marginTop: 2 },
-  rangeChip:   { backgroundColor: "rgba(34,192,131,0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
-  rangeChipOut:{ backgroundColor: "rgba(124,134,151,0.18)" },
-  rangeChipTxt:{ color: Colors.green, fontSize: 9.5, fontWeight: "800" },
-  rangeChipTxtOut: { color: Colors.t2 },
+  viewOnlyBanner: { backgroundColor: "rgba(245,200,66,0.12)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", borderRadius: 12, padding: 11, marginBottom: 12 },
+  viewOnlyTxt:    { color: Colors.yellow, fontSize: 12, fontWeight: "600", lineHeight: 17 },
 
   pills:       { marginBottom: 14 },
   pill:        { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
@@ -332,10 +451,9 @@ const s = StyleSheet.create({
   newBadge:    { backgroundColor: Colors.cardAlt, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   newBadgeTxt: { color: Colors.t2, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
   fare:        { color: Colors.t1, fontWeight: "800", fontSize: 16 },
+  chevron:     { color: Colors.t3, fontSize: 14, marginLeft: 2, width: 14, textAlign: "center" },
 
   seats:       { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 11, marginBottom: 2, flexWrap: "wrap" },
-  seatDot:     { width: 15, height: 15, borderRadius: 4, borderWidth: 1.5, borderColor: Colors.border },
-  seatDotFull: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   seatTxt:     { color: Colors.t2, fontSize: 10.5, marginLeft: 6 },
 
   statusRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 9 },
@@ -345,15 +463,48 @@ const s = StyleSheet.create({
   chipQueueTxt:{ color: Colors.t2, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
   timer:       { color: Colors.t2, fontSize: 10.5 },
 
+  expand:      { marginTop: 11, paddingTop: 11, borderTopWidth: 1, borderTopColor: Colors.border },
+  expandVehicle: { width: "100%", height: 90, marginBottom: 8 },
+  expandRow:   { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5 },
+  expandKey:   { color: Colors.t3, fontSize: 11.5, fontWeight: "600" },
+  expandVal:   { color: Colors.t1, fontSize: 12.5, fontWeight: "600" },
+
   reserveBtn:  { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 11 },
   reserveBtnDisabled: { backgroundColor: Colors.cardAlt },
   reserveBtnTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 13.5 },
 
+  // picker / sheets
   sheetDim:    { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
   sheet:       { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 16, paddingBottom: 26 },
   grip:        { width: 36, height: 4, borderRadius: 3, backgroundColor: Colors.border, alignSelf: "center", marginBottom: 12 },
   sheetTitle:  { color: Colors.t1, fontSize: 17, fontWeight: "800", marginBottom: 12 },
   sheetDriver: { flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 6 },
+  pickerNote:  { color: Colors.yellow, fontSize: 11.5, marginBottom: 10, lineHeight: 16 },
+
+  cityChip:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
+  cityChipOn:  { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  cityChipTxt: { color: Colors.t2, fontWeight: "700", fontSize: 13 },
+  cityChipTxtOn: { color: Colors.accentText },
+
+  zoneRow:     { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 8 },
+  zoneRowOn:   { borderColor: Colors.accent, backgroundColor: "rgba(255,107,0,0.08)" },
+  zoneRowName: { color: Colors.t1, fontSize: 14, fontWeight: "700", flexShrink: 1 },
+  zoneRowAddr: { color: Colors.t3, fontSize: 11, marginTop: 2 },
+  zoneRowCount:{ color: Colors.t2, fontSize: 12, fontWeight: "800" },
+  zoneRowLoading: { color: Colors.accent, fontSize: 9.5, fontWeight: "800", marginTop: 2 },
+  busyTag:     { backgroundColor: Colors.accent, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 5 },
+  busyTagTxt:  { color: Colors.accentText, fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
+
+  // driver profile
+  centerDim:   { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", padding: 30 },
+  profileCard: { backgroundColor: Colors.card, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 22, width: "100%", alignItems: "center" },
+  profileClose:{ position: "absolute", top: 12, right: 12, zIndex: 2 },
+  profileAvatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+  profileAvatarTxt: { color: Colors.t1, fontWeight: "800", fontSize: 26 },
+  profileName: { color: Colors.t1, fontSize: 18, fontWeight: "800", marginBottom: 6 },
+  profileVehicle: { width: "100%", height: 110, marginTop: 14 },
+  profileVehTxt: { color: Colors.t2, fontSize: 13, fontWeight: "600", marginTop: 6 },
+
   stepper:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, marginTop: 10 },
   stepperLbl:  { color: Colors.t2, fontSize: 13, fontWeight: "600" },
   stepperCtrl: { flexDirection: "row", alignItems: "center", gap: 16 },

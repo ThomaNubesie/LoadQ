@@ -4,6 +4,14 @@
 // Backend contract: see kolis-passenger-integration-handoff.md.
 import { supabase } from "./supabase";
 
+/* ------------------------------------------------------------- module cache
+ * Last-known results survive tab switches so screens paint instantly from
+ * cache, then refresh in the background — no from-scratch reload each focus. */
+const _boardCache = new Map<string, BoardCar[]>();
+const _cityZonesCache = new Map<string, CityZone[]>();
+let _myTripCache: MyTrip | null = null;
+const boardKey = (zoneId: string, dest: string) => `${zoneId}|${dest}`;
+
 /* ------------------------------------------------------------------ types */
 
 export type CarStatus = "waiting" | "loading";                 // queue_entries.status
@@ -51,12 +59,33 @@ export interface MyTrip {
   load_deadline:      string | null;
   driver_id:          string;
   driver_name:        string;
+  driver_phone:         string | null;
+  driver_interac_email: string | null;
+  driver_interac_phone: string | null;
   rating_avg:         number | null;
   avatar_url:         string | null;
   make:               string | null;
   model:              string | null;
   plate:              string | null;
   type:               string | null;
+  vehicle_seats:      number | null;
+  price_paid:         number | null;
+  zone_name:          string | null;
+  zone_address:       string | null;
+  zone_lat:           number | null;
+  zone_lng:           number | null;
+}
+
+// A pickup zone within a city (region), with live car counts. Busiest first.
+export interface CityZone {
+  id:          string;
+  name:        string;
+  region:      string;
+  latitude:    number;
+  longitude:   number;
+  address:     string | null;
+  car_count:   number;
+  has_loading: boolean;
 }
 
 export interface Reservation {
@@ -123,11 +152,40 @@ export const PassengerBoardAPI = {
     const { data, error } = await supabase.rpc("loadq_passenger_board", {
       p_zone_id: zoneId, p_destination: destination,
     });
-    if (error) { console.warn("[board] board", error.message); return []; }
-    return (data as BoardCar[]) ?? [];
+    if (error) { console.warn("[board] board", error.message); return _boardCache.get(boardKey(zoneId, destination)) ?? []; }
+    const rows = (data as BoardCar[]) ?? [];
+    _boardCache.set(boardKey(zoneId, destination), rows);
+    return rows;
   },
 
-  /** Reserve seats on the front (loading) car; holds them 10 min. */
+  /** Last-known board for a zone+dest (instant paint before the refresh lands). */
+  cachedBoard(zoneId: string, destination: string): BoardCar[] | null {
+    return _boardCache.get(boardKey(zoneId, destination)) ?? null;
+  },
+
+  /** Active pickup zones in a city (region), busiest first, with live counts. */
+  async cityZones(region: string): Promise<CityZone[]> {
+    const { data, error } = await supabase.rpc("loadq_city_zones", { p_region: region });
+    if (error) { console.warn("[board] cityZones", error.message); return _cityZonesCache.get(region) ?? []; }
+    const rows = (data as CityZone[]) ?? [];
+    _cityZonesCache.set(region, rows);
+    return rows;
+  },
+
+  cachedCityZones(region: string): CityZone[] | null {
+    return _cityZonesCache.get(region) ?? null;
+  },
+
+  cachedMyTrip(): MyTrip | null { return _myTripCache; },
+
+  /** Adjust seats on the caller's held reservation (add or decrease). */
+  async updateSeats(tripId: string, seats: number): Promise<{ data?: Reservation; error?: ReserveError }> {
+    const { data, error } = await supabase.rpc("loadq_update_reservation_seats", { p_trip_id: tripId, p_seats: seats });
+    if (error) return { error: normalizeReserveError(error.message) };
+    return { data: data as Reservation };
+  },
+
+  /** Reserve seats on the front (loading) car; holds them 15 min. */
   async reserve(queueEntryId: string, seats: number): Promise<{ data?: Reservation; error?: ReserveError }> {
     const { data, error } = await supabase.rpc("loadq_reserve_seat", {
       p_queue_entry_id: queueEntryId, p_seats: seats,
@@ -145,8 +203,9 @@ export const PassengerBoardAPI = {
   /** The caller's active held/boarded trip with live car status (or null). */
   async myTrip(): Promise<MyTrip | null> {
     const { data, error } = await supabase.rpc("loadq_my_trip");
-    if (error) { console.warn("[board] myTrip", error.message); return null; }
-    return (data as MyTrip) ?? null;
+    if (error) { console.warn("[board] myTrip", error.message); return _myTripCache; }
+    _myTripCache = (data as MyTrip) ?? null;
+    return _myTripCache;
   },
 
   /** Rider rates the driver. tags = short raw keys; note optional. */
