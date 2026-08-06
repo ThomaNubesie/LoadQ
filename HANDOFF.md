@@ -48,7 +48,12 @@ Flyer: `~/Desktop/loadq-update-flyer.png`. Diagnostic fn `loadq-resend-check` al
 - Mobile `tsconfig.json` excludes `admin-web` (Next.js `@/*` paths break RN tsc). Pre-existing tsc errors: Deno edge fns + `constants/vehicles.ts` (not from this work).
 - EAS `production` auto-increments build numbers; bump `expo.version` when App Store rejects a re-submit of an already-submitted version.
 
-## Addendum — Kolis HUB drop-off scheduling (backend LIVE, 2 app tasks remain)
+## Addendum — Kolis HUB drop-off scheduling (backend LIVE — ✅ both app tasks DONE, Kolis `dd60bac`)
+
+> **UPDATE 2026-08-06:** Both app tasks are implemented + pushed to `ship-kolis-1.1.0` (`dd60bac`). Not yet in a Kolis store build — cut one when ready (bump `expo.version` past 1.1.7).
+> - Task 1 done: parcels **list** has a "Drop-off / Delivery" column; parcel **detail** has a "HUB scheduling" card. `kolis_admin_parcel` RPC extended to return the two slots (migration `20260806090000`).
+> - Task 2 done: consumer `app/(app)/details.tsx` now requires **recipient email** (+phone) AND **sender email** (editable, saved to `kolis_profiles` via `ProfileAPI.save`) + validates sender phone. Business `/shipper/create` already required recipient email+phone (sender = org).
+
 
 Repo for both tasks: **~/Desktop/Kolis** (branch `ship-kolis-1.1.0`). Project `kzjptcpjpwlxfofzhyku`.
 
