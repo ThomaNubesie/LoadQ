@@ -47,3 +47,25 @@ Flyer: `~/Desktop/loadq-update-flyer.png`. Diagnostic fn `loadq-resend-check` al
 - Notify/internal edge fns must deploy `verify_jwt=false`.
 - Mobile `tsconfig.json` excludes `admin-web` (Next.js `@/*` paths break RN tsc). Pre-existing tsc errors: Deno edge fns + `constants/vehicles.ts` (not from this work).
 - EAS `production` auto-increments build numbers; bump `expo.version` when App Store rejects a re-submit of an already-submitted version.
+
+## Addendum — Kolis HUB drop-off scheduling (backend LIVE, 2 app tasks remain)
+
+Repo for both tasks: **~/Desktop/Kolis** (branch `ship-kolis-1.1.0`). Project `kzjptcpjpwlxfofzhyku`.
+
+### Live on the backend (no app work needed)
+- Trigger **`kolis_hub_invite_ai`** on `kolis_parcels`: when a HUB parcel's `payment_status` enters `authorized`/`paid` (escrowed), fires edge fn **`kolis-hub-invite`** (exception-safe — can't block writes).
+- **`kolis-hub-invite`**: creates two personalized `kolis_schedule_links` (sender + receiver) and sends each the link by **BOTH SMS and email** (bilingual EN/FR), + copies dispatch (613-862-2639). Idempotent.
+- Picker: edge fn **`kolis-schedule`** (token-gated) + page `https://kolis-schedule-board.netlify.app/?t=<token>`. Sender = drop-off window + hub spot (4-hour same-day lead); Receiver = delivery window (no lead).
+- Writeback on selection: sender → `kolis_parcels.pickup_slot` (`"hub - spot - date - time"`); receiver → `kolis_parcels.dropoff_slot` (`"date - time"`).
+
+### TASK 1 — Admin parcels screen: show the two new fields
+`kolis_admin_parcels(p_filter, p_search)` now RETURNS **`pickup_slot`** and **`dropoff_slot`**. Display them on the parcel row/detail:
+- `pickup_slot` = sender's hub + drop-off time · `dropoff_slot` = receiver's delivery time.
+- Files: `admin-web/app/admin/parcels/page.tsx` (list) + `admin-web/app/admin/parcels/[id]/page.tsx` (detail). (These are the Kolis admin-web files edited earlier for the payout-card button.)
+
+### TASK 2 — Shipment-creation forms: require sender AND recipient EMAIL + PHONE
+Both channels are used by the scheduling invites (SMS + email), so both must be collected + validated as required:
+- **Business:** `admin-web/app/shipper/create/page.tsx`.
+- **Consumer app:** the Kolis send flow — `app/(app)/send.tsx` / `app/(app)/details.tsx` (recipient email/phone already exist as fields; make them required; ensure sender contact captured too).
+
+Backend contracts are frozen; the app just needs to render the 2 fields and enforce the 4 required contact fields.
