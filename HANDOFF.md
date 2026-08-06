@@ -53,6 +53,9 @@ Flyer: `~/Desktop/loadq-update-flyer.png`. Diagnostic fn `loadq-resend-check` al
 > **UPDATE 2026-08-06:** Both app tasks are implemented + pushed to `ship-kolis-1.1.0` (`dd60bac`). Not yet in a Kolis store build — cut one when ready (bump `expo.version` past 1.1.7).
 > - Task 1 done: parcels **list** has a "Drop-off / Delivery" column; parcel **detail** has a "HUB scheduling" card. `kolis_admin_parcel` RPC extended to return the two slots (migration `20260806090000`).
 > - Task 2 done: consumer `app/(app)/details.tsx` now requires **recipient email** (+phone) AND **sender email** (editable, saved to `kolis_profiles` via `ProfileAPI.save`) + validates sender phone. Business `/shipper/create` already required recipient email+phone (sender = org).
+> - Extra (`5940a84`): sender **pickup address** now shown + editable on the expedition page (door mode) with country-aware Google Places autocomplete (`AddressFields`); required for door shipments.
+> - Extra (`8668e4e`): HUB select shows **drop-off hours** (`kolis_hubs.hours`, populated) alongside the meeting-point list in `NearbyPicker` + the selected-hub card. Admin persistence: hub name + `pickup_slot`/`dropoff_slot` already surface on the admin parcels list/detail.
+> Kolis commits on `ship-kolis-1.1.0`: `dd60bac`, `5940a84`, `8668e4e`. Not yet in a store build — bump `expo.version` past 1.1.7 and cut one when ready; deploy admin-web via `./deploy-prod.sh`.
 
 
 Repo for both tasks: **~/Desktop/Kolis** (branch `ship-kolis-1.1.0`). Project `kzjptcpjpwlxfofzhyku`.
