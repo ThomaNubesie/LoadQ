@@ -48,6 +48,38 @@ Flyer: `~/Desktop/loadq-update-flyer.png`. Diagnostic fn `loadq-resend-check` al
 - Mobile `tsconfig.json` excludes `admin-web` (Next.js `@/*` paths break RN tsc). Pre-existing tsc errors: Deno edge fns + `constants/vehicles.ts` (not from this work).
 - EAS `production` auto-increments build numbers; bump `expo.version` when App Store rejects a re-submit of an already-submitted version.
 
+## Release notes — "What's New" (paste into App Store Connect / Play Console)
+
+### Kolis 1.1.8
+**English**
+> • New destination: Halifax
+> • Smoother shipping — sender & recipient email and phone are now required so we can send your drop-off scheduling link by text and email
+> • Edit your pickup address right on the shipping page, with address autocomplete
+> • Choosing a hub now shows its drop-off hours alongside the nearby meeting points
+
+**Français (FR-CA)**
+> • Nouvelle destination : Halifax
+> • Expédition simplifiée — le courriel et le téléphone de l'expéditeur et du destinataire sont maintenant requis pour vous envoyer votre lien de planification du dépôt par texto et courriel
+> • Modifiez votre adresse de ramassage directement sur la page d'expédition, avec saisie automatique
+> • Le choix d'un point relais affiche maintenant ses heures de dépôt à côté des points de rencontre à proximité
+
+### LoadQ 1.2.17
+**English**
+> • Pick your pickup zone by city — see the busiest one first and reserve from any zone in your city
+> • Seats are now held for 15 minutes
+> • My Trip: call your driver, get directions to the pickup point, and add or remove seats after booking
+> • New alerts when your reservation is sent, when the driver confirms you, and before your hold expires
+> • Live map of your pickup zone, tap a driver to view their profile, and pay by Interac once confirmed
+> • Faster, smoother board with a cleaner layout
+
+**Français (FR-CA)**
+> • Choisissez votre point de départ par ville — le plus achalandé s'affiche en premier et vous pouvez réserver dans n'importe quel point de votre ville
+> • Les places sont maintenant retenues 15 minutes
+> • Mon trajet : appelez votre conducteur, obtenez l'itinéraire vers le point de départ et ajoutez ou retirez des places après la réservation
+> • Nouvelles alertes lorsque votre réservation est envoyée, lorsque le conducteur vous confirme et avant l'expiration de votre réservation
+> • Carte en direct de votre point de départ, appuyez sur un conducteur pour voir son profil, et payez par virement Interac une fois confirmé
+> • File plus rapide et plus fluide, avec une mise en page épurée
+
 ## Addendum — Kolis HUB drop-off scheduling (backend LIVE — ✅ both app tasks DONE, Kolis `dd60bac`)
 
 > **UPDATE 2026-08-06:** Both app tasks are implemented + pushed to `ship-kolis-1.1.0` (`dd60bac`). Not yet in a Kolis store build — cut one when ready (bump `expo.version` past 1.1.7).
