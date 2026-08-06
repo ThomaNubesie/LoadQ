@@ -55,7 +55,10 @@ Flyer: `~/Desktop/loadq-update-flyer.png`. Diagnostic fn `loadq-resend-check` al
 > - Task 2 done: consumer `app/(app)/details.tsx` now requires **recipient email** (+phone) AND **sender email** (editable, saved to `kolis_profiles` via `ProfileAPI.save`) + validates sender phone. Business `/shipper/create` already required recipient email+phone (sender = org).
 > - Extra (`5940a84`): sender **pickup address** now shown + editable on the expedition page (door mode) with country-aware Google Places autocomplete (`AddressFields`); required for door shipments.
 > - Extra (`8668e4e`): HUB select shows **drop-off hours** (`kolis_hubs.hours`, populated) alongside the meeting-point list in `NearbyPicker` + the selected-hub card. Admin persistence: hub name + `pickup_slot`/`dropoff_slot` already surface on the admin parcels list/detail.
-> Kolis commits on `ship-kolis-1.1.0`: `dd60bac`, `5940a84`, `8668e4e`. Not yet in a store build — bump `expo.version` past 1.1.7 and cut one when ready; deploy admin-web via `./deploy-prod.sh`.
+> - Extra (`ebbca8b`): **Halifax** added as a destination with a **+30% price premium**. App: `constants/cities.ts` (picker) + `constants/pricing.ts` (Maritimes distances + `isHalifax()` 30% surcharge in `estimatePrice`). DB (migration `20260806120000`): `kolis_route_km` Halifax distances + `kolis_estimate_price_cents` 30% surcharge (`kolis_org_price_cents` inherits via fallback). Region/province already map `halifax`→NS; admin-web already had Halifax→NS. Verified: Halifax–Ottawa \$202 (+30%), Ottawa–Montréal \$30 unchanged.
+>
+> **SHIPPED 2026-08-06:** Kolis **v1.1.8** built + submitted both platforms (iOS build 24 / Android vc 24) — builds + submissions all FINISHED. (Earlier Halifax-less 1.1.8 builds were cancelled before submitting.) **admin-web deployed live** to business.kolis.ca (parcel-board scheduling columns). Store review pending (iOS: submit version in ASC once processed; Android: in Play review).
+> Kolis commits on `ship-kolis-1.1.0`: `dd60bac`, `5940a84`, `8668e4e`, `7fadd61` (1.1.8 bump), `ebbca8b` (Halifax). All pushed.
 
 
 Repo for both tasks: **~/Desktop/Kolis** (branch `ship-kolis-1.1.0`). Project `kzjptcpjpwlxfofzhyku`.
