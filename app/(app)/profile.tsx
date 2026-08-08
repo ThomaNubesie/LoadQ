@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
 import { AuthAPI } from "../../services/auth";
 import { DriversAPI } from "../../services/drivers";
+import { DriverDocsAPI } from "../../services/driverDocs";
 import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
@@ -52,8 +53,15 @@ export default function ProfileScreen() {
     supabase.auth.getUser().then(({ data }) => setAuthEmail(data.user?.email ?? null));
   }, []);
 
+  // True document-verification state (all 3 docs approved), independent of the
+  // legacy drivers.verified flag — so existing accounts still see the prompt.
+  const [docsVerified, setDocsVerified] = useState<boolean | null>(null);
+  const [docsApproved, setDocsApproved] = useState(0);
   useFocusEffect(useCallback(() => {
     MessagesAPI.unreadCount().then(setUnread);
+    DriverDocsAPI.getMine()
+      .then(({ docs, verified }) => { setDocsVerified(verified); setDocsApproved(docs.filter((d) => d.status === "approved").length); })
+      .catch(() => {});
   }, []));
 
   const handleSignOut = async () => {
@@ -182,22 +190,23 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Verification — DL, insurance, registration review */}
-        <TouchableOpacity style={[s.card, !driver?.verified && { borderColor: Colors.accent, borderWidth: 1 }]} onPress={() => router.push("/(app)/verification" as any)} activeOpacity={0.85}>
+        {/* Verification — DL, insurance, registration. Uses real document status
+            (not the legacy verified flag) so existing accounts still get prompted. */}
+        <TouchableOpacity style={[s.card, !docsVerified && { borderColor: Colors.accent, borderWidth: 1 }]} onPress={() => router.push("/(app)/verification" as any)} activeOpacity={0.85}>
           <View style={s.cardRow}>
             <Text style={s.cardTitle}>{t.verifOpenTitle}</Text>
-            {driver?.verified ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <VerifiedBadge size={16} />
-                <Text style={[s.badgeText, { color: Colors.green, fontSize: 12 }]}>{t.verifVerified}</Text>
-              </View>
-            ) : (
-              <View style={[s.badge, { backgroundColor: Colors.yellow + "20", borderColor: Colors.yellow + "40" }]}>
-                <Text style={[s.badgeText, { color: Colors.yellow }]}>{t.verifNotVerified}</Text>
-              </View>
-            )}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {docsVerified ? (
+                <><VerifiedBadge size={16} /><Text style={[s.badgeText, { color: Colors.green, fontSize: 12 }]}>{t.verifVerified}</Text></>
+              ) : (
+                <View style={[s.badge, { backgroundColor: Colors.accent + "20", borderColor: Colors.accent + "50" }]}>
+                  <Text style={[s.badgeText, { color: Colors.accent }]}>{docsApproved > 0 ? `${docsApproved}/3` : t.verifActionNeeded}</Text>
+                </View>
+              )}
+              <Text style={{ color: Colors.t3, fontSize: 20, marginTop: -2 }}>›</Text>
+            </View>
           </View>
-          <Text style={s.cardSub}>{t.verifOpenSub}</Text>
+          <Text style={s.cardSub}>{docsVerified ? t.verifOpenSub : t.verifUploadSub}</Text>
         </TouchableOpacity>
 
         {/* Interac — where passengers e-Transfer the fare */}
