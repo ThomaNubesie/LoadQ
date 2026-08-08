@@ -4,11 +4,12 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase, api } from "@/lib/supabase";
 import { useLang, LANGS, LANG_LABEL, type I18nKey } from "@/lib/i18n";
-import { MapPin, ListOrdered, FileText, LogOut } from "lucide-react";
+import { MapPin, ListOrdered, FileText, LogOut, ArrowLeftRight } from "lucide-react";
 
 const NAV: { href: string; Icon: typeof MapPin; label: I18nKey }[] = [
   { href: "/admin/zones", Icon: MapPin, label: "navZones" },
   { href: "/admin/queue", Icon: ListOrdered, label: "navQueue" },
+  { href: "/admin/relocate", Icon: ArrowLeftRight, label: "navRelocate" },
   { href: "/admin/documents", Icon: FileText, label: "navDocuments" },
 ];
 

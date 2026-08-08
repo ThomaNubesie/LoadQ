@@ -230,9 +230,11 @@ export default function MyTripScreen() {
               <Phone size={16} color={Colors.t1} /><Text style={s.btnCallTxt}>{t("callDriver")}</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={[s.btn, s.btnMsg]} onPress={() => router.push("/(passenger)/messages" as any)}>
-            <MessageCircle size={16} color={Colors.accentText} /><Text style={s.btnMsgTxt}>{t("messageBtn")}</Text>
-          </TouchableOpacity>
+          {!!trip.driver_id && (
+            <TouchableOpacity style={[s.btn, s.btnMsg]} onPress={() => router.push({ pathname: "/(passenger)/thread", params: { id: trip.driver_id, name: trip.driver_name, phone: trip.driver_phone ?? "" } } as any)}>
+              <MessageCircle size={16} color={Colors.accentText} /><Text style={s.btnMsgTxt}>{t("messageDriver")}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {boarded && (

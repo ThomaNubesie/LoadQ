@@ -235,7 +235,7 @@ export default function BoardScreen() {
             {car.make && <Image source={{ uri: getVehicleImageUrl(car.make || "", car.model || "", undefined, "side") }} style={s.expandVehicle} resizeMode="contain" />}
             <View style={s.expandRow}><Text style={s.expandKey}>{t("destinationLabel")}</Text><Text style={s.expandVal}>{getRegionName(dest)}</Text></View>
             <View style={s.expandRow}><Text style={s.expandKey}>{t("seatsLabel")}</Text><Text style={s.expandVal}>{car.seats_taken} / {car.seats} · {t("seatsLeftN", { n: car.seats_left })}</Text></View>
-            <View style={s.expandRow}><Text style={s.expandKey}>{t("fareLabel")}</Text><Text style={[s.expandVal, { color: Colors.accent, fontWeight: "800" }]}>{formatFare(car.fare_cents)} · {formatFare((car.fare_cents ?? 0) * car.seats)} {t("fullVan")}</Text></View>
+            <View style={s.expandRow}><Text style={s.expandKey}>{t("fareLabel")}</Text><Text style={[s.expandVal, { color: Colors.accent, fontWeight: "800" }]}>{formatFare(car.fare_cents)} {t("perSeat")}</Text></View>
           </View>
         )}
 

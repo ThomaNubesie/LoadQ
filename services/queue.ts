@@ -11,6 +11,17 @@ function isUniqueViolation(err: any): boolean {
   return err?.code === "23505" || /duplicate key|unique constraint/i.test(err?.message ?? "");
 }
 
+export type AdminQueueRow = {
+  id: string; zone_id: string; driver_id: string; position: number; status: string;
+  seats_boarded: number | null; seats_locked: number | null; destination_region: string | null;
+  driver: { full_name: string | null; phone: string | null } | null;
+  vehicle: { make: string | null; model: string | null; seats: number | null } | null;
+};
+export type AdminPaxReservation = {
+  claimStatus: string;
+  entry: { id: string; zone_id: string; destination_region: string | null; position: number; driver: { full_name: string | null; phone: string | null } | null } | null;
+};
+
 export const QueueAPI = {
   // Profile validation gate. A driver may only join the queue once an admin
   // has verified them AND their profile/vehicle/billing are in good standing.
@@ -379,6 +390,53 @@ export const QueueAPI = {
   async adminDepart(entryId: string, seats: number) {
     const { error } = await supabase.rpc("loadq_admin_depart", { p_entry_id: entryId, p_seats: seats });
     return { error: error?.message };
+  },
+
+  // ── Relocate (move people between locations) ────────────────────────────
+  // Active drivers currently in a zone's line (any destination), with vehicle.
+  async adminZoneActiveDrivers(zoneId: string): Promise<AdminQueueRow[]> {
+    const { data } = await supabase
+      .from("queue_entries")
+      .select("id, zone_id, driver_id, position, status, seats_boarded, seats_locked, destination_region, driver:drivers(full_name, phone), vehicle:vehicles(make, model, seats)")
+      .eq("zone_id", zoneId)
+      .in("status", ["loading", "waiting", "standby"])
+      .order("position", { ascending: true });
+    const norm = (v: any) => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
+    return ((data as any[]) ?? []).map((r) => ({ ...r, driver: norm(r.driver), vehicle: norm(r.vehicle) }));
+  },
+  async adminRelocateDriver(entryId: string, newZone: string, newDest: string | null, newPos: number | null, releasePassengers: boolean | null) {
+    const { error } = await supabase.rpc("loadq_admin_relocate_driver", {
+      p_entry_id: entryId, p_new_zone: newZone, p_new_dest: newDest, p_new_pos: newPos, p_release_passengers: releasePassengers,
+    });
+    return { error: error?.message };
+  },
+  async adminRelocatePassenger(passengerId: string, targetEntryId: string, seats: number | null) {
+    const { error } = await supabase.rpc("loadq_admin_relocate_passenger", {
+      p_passenger_id: passengerId, p_target_entry_id: targetEntryId, p_seats: seats,
+    });
+    return { error: error?.message };
+  },
+  async adminSearchPassengers(query: string): Promise<{ id: string; full_name: string | null; phone: string | null }[]> {
+    let q = supabase.from("passengers").select("id, full_name, phone").order("full_name", { ascending: true }).limit(50);
+    const term = query.trim();
+    if (term) q = q.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
+    const { data } = await q;
+    return (data as { id: string; full_name: string | null; phone: string | null }[]) ?? [];
+  },
+  async adminPassengerReservation(passengerId: string): Promise<AdminPaxReservation | null> {
+    const { data } = await supabase
+      .from("seat_claims")
+      .select("status, queue_entry:queue_entries(id, zone_id, destination_region, position, driver:drivers(full_name, phone))")
+      .eq("passenger_id", passengerId)
+      .in("status", ["pending", "confirmed"])
+      .order("claimed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return null;
+    const norm = (v: any) => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
+    const qe = norm((data as any).queue_entry);
+    if (qe) qe.driver = norm(qe.driver);
+    return { claimStatus: (data as any).status, entry: qe };
   },
 
   // ── Queue hours (public.queue_window, single row id=1) ──────────────────────

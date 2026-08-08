@@ -4,6 +4,29 @@ Snapshot for continuing on another machine. Pull latest first:
 `git pull` on branch **`ship-loadq-1.2.6`** (LoadQ) and **`ship-kolis-1.1.0`** (Kolis at ~/Desktop/Kolis).
 Shared Supabase project: **`kzjptcpjpwlxfofzhyku`** (LoadQ + Kolis). EAS user: **thomasderick**.
 
+## LoadQ 1.2.19 — bug fixes, single-session, Relocate (2026-08-08)
+
+Shipped: mobile **1.2.19** (iOS build 28 / Android vc 59) built + auto-submitted to both stores; web admin deployed to **admin.loadq.ca**.
+
+**Bug fixes (mobile):**
+- **Bottom-nav "jump" (Android):** passenger `app/(passenger)/profile.tsx` used a bare `<SafeAreaView>` — added `edges={["top"]}` to match Board/My trip/Alerts. Root cause: `PassengerBottomNav` self-adds `insets.bottom`, so a screen that also applies the bottom inset double-pads → gap. Driver `BottomNav` does NOT self-inset, so driver screens intentionally use no-`edges`; fixed the inverse mismatch on `app/(app)/deliveries.tsx` (removed its stray `edges={["top"]}`).
+- **Per-seat price only:** `app/(passenger)/board.tsx` fare row dropped the "· $Y full van" total → shows just `$X per seat` (new i18n `perSeat`).
+- **"Message driver":** was routing to the LoadQ Support thread. New `app/(passenger)/thread.tsx` (passenger↔driver DM, mirrors driver `thread.tsx`); My trip button now pushes it with `trip.driver_id`. Board + Profile message boxes still go to Support via `(passenger)/messages.tsx` (unchanged).
+
+**Single-active-session enforcement (built, DORMANT):**
+- Table `active_sessions(user_id→session_id)` (migration `loadq_active_sessions_single_device`); realtime-enabled; RLS own-row only.
+- `services/session.ts` — `claim()` on OTP verify (`app/(auth)/otp.tsx`) records the active device (both driver & passenger). Watcher in `app/_layout.tsx` subscribes + re-checks on foreground and force-signs-out the previous device.
+- **Runtime switch (no rebuild to toggle):** DB flag `app_flags.single_session_enforce` (table migration `app_flags_runtime_switches`, seeded **false**, public-read/user-write-blocked, realtime). App reads it at launch + realtime + foreground. Turn ON: `update public.app_flags set enabled=true where key='single_session_enforce';` (OFF = false). Only affects devices on **1.2.19+**.
+
+**Relocate — move people between locations (BOTH admin surfaces):**
+- RPCs (migration `loadq_admin_relocate_people`, admin-gated SECURITY DEFINER, reuse `loadq_admin_renumber`):
+  - `loadq_admin_relocate_driver(p_entry_id, p_new_zone, p_new_dest, p_new_pos, p_release_passengers)` — moves a driver's active `queue_entries` row in place (same id → kept riders stay bound). Passenger handling: `p_release_passengers` null = **auto** (keep on zone-only move, release when destination changes); true=release, false=keep.
+  - `loadq_admin_relocate_passenger(p_passenger_id, p_target_entry_id, p_seats)` — frees old seat + drops old trip (`admin_cancel_passenger_claims`), then books a confirmed seat on the target entry, carrying fare/seats forward; full-van guard.
+- **Web:** `admin-web/app/admin/relocate/page.tsx` + nav item (`navRelocate`) + `api.relocateDriver/relocatePassenger/searchPassengers/passengerReservation` in `lib/supabase.ts`. Driver & Passenger modes.
+- **Native:** `app/(app)/admin-relocate.tsx` (reached from Profile → admin section, `is_admin` only) + `QueueAPI.adminRelocateDriver/adminRelocatePassenger/adminZoneActiveDrivers/adminSearchPassengers/adminPassengerReservation` + `ar*` i18n (EN/FR).
+
+**Deploy notes:** web admin deploy MUST run `./deploy-admin-web.sh` from repo root (netlify.toml `base=admin-web`); running `netlify deploy --build` from inside `admin-web/` doubles the publish path (`admin-web/admin-web/.next`) and fails.
+
 ## Concord Express — official email & letter branding (2026-08-08)
 
 **This is the canonical Concord Express brand for all outbound email and PDF letters.** Green identity (NOT the KOLIS magenta).

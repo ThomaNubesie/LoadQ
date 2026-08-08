@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { PassengersAPI } from "../../services/passengers";
 import { resolveHome } from "../../services/authRoute";
+import { SessionAPI } from "../../services/session";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
@@ -67,6 +68,12 @@ export default function OTPScreen() {
     }
 
     verifiedCode.current = code;
+
+    // Record THIS device as the active session for the account. While the
+    // enforcement master-switch is off this is pure bookkeeping — it never
+    // blocks or logs out any device.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await SessionAPI.claim(user.id);
 
     // Does this account already exist on either side?
     const [driver, passenger] = await Promise.all([

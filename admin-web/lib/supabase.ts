@@ -124,6 +124,57 @@ export const api = {
     if (error) throw error;
     return data as DocReviewResult;
   },
+
+  // ── Relocate (move people between locations) ────────────────────────────
+  // Move a driver's active queue entry to another zone and/or destination.
+  async relocateDriver(entryId: string, newZone: string, newDest: string | null, newPos: number | null, releasePassengers: boolean | null): Promise<void> {
+    const { error } = await supabase.rpc("loadq_admin_relocate_driver", {
+      p_entry_id: entryId, p_new_zone: newZone, p_new_dest: newDest,
+      p_new_pos: newPos, p_release_passengers: releasePassengers,
+    });
+    if (error) throw error;
+  },
+  // Move a passenger's reservation onto a target driver's queue entry.
+  async relocatePassenger(passengerId: string, targetEntryId: string, seats: number | null): Promise<void> {
+    const { error } = await supabase.rpc("loadq_admin_relocate_passenger", {
+      p_passenger_id: passengerId, p_target_entry_id: targetEntryId, p_seats: seats,
+    });
+    if (error) throw error;
+  },
+  // Passenger roster for the relocate picker.
+  async searchPassengers(query: string): Promise<PassengerLite[]> {
+    let q = supabase.from("passengers").select("id, full_name, phone").order("full_name").limit(100);
+    const term = query.trim();
+    if (term) q = q.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as PassengerLite[]) ?? [];
+  },
+  // A passenger's current active reservation (driver + zone + destination), if any.
+  async passengerReservation(passengerId: string): Promise<PassengerReservation | null> {
+    const { data, error } = await supabase
+      .from("seat_claims")
+      .select("id, status, queue_entry:queue_entries(id, zone_id, destination_region, position, driver:drivers(full_name, phone))")
+      .eq("passenger_id", passengerId)
+      .in("status", ["pending", "confirmed"])
+      .order("claimed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    // Embedded relations can come back as arrays under the untyped client — flatten.
+    const one = (v: unknown): any => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
+    const row = data as unknown as { status: string; queue_entry: unknown };
+    const qe = one(row.queue_entry);
+    if (qe) qe.driver = one(qe.driver);
+    return { claimStatus: row.status, entry: qe as PassengerReservation["entry"] };
+  },
+};
+
+export type PassengerLite = { id: string; full_name: string | null; phone: string | null };
+export type PassengerReservation = {
+  claimStatus: string;
+  entry: { id: string; zone_id: string; destination_region: string | null; position: number; driver?: { full_name: string | null; phone: string | null } | null } | null;
 };
 
 export type DocStatus = "pending" | "approved" | "rejected" | "expired" | "all";
