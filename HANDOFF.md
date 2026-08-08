@@ -34,6 +34,33 @@ Body:   { "from":"Thomas Derick Shalo <shaloderick@concordexpress.ca>",
 - **Inquiries SENT** (bilingual EN/FR, letterhead PDFs + overview attached): MTO Authorized Requester Program → `ARIS@ontario.ca`; Certn → `partnerships@certn.co`. Sterling Backcheck has no public sales email (First Advantage; web-form/phone only) — skipped.
 - **Consent capture BUILT** (the legal bridge the MTO/Certn letters require). Migration `20260808170000_loadq_driver_screening_consent.sql`: append-only `loadq_driver_consents` table (driver-own RLS + `loadq_is_admin()` read) + `loadq_record_screening_consent(version,scopes,ua)` / `loadq_screening_consent_status()`. Scopes: drivers_license · registration · driving_record · criminal_record; version `v1-2026-08` (bump to force re-consent). App: the A1 **Verification** screen shows a consent card and **blocks uploads until the driver agrees** (`DriverDocsAPI.getConsent/recordConsent`). When a vendor is selected, store check results against the same A1 doc rows / `drivers.verified`.
 
+## Kolis Business — this session (2026-08-08, branch `ship-kolis-1.1.0`, deployed business.kolis.ca)
+
+**Prospects board (`admin-web/app/admin/prospects/page.tsx`)**
+- Colour-coded by **urgency level** from `concord_level(status,stage,clicked)` → each row gets a left-stripe + level pill; colours: suggested `#64748B`, new `#2563EB`, contacted `#F59E0B`, engaged `#14B8A6`, replied `#7C3AED`, met `#16A34A`, closed `#334155`, bounced `#EA580C`, stopped `#9CA3AF`, rejected `#DC2626`. `kolis_prospects_list` returns `level/level_label/level_color/level_order`.
+- **Colour key is clickable** → filters the board to that state.
+- **Reopen** a closed/stopped/rejected/bounced prospect → `kolis_prospect_reopen(id)` (migration `20260808...`): status→active, stage→to_prospect, clears terminal markers.
+
+**Click → AI draft → approve → send (sales follow-ups)**
+- When a prospect clicks an outreach link, `concord-outreach-webhook` (on `clicked`) fires **`kolis-followup-ai`** `{action:'draft', id}` (x-kolis-secret, deduped 3-day). Claude writes next-steps + a **Kolis-branded** follow-up; a branded **approval email** goes to `shaloderick@concordexpress.ca` with a one-click **Approve & send** link (`?action=approve&id=&token=`) → sends to the prospect. Cols on `concord_outreach`: `followup_draft_*`, `followup_approve_token`, `followup_ai_sent_at`. Sales copy: **pay per shipment, price depends on the package, no subscription/monthly/minimum, serves Ontario & Québec, NEVER mention the 20%/any percentage**.
+
+**Plans & per-plan feature gating**
+- Prices: **Basic $0 · Business $124.99 · Pro $199.99** (renamed "Pay-as-you-go"→**Basic**). `kolis-plans` `PLANS.price_cad` + Stripe `lookup_key` bumped to `_v2` (rounded cents); stored `kolis_plan_prices` cleared + re-materialised via **`POST kolis-plans` with header `x-kolis-secret`** (server-to-server hook). Existing subscribers grandfathered.
+- **Feature gating** in `admin-web/app/shipper/layout.tsx`: `FEATURE_MIN` maps import/bulk/products/promotions/campaigns/analytics/invoices/branding/team/freight → **Business**, developer → **Pro**. Locked nav opens an **upgrade modal** (feature explainer + Subscribe CTA); direct-URL access to a gated `/shipper/*` route redirects to Plans. Plan read via `kolis_org_plan`.
+
+**AI Assistant (`/shipper/assistant` + floating "Ask AI")**
+- **`kolis-assistant`** edge fn = Claude (`claude-sonnet-4-6`) **tool-use agent** scoped to the caller's org. Needs `ANTHROPIC_API_KEY`. READ tools auto-run (overview, shipments, clients, invoices+detail, analytics, quote, label, campaigns+stats, dispatch_board, drivers, payouts, prospects[staff]); WRITE tools are **proposed → user confirms** (create/edit/charge shipment, email_label, send_email, create/send campaign, assign_parcel, advance_parcel_status, prospect stage/reopen/draft). Body: `{org_id, messages}` → `{reply, proposals[]}`; confirm: `{org_id, confirm:{name,input}}`.
+- **Security:** every tool runs under the user's own JWT (org-membership-gated RPCs) → can't cross orgs / can't exceed the user's own perms; explicit `kolis_org_role` check; strict system prompt (tool data = untrusted content, no bulk export/exfiltration, no secrets); writes never auto-execute. Verified live (reads real data, refuses exfiltration probe, proposes writes without executing).
+- UI: `components/AssistantChat.tsx` (shared by the page + the Business+ floating panel). Tab is a **teaser** for Basic (upsell), full chat + FAB for Business/Pro.
+
+**Form validation (`admin-web/lib/validate.ts` + `lib/emailVerify.ts`)**
+- `emailOk`, `phoneOk` (NA 10-digit), `nameOk`, `cityOk` (served-city set), `addressOk` (civic number + street name), `contentsOk` (anti-gibberish). Cities **alphabetical** (`lib/cities.ts`, fr-aware). Applied to create shipment (single+batch), clients (CA gets served-city datalist + auto-province), bulk import (per-row, blocks until fixed).
+- **Real email verification:** `kolis-verify-email` edge fn → format → placeholder (`dd@`) → disposable → **paid mailbox check IF a key is set** (`ZEROBOUNCE_API_KEY` | `KICKBOX_API_KEY` | `ABSTRACT_EMAIL_API_KEY`) → else DNS MX/A. Fail-open on outage. Wired into create + clients via `verifyEmail()`.
+
+**New edge functions this session** (deployed on the shared project; not mirrored in repo — `supabase functions download <name>` to retrieve): `kolis-assistant`, `kolis-verify-email`, `kolis-followup-ai`, `concord-mail`. All `verify_jwt=false`; server-to-server ones gated by `x-kolis-secret` (`kolis_notify_9f3a2c7b1e6d4084`).
+
+**Optional secrets to set (Supabase → Edge Functions → Secrets):** `ZEROBOUNCE_API_KEY`/`KICKBOX_API_KEY`/`ABSTRACT_EMAIL_API_KEY` (turns on mailbox-level email verification — no code change).
+
 ## Kolis pricing — canonical reference (2026-08-08)
 
 **Org per-shipment price** — `kolis_org_price_cents(org, size, drop_type, from, to)`:
