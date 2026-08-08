@@ -4,6 +4,29 @@ Snapshot for continuing on another machine. Pull latest first:
 `git pull` on branch **`ship-loadq-1.2.6`** (LoadQ) and **`ship-kolis-1.1.0`** (Kolis at ~/Desktop/Kolis).
 Shared Supabase project: **`kzjptcpjpwlxfofzhyku`** (LoadQ + Kolis). EAS user: **thomasderick**.
 
+## Kolis pricing — canonical reference (2026-08-08)
+
+**Org per-shipment price** — `kolis_org_price_cents(org, size, drop_type, from, to)`:
+1. **Price-group override** — if the org is in a price group with a rule for the destination, it pays a **flat negotiated per-city price** (ignores distance). Set in /admin/pricing (group → rules → materialized into `kolis_org_price_overrides`). e.g. group "Montreal 25 / Ottawa 15".
+2. **Else distance-based** (`kolis_estimate_price_cents`): `price = (base + $/km × road_km) × size × surcharge`
+   - Hub/Zone `$10 + $0.10/km` · Door `$5 + $0.20/km`
+   - size: envelope ×0.75 · small ×1.0 · large ×1.6
+   - Halifax route ×1.30
+   - road_km from `kolis_route_km` (our distance table)
+   - e.g. Ottawa→Montréal ~200 km, small, hub = **$30**.
+
+**On top:** insurance +5% of declared value (optional); provincial **tax at invoice** (`kolis_tax_config`). **Volume discount** (admin-set %) applies **at invoice** (`kolis_org_invoice` / `kolis_close_billing_period`), NOT the quote.
+
+**Billing:** Pay-as-you-go (card per shipment) or net-terms invoice (monthly). **No credit limits** (removed 2026-08-08).
+
+**Driver payout (INTERNAL — never shown):** non-group orgs → driver **20%** (Kolis 80%); group-member orgs → initial rate (2/3 hub/zone, 45% door); consumer parcels unchanged. `kolis_org_create_shipment` (migration `20260808150000`).
+
+**Consumer (app) price** = same distance engine in `constants/pricing.ts` (`estimatePrice`), driver share 2/3 hub/zone · 45% door.
+
+**Plans (web):** Pay-as-you-go / Business $79 / Pro $199 — differentiated by features only; fee % **removed** from the UI (internal). New/invited orgs must pick a plan before the portal activates (`kolis_org_needs_plan` gate).
+Migrations this batch: `20260806120000` (Halifax +30%), `20260808140000` (plan gate), `20260808150000` (org 20% payout), `20260808160000` (remove credit limits). Kolis commits `fff3866`, `1ae7da4`, `8debfd7`, `01a6381` (all pushed + admin-web deployed to business.kolis.ca).
+
+
 ## Shipped this session
 
 ### LoadQ passenger board overhaul → v1.2.17 (built + submitted, iOS build 26 / Android vc 57)
