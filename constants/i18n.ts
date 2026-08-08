@@ -166,6 +166,8 @@ export const STRINGS = {
 
     // Seat tracking
     myLoading:        "My loading",
+    deliveries:       "Deliveries",
+    deliveriesSub:    "Kolis parcels you can pick up on your route.",
     boarded:          "Boarded",
     emptyTap:         "Empty — tap to fill",
     seatLocked:       "seats locked",
@@ -767,6 +769,8 @@ export const STRINGS = {
 
     // Seat tracking
     myLoading:        "Mon chargement",
+    deliveries:       "Livraisons",
+    deliveriesSub:    "Colis Kolis à ramasser sur votre trajet.",
     boarded:          "Embarqué",
     emptyTap:         "Vide — appuyez pour remplir",
     seatLocked:       "sièges verrouillés",

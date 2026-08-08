@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { useRouter, usePathname } from "expo-router";
-import { ListOrdered, CarFront, Bell, CircleUserRound, LucideIcon } from "lucide-react-native";
+import { ListOrdered, CarFront, Package, Bell, CircleUserRound, LucideIcon } from "lucide-react-native";
 import { useStrings } from "../hooks/useStrings";
 import { useMyAvatar } from "../hooks/useMyAvatar";
 import { Colors } from "../constants/colors";
@@ -26,6 +26,7 @@ export default function BottomNav({ items }: Props) {
   const defaultItems: NavItem[] = [
     { icon: ListOrdered,     label: t.queue,         route: "/(app)/queue",      match: "/queue"      },
     { icon: CarFront,        label: t.myLoading,     route: "/(app)/my-loading", match: "/my-loading" },
+    { icon: Package,         label: t.deliveries,    route: "/(app)/deliveries", match: "/deliveries" },
     { icon: Bell,            label: t.notifications, route: "/(app)/alerts",     match: "/alerts"     },
     { icon: CircleUserRound, label: t.profile,       route: "/(app)/profile",    match: "/profile", isProfile: true },
   ];
