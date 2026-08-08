@@ -42,6 +42,7 @@ export default function QueueScreen() {
   const [refreshing,   setRefreshing]   = useState(false);
   const [myId,         setMyId]         = useState<string|null>(null);
   const [myVehicle,    setMyVehicle]    = useState<Vehicle|null>(null);
+  const [verified,     setVerified]     = useState(true);
   const [vehicles,     setVehicles]     = useState<Vehicle[]>([]);
   const [previewEntry, setPreviewEntry] = useState<QueueEntry|null>(null);
   const [userRegion,   setUserRegion]   = useState<RegionCode|null>(null);
@@ -245,6 +246,7 @@ export default function QueueScreen() {
       DriversAPI.getVehicles(),
     ]);
     setMyId(driver?.id || null);
+    setVerified(!!driver?.verified);
     setVehicles(vehicles);
     setMyVehicle(vehicles.find(v => v.is_active) || vehicles[0] || null);
     // Refresh the board for the (sticky) active zone.
@@ -332,6 +334,15 @@ export default function QueueScreen() {
 
   const openJoinFlow = () => {
     setJoinError("");
+    // Verification gate: an unverified driver can't go online. Send them to
+    // finish uploading their documents instead of a dead-end error.
+    if (!verified) {
+      Alert.alert(t.verifNotVerified, t.verifGateBanner, [
+        { text: t.cancel, style: "cancel" },
+        { text: t.verifFinish, onPress: () => router.push("/(app)/verification" as any) },
+      ]);
+      return;
+    }
     const err = validateJoin();
     if (err) { setJoinError(err); return; }
     setShowDestPicker(true);

@@ -182,6 +182,24 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Verification — DL, insurance, registration review */}
+        <TouchableOpacity style={[s.card, !driver?.verified && { borderColor: Colors.accent, borderWidth: 1 }]} onPress={() => router.push("/(app)/verification" as any)} activeOpacity={0.85}>
+          <View style={s.cardRow}>
+            <Text style={s.cardTitle}>{t.verifOpenTitle}</Text>
+            {driver?.verified ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <VerifiedBadge size={16} />
+                <Text style={[s.badgeText, { color: Colors.green, fontSize: 12 }]}>{t.verifVerified}</Text>
+              </View>
+            ) : (
+              <View style={[s.badge, { backgroundColor: Colors.yellow + "20", borderColor: Colors.yellow + "40" }]}>
+                <Text style={[s.badgeText, { color: Colors.yellow }]}>{t.verifNotVerified}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={s.cardSub}>{t.verifOpenSub}</Text>
+        </TouchableOpacity>
+
         {/* Interac — where passengers e-Transfer the fare */}
         <View style={[s.card, !(driver?.interac_email || driver?.interac_phone) && { borderColor: Colors.accent, borderWidth: 1 }]}>
           <View style={s.cardRow}>

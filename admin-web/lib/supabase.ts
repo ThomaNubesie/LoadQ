@@ -103,7 +103,37 @@ export const api = {
     const { error } = await supabase.rpc("loadq_set_queue_window", { p_register: reg, p_load: load, p_close: close });
     if (error) throw error;
   },
+
+  // ── Driver documents (verification review) ──────────────────────────────
+  async docsQueue(status: DocStatus = "pending"): Promise<DriverDocRow[]> {
+    const { data, error } = await supabase.rpc("loadq_admin_docs_queue", { p_status: status });
+    if (error) throw error;
+    return (data as DriverDocRow[]) ?? [];
+  },
+  // Admin RLS (ddoc_sel_own → loadq_is_admin()) lets an admin read any driver's file.
+  async docSignedUrl(path: string): Promise<string | null> {
+    const { data, error } = await supabase.storage.from("driver-docs").createSignedUrl(path, 3600);
+    if (error) throw error;
+    return data?.signedUrl ?? null;
+  },
+  async reviewDoc(docId: string, decision: "approved" | "rejected", opts?: { notes?: string; expiresOn?: string | null }): Promise<DocReviewResult> {
+    const { data, error } = await supabase.rpc("loadq_admin_doc_review", {
+      p_doc_id: docId, p_decision: decision,
+      p_notes: opts?.notes ?? null, p_expires_on: opts?.expiresOn ?? null,
+    });
+    if (error) throw error;
+    return data as DocReviewResult;
+  },
 };
+
+export type DocStatus = "pending" | "approved" | "rejected" | "expired" | "all";
+export type DriverDocRow = {
+  doc_id: string; driver_id: string; full_name: string | null; phone: string | null; email: string | null;
+  plate: string | null; doc_type: string; status: string; storage_path: string;
+  expires_on: string | null; doc_number: string | null; review_notes: string | null;
+  submitted_at: string; driver_verified: boolean;
+};
+export type DocReviewResult = { doc_id: string; driver_id: string; decision: string; driver_verified: boolean };
 
 export function errMsg(e: unknown): string {
   if (!e) return "Something went wrong";

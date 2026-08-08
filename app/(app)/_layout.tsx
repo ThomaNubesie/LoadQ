@@ -11,6 +11,7 @@ export default function AppLayout() {
       <Stack.Screen name="zone-select" />
       <Stack.Screen name="queue" />
       <Stack.Screen name="my-loading" />
+      <Stack.Screen name="verification" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="alerts" />
       <Stack.Screen name="admin-zones" />
