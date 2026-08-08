@@ -7,7 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { useNow } from "../../hooks/useNow";
-import { PassengerBoardAPI, MyTrip, ratingLabel } from "../../services/passengerBoard";
+import { PassengerBoardAPI, MyTrip, ratingLabel, vehicleLabel } from "../../services/passengerBoard";
 import { PassengersAPI } from "../../services/passengers";
 import { getRegionName } from "../../constants/pricing";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -116,7 +116,7 @@ export default function MyTripScreen() {
   const rating  = ratingLabel(trip.rating_avg, trip.rating_avg == null ? 0 : 1); // my_trip omits count
   const boarding = trip.car_status === "loading";
   const boarded  = trip.status === "boarded";
-  const vehicle  = [trip.make, trip.model].filter(Boolean).join(" ");
+  const vehicle  = vehicleLabel(trip);
 
   return (
     <SafeAreaView style={s.screen} edges={["top"]}>

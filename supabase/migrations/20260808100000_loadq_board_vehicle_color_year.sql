@@ -1,0 +1,3 @@
+-- Emit vehicle colour + year on loadq_passenger_board and loadq_my_trip so the
+-- UI can render them on car chips (additive; applied to prod via MCP).
+-- (Full bodies applied via MCP migration loadq_board_vehicle_color_year.)

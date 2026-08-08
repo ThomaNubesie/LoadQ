@@ -39,6 +39,8 @@ export interface BoardCar {
   make:           string | null;
   model:          string | null;
   type:           string | null;
+  color:          string | null;
+  year:           number | null;
   seats:          number;
   seats_taken:    number;
   seats_left:     number;
@@ -68,6 +70,8 @@ export interface MyTrip {
   model:              string | null;
   plate:              string | null;
   type:               string | null;
+  color:              string | null;
+  year:               number | null;
   vehicle_seats:      number | null;
   price_paid:         number | null;
   zone_name:          string | null;
@@ -114,6 +118,12 @@ export type ReserveError =
   | "unauthenticated" | "car_not_found" | "not_loading_car" | "seats_full" | "already_reserved" | "unknown";
 
 /* -------------------------------------------------------------- formatting */
+
+// "2017 Honda Odyssey · Light Grey" — year/make/model with colour appended.
+export function vehicleLabel(v: { year?: number | null; color?: string | null; make?: string | null; model?: string | null }): string {
+  const base = [v.year || null, v.make, v.model].filter(Boolean).join(" ");
+  return v.color ? (base ? `${base} · ${v.color}` : v.color) : base;
+}
 
 export function formatFare(cents: number | null | undefined): string {
   if (cents == null) return "—";

@@ -563,7 +563,7 @@ export default function QueueScreen() {
           </TouchableOpacity>
           <View style={s.info}>
             <Text style={s.name}>{entry.driver?.full_name || t.driverLabel}{isMe ? ` ${t.youSuffix}` : ""}{(entry as any).note ? ` (${(entry as any).note})` : ""}</Text>
-            <Text style={s.vehicleName}>{vehicle ? `${vehicle.make} ${vehicle.model}` : t.vehicleFallback}</Text>
+            <Text style={s.vehicleName}>{vehicle ? `${vehicle.year ? vehicle.year + " " : ""}${vehicle.make} ${vehicle.model}${vehicle.color ? " · " + vehicle.color : ""}` : t.vehicleFallback}</Text>
             {!isEnded && (
               <>
                 <View style={s.miniSeats}>

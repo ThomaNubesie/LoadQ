@@ -10,7 +10,7 @@ import { ZoneLocation, REGIONS } from "../../constants/zones";
 import { getDestinationsFrom, getRegionName } from "../../constants/pricing";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import { useNow } from "../../hooks/useNow";
-import { PassengerBoardAPI, BoardCar, CityZone, formatFare, ratingLabel } from "../../services/passengerBoard";
+import { PassengerBoardAPI, BoardCar, CityZone, formatFare, ratingLabel, vehicleLabel } from "../../services/passengerBoard";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import SeatSvg from "../../components/SeatSvg";
 import ZoneMap from "../../components/ZoneMap";
@@ -189,7 +189,7 @@ export default function BoardScreen() {
   const CarCard = ({ car }: { car: BoardCar }) => {
     const isLoading = car.status === "loading";
     const rating = ratingLabel(car.rating_avg, car.rating_count);
-    const vehicle = [car.make, car.model].filter(Boolean).join(" ") || t("newDriver");
+    const vehicle = vehicleLabel(car) || t("newDriver");
     const isExpanded = expandedId === car.queue_entry_id;
     return (
       <View style={[s.car, isLoading && s.carLoading]}>
@@ -364,7 +364,7 @@ export default function BoardScreen() {
                     ? <View style={s.newBadge}><Text style={s.newBadgeTxt}>{t("badgeNew")}</Text></View>
                     : <View style={s.ratingRow}><Star size={13} color={Colors.yellow} fill={Colors.yellow} /><Text style={[s.rating, { fontSize: 14 }]}>{r.stars} · {t("ratingsCount", { n: profileCar.rating_count })}</Text></View>}
                   {profileCar.make && <Image source={{ uri: getVehicleImageUrl(profileCar.make || "", profileCar.model || "", undefined, "side") }} style={s.profileVehicle} resizeMode="contain" />}
-                  <Text style={s.profileVehTxt}>{[profileCar.make, profileCar.model].filter(Boolean).join(" ")} · {t("seatsN", { n: profileCar.seats })}</Text>
+                  <Text style={s.profileVehTxt}>{vehicleLabel(profileCar)} · {t("seatsN", { n: profileCar.seats })}</Text>
                 </>
               );
             })()}
@@ -384,7 +384,7 @@ export default function BoardScreen() {
                 <View style={[s.avatar, { width: 30, height: 30 }]}><Text style={s.avatarTxt}>{initials(reserveCar.driver_name)}</Text></View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.name}>{reserveCar.driver_name}</Text>
-                  <Text style={s.vehicle}>{[reserveCar.make, reserveCar.model].filter(Boolean).join(" ")} · {getRegionName(dest)}</Text>
+                  <Text style={s.vehicle}>{vehicleLabel(reserveCar)} · {getRegionName(dest)}</Text>
                 </View>
               </View>
               <View style={s.stepper}>
