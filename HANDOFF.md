@@ -4,6 +4,34 @@ Snapshot for continuing on another machine. Pull latest first:
 `git pull` on branch **`ship-loadq-1.2.6`** (LoadQ) and **`ship-kolis-1.1.0`** (Kolis at ~/Desktop/Kolis).
 Shared Supabase project: **`kzjptcpjpwlxfofzhyku`** (LoadQ + Kolis). EAS user: **thomasderick**.
 
+## Concord Express — official email & letter branding (2026-08-08)
+
+**This is the canonical Concord Express brand for all outbound email and PDF letters.** Green identity (NOT the KOLIS magenta).
+
+- **Logo:** dark-green square `#0E4632`, `CX` in mint `#33D69F` (Georgia serif), `CONCORD` under a mint rule.
+- **Wordmark:** **Concord Express Co Inc.** + taglines: *Intercity carpooling · Canada · France · West Africa* (green `#22A874`) / *Transport des personnes · Expédition · Gestion de file d'attente* (grey) / *Là-bas aujourd'hui !* (green italic).
+- **Footer band:** light `#F1F4F2` row — `www.concordexpress.ca` · mint divider `#2ECC8F` · `Ottawa, ca · (+1) 613 868 2982 · info@concordexpress.ca`; then a dark-green bar `#0E4632` reading **ConcordXpress · LoadQ · Kolis** (all three platforms).
+- **Signature block:** `Thomas Derick Shalo` / `Concord Express Co Inc. · ConcordXpress · LoadQ · Kolis` / `613-862-2639 · shaloderick@concordexpress.ca`.
+
+**How the branding is PERSISTED on every email:** the **`concord-mail`** edge function (Supabase, `verify_jwt=false`, guarded by `x-kolis-secret`) **auto-wraps every send in the letterhead above** — the `letterhead()` HTML inside that function is the single source of truth. Any system that emails as Concord Express must send through it:
+
+```
+POST https://kzjptcpjpwlxfofzhyku.supabase.co/functions/v1/concord-mail
+Header: x-kolis-secret: <secret>
+Body:   { "from":"Thomas Derick Shalo <shaloderick@concordexpress.ca>",
+          "to":"…", "subject":"…",
+          "body":"<inner HTML only — letterhead is added automatically>",
+          "reply_to":"shaloderick@concordexpress.ca",
+          "attachments":[{"filename":"….pdf","content":"<base64>"}] }
+```
+- Pass **`body`** (inner content only) — the function adds the header/footer. Pass `wrap:false` to opt out (raw HTML). `{ "action":"domains" }` returns Resend domain status.
+- **`concordexpress.ca` is verified in Resend** (DKIM/SPF/return-path live) → mail from `@concordexpress.ca` passes DMARC. Default From = `Concord Express <noreply@concordexpress.ca>`.
+- **To change branding globally, edit `letterhead()` in `concord-mail` once** — every future email updates.
+
+**PDF letters** use the same letterhead (Letter size, footer band pinned to page bottom). Generator: `letter_*.html` → Chrome `--print-to-pdf`; latest saved to `~/Downloads/Concord-Express-*-Inquiry.pdf`.
+
+**A5 procurement inquiries (drafted 2026-08-08):** MTO Authorized Requester Program → `ARIS@ontario.ca`; Certn → `partnerships@certn.co` (Sterling Backcheck has no public sales email — First Advantage; web-form/phone only). Each email carries the inquiry letter PDF + `concord-express-apps.pdf` overview.
+
 ## Kolis pricing — canonical reference (2026-08-08)
 
 **Org per-shipment price** — `kolis_org_price_cents(org, size, drop_type, from, to)`:
