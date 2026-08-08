@@ -48,6 +48,17 @@ Flyer: `~/Desktop/loadq-update-flyer.png`. Diagnostic fn `loadq-resend-check` al
 - Mobile `tsconfig.json` excludes `admin-web` (Next.js `@/*` paths break RN tsc). Pre-existing tsc errors: Deno edge fns + `constants/vehicles.ts` (not from this work).
 - EAS `production` auto-increments build numbers; bump `expo.version` when App Store rejects a re-submit of an already-submitted version.
 
+## Consolidated dev handoff — status (2026-08-08)
+All 6 items from the consolidated handoff are now DONE:
+1. ✅ LoadQ passenger Board wired — v1.2.17 (15-min hold, city picker, alerts, map).
+2. ✅ LoadQ driver **Deliveries tab** — `app/(app)/deliveries.tsx` + BottomNav tab, surfacing `KolisParcels` (available/accept/decline/carrying). LoadQ `4803736`.
+3. ✅ Admin board slots — `pickup_slot`/`dropoff_slot` columns + detail card, deployed to business.kolis.ca. Kolis `dd60bac`.
+4. ✅ Shipment creation require contacts — sender + recipient email & phone. Kolis `dd60bac`.
+5. ✅ Checkout **Interac option** — `confirm.tsx` Card/Interac selector; Interac creates parcel `payment_method='interac'`/`payment_status='pending'`, calls `kolis-interac-request` (SMS+email invoice), gated until `kolis_admin_mark_paid`. Kolis `83cc26b`.
+6. ✅ Car UI **colour + year** — board/my-trip RPCs emit `v.color`/`v.year` (migration `20260808100000`); `vehicleLabel()` renders "year make model · colour" on passenger board, my-trip, driver queue chips. LoadQ `4ff8f90`.
+
+**Not yet in a store build:** #2/#6 (LoadQ) and #5 (Kolis) are pushed but need new builds — bump `expo.version` and cut when ready. admin-web (#3) already deployed.
+
 ## Release notes — "What's New" (paste into App Store Connect / Play Console)
 
 ### Kolis 1.1.8
