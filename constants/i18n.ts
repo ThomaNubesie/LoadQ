@@ -638,6 +638,12 @@ export const STRINGS = {
     docExpiryHint:       "Helps us remind you before it lapses.",
     docSave:             "Save",
     docSkip:             "Skip",
+    consentTitle:        "Verification consent",
+    consentBody:         "I authorize Concord Express to verify my driver's licence (validity, class and status), driving record, vehicle registration and criminal record for driver-safety purposes, and to obtain these from official sources or an authorized provider. I may withdraw consent by contacting support.",
+    consentAgree:        "I agree & continue",
+    consentGivenOn:      "You consented on {date}",
+    consentRequired:     "Please accept the verification consent first.",
+    consentSaving:       "Saving…",
   },
 
   fr: {
@@ -1277,6 +1283,12 @@ export const STRINGS = {
     docExpiryHint:       "Nous vous rappellerons avant l’échéance.",
     docSave:             "Enregistrer",
     docSkip:             "Passer",
+    consentTitle:        "Consentement à la vérification",
+    consentBody:         "J’autorise Concord Express à vérifier mon permis de conduire (validité, catégorie et statut), mon dossier de conduite, l’immatriculation de mon véhicule et mon casier judiciaire à des fins de sécurité, et à les obtenir auprès de sources officielles ou d’un fournisseur autorisé. Je peux retirer mon consentement en communiquant avec le soutien.",
+    consentAgree:        "J’accepte et continue",
+    consentGivenOn:      "Vous avez consenti le {date}",
+    consentRequired:     "Veuillez d’abord accepter le consentement de vérification.",
+    consentSaving:       "Enregistrement…",
   },
 };
 

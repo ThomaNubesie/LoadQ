@@ -6,7 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ArrowLeft, Camera, Images, FileText, ShieldCheck, Car, CheckCircle2, Clock3, XCircle, AlertTriangle, X } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc } from "../../services/driverDocs";
+import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc, ScreeningConsent } from "../../services/driverDocs";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import BottomNav from "../../components/BottomNav";
 
@@ -19,6 +19,8 @@ export default function VerificationScreen() {
   const [verified, setVerified] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<DocType | null>(null);
+  const [consent, setConsent] = useState<ScreeningConsent | null>(null);
+  const [consentBusy, setConsentBusy] = useState(false);
 
   // Photo-source + expiry sheet state for the doc currently being uploaded.
   const [sheetFor, setSheetFor] = useState<DocType | null>(null);
@@ -38,6 +40,7 @@ export default function VerificationScreen() {
       for (const d of docs) map[d.doc_type] = d;
       setDocs(map);
       setVerified(verified);
+      setConsent(await DriverDocsAPI.getConsent().catch(() => null));
     } catch { /* offline / not signed in — leave empty */ }
     finally { setLoading(false); }
   }, []);
@@ -46,6 +49,21 @@ export default function VerificationScreen() {
   const approvedCount = DOC_TYPES.filter((dt) => docs[dt]?.status === "approved").length;
 
   const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" });
+
+  // Consent gate: a driver must accept the verification consent before any
+  // upload — it's the legal basis for the licence/registration/record checks.
+  const openUpload = (dt: DocType) => {
+    if (!consent) { Alert.alert(t.consentTitle, t.consentRequired); return; }
+    setSheetFor(dt);
+  };
+
+  const agreeConsent = async () => {
+    setConsentBusy(true);
+    const { error } = await DriverDocsAPI.recordConsent();
+    setConsentBusy(false);
+    if (error) { Alert.alert(t.error, error); return; }
+    setConsent(await DriverDocsAPI.getConsent().catch(() => null));
+  };
 
   // ── Picking & uploading ────────────────────────────────────────────────
   const pick = async (source: "camera" | "library") => {
@@ -131,6 +149,21 @@ export default function VerificationScreen() {
           </View>
         )}
 
+        {!loading && (consent ? (
+          <View style={s.consentDone}>
+            <CheckCircle2 size={14} color={Colors.green} strokeWidth={2.4} />
+            <Text style={s.consentDoneTxt}>{t("consentGivenOn", { date: new Date(consent.consented_at).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" }) })}</Text>
+          </View>
+        ) : (
+          <View style={s.consentCard}>
+            <Text style={s.consentTitle}>{t.consentTitle}</Text>
+            <Text style={s.consentBody}>{t.consentBody}</Text>
+            <TouchableOpacity style={[s.btn, consentBusy && s.btnBusy]} onPress={agreeConsent} disabled={consentBusy} activeOpacity={0.85}>
+              <Text style={s.btnTxt}>{consentBusy ? t.consentSaving : t.consentAgree}</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+
         {loading ? (
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 28 }} />
         ) : (
@@ -165,11 +198,11 @@ export default function VerificationScreen() {
                 {busy === dt ? (
                   <View style={[s.btn, s.btnBusy]}><ActivityIndicator size="small" color={Colors.accentText} /><Text style={s.btnTxt}>{t.docUploading}</Text></View>
                 ) : doc?.status === "pending" ? (
-                  <TouchableOpacity style={[s.btn, s.btnGhost]} onPress={() => setSheetFor(dt)} activeOpacity={0.85}>
+                  <TouchableOpacity style={[s.btn, s.btnGhost]} onPress={() => openUpload(dt)} activeOpacity={0.85}>
                     <Text style={[s.btnTxt, { color: Colors.t1 }]}>{t.docReplace}</Text>
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity style={[s.btn, doc?.status === "approved" && s.btnGhost]} onPress={() => setSheetFor(dt)} activeOpacity={0.85}>
+                  <TouchableOpacity style={[s.btn, doc?.status === "approved" && s.btnGhost]} onPress={() => openUpload(dt)} activeOpacity={0.85}>
                     <Text style={[s.btnTxt, doc?.status === "approved" && { color: Colors.t1 }]}>{ctaLabel(dt)}</Text>
                   </TouchableOpacity>
                 )}
@@ -239,6 +272,12 @@ const s = StyleSheet.create({
 
   gate:        { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: Colors.accent + "12", borderWidth: 1, borderColor: Colors.accent + "40", borderRadius: 12, padding: 12, marginBottom: 16 },
   gateTxt:     { flex: 1, color: "#ffd0ab", fontSize: 12.5, lineHeight: 17 },
+
+  consentCard: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, padding: 15, marginBottom: 16 },
+  consentTitle:{ fontSize: 14.5, fontWeight: "800", color: Colors.t1, marginBottom: 7 },
+  consentBody: { fontSize: 12.5, lineHeight: 18, color: Colors.t2 },
+  consentDone: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: Colors.green + "14", borderWidth: 1, borderColor: Colors.green + "33", borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginBottom: 16 },
+  consentDoneTxt: { color: Colors.green, fontSize: 12, fontWeight: "700" },
 
   card:        { backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, borderRadius: 14, padding: 14, marginBottom: 11 },
   crow:        { flexDirection: "row", alignItems: "center", gap: 12 },

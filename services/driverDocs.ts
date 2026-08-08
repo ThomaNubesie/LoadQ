@@ -18,7 +18,33 @@ export type DriverDoc = {
   reviewed_at: string | null;
 };
 
+// Consent version + scopes covered by the A1 verification agreement. Bumping
+// the version forces drivers to re-consent (e.g. when a new check is added).
+export const CONSENT_VERSION = "v1-2026-08";
+export const CONSENT_SCOPES = ["drivers_license", "registration", "driving_record", "criminal_record"];
+
+export type ScreeningConsent = { version: string; scopes: string[]; consented_at: string };
+
 export const DriverDocsAPI = {
+  // Latest active screening consent for this driver (null if none / revoked).
+  async getConsent(): Promise<ScreeningConsent | null> {
+    const { data, error } = await supabase.rpc("loadq_screening_consent_status");
+    if (error) throw error;
+    const rows = (data as ScreeningConsent[]) ?? [];
+    return rows[0] ?? null;
+  },
+
+  // Record the driver's written consent to licence/registration/record checks.
+  // This is the legal basis for the MTO ARP + background-check integrations.
+  async recordConsent(): Promise<{ error?: string }> {
+    const { error } = await supabase.rpc("loadq_record_screening_consent", {
+      p_version: CONSENT_VERSION,
+      p_scopes: CONSENT_SCOPES,
+      p_user_agent: `loadq-app`,
+    });
+    return { error: error?.message };
+  },
+
   // All of this driver's documents + the overall verified flag. Returns a row
   // only for docs that have been submitted at least once.
   async getMine(): Promise<{ docs: DriverDoc[]; verified: boolean }> {

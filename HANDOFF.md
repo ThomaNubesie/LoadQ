@@ -30,7 +30,9 @@ Body:   { "from":"Thomas Derick Shalo <shaloderick@concordexpress.ca>",
 
 **PDF letters** use the same letterhead (Letter size, footer band pinned to page bottom). Generator: `letter_*.html` → Chrome `--print-to-pdf`; latest saved to `~/Downloads/Concord-Express-*-Inquiry.pdf`.
 
-**A5 procurement inquiries (drafted 2026-08-08):** MTO Authorized Requester Program → `ARIS@ontario.ca`; Certn → `partnerships@certn.co` (Sterling Backcheck has no public sales email — First Advantage; web-form/phone only). Each email carries the inquiry letter PDF + `concord-express-apps.pdf` overview.
+**A5 automated verification — procurement + consent (2026-08-08):**
+- **Inquiries SENT** (bilingual EN/FR, letterhead PDFs + overview attached): MTO Authorized Requester Program → `ARIS@ontario.ca`; Certn → `partnerships@certn.co`. Sterling Backcheck has no public sales email (First Advantage; web-form/phone only) — skipped.
+- **Consent capture BUILT** (the legal bridge the MTO/Certn letters require). Migration `20260808170000_loadq_driver_screening_consent.sql`: append-only `loadq_driver_consents` table (driver-own RLS + `loadq_is_admin()` read) + `loadq_record_screening_consent(version,scopes,ua)` / `loadq_screening_consent_status()`. Scopes: drivers_license · registration · driving_record · criminal_record; version `v1-2026-08` (bump to force re-consent). App: the A1 **Verification** screen shows a consent card and **blocks uploads until the driver agrees** (`DriverDocsAPI.getConsent/recordConsent`). When a vendor is selected, store check results against the same A1 doc rows / `drivers.verified`.
 
 ## Kolis pricing — canonical reference (2026-08-08)
 
