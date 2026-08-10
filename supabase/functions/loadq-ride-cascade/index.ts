@@ -1,8 +1,9 @@
 // loadq-ride-cascade — 1-minute dispatch tick.
 //   1. Expire stale offers (loadq_ride_offers_expire).
-//   2. For each on-demand request that still needs a driver (not resolved,
-//      payment cleared, no live offer out), re-call loadq-ride-dispatch to
-//      offer the next front-most eligible driver.
+//   2. On-demand: re-call loadq-ride-dispatch for requests needing the next
+//      front-most eligible driver.
+//   3. Route-pickup: offer the front-most queued driver at the matched departure
+//      zone heading to the destination (cascading to the next untried driver).
 // Neither a decline nor an expiry advances the cascade on its own, so this tick
 // is what keeps the offer loop moving. Gated by x-kolis-secret (cron only).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -41,7 +42,33 @@ Deno.serve(async (req) => {
       }).catch(() => {});
       dispatched++;
     }
-    return json({ ok: true, expired: expired ?? 0, dispatched, skipped });
+
+    // 3. Route-pickup: offer the front-most queued driver at the matched zone
+    //    heading to the destination; cascade to the next untried driver.
+    const { data: rp } = await admin
+      .from("loadq_ride_requests")
+      .select("id, status, dest_region, departure_zone_id, payment_method, payment_status")
+      .eq("kind", "route_pickup");
+    let offered = 0;
+    for (const r of rp ?? []) {
+      if (RESOLVED.includes(r.status)) { skipped++; continue; }
+      if (!r.departure_zone_id) { skipped++; continue; }              // not quoted/matched yet
+      if (r.payment_method === "interac" && r.payment_status !== "paid") { skipped++; continue; }
+      const { data: offers } = await admin
+        .from("loadq_ride_offers").select("driver_id, status, expires_at").eq("request_id", r.id);
+      if ((offers ?? []).some((o: any) => o.status === "offered" && new Date(o.expires_at).getTime() > now)) { skipped++; continue; }
+      const tried = new Set((offers ?? []).map((o: any) => o.driver_id));
+      const { data: q } = await admin
+        .from("queue_entries").select("driver_id, position, status")
+        .eq("zone_id", r.departure_zone_id).eq("destination_region", r.dest_region)
+        .in("status", ["loading", "waiting", "standby"]).order("position");
+      const next = (q ?? []).find((e: any) => !tried.has(e.driver_id));
+      if (!next) { skipped++; continue; }                            // no eligible/untried driver
+      await admin.rpc("loadq_ride_offer_next", { p_request_id: r.id, p_driver_id: next.driver_id, p_rank: next.position, p_window_seconds: 60 });
+      offered++;
+    }
+
+    return json({ ok: true, expired: expired ?? 0, dispatched, offered, skipped });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
