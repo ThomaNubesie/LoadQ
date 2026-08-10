@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
-import { useStripe } from "@stripe/stripe-react-native";
+import { useStripe, initStripe } from "@stripe/stripe-react-native";
 import { RidesAPI, RIDE_TERMINAL, type MyRideRequest } from "../../services/rides";
 import { DESTINATION_CITIES, getRegionName } from "../../constants/pricing";
 import { useStrings } from "../../hooks/useStrings";
@@ -90,6 +90,9 @@ export default function RequestRideScreen() {
         // Pre-authorize the fare (manual capture = held, not taken) via PaymentSheet.
         const a = await RidesAPI.authorizeCard(c.id);
         if (a.error || !a.client_secret) { setBusy(false); Alert.alert(t.reqRideTitle, a.error || "Card setup failed"); return; }
+        // Initialize Stripe with the publishable key returned by the backend
+        // (from the STRIPE_PUBLISHABLE_KEY secret) — no key baked into the build.
+        if (a.publishable_key) { try { await initStripe({ publishableKey: a.publishable_key }); } catch { /* provider already set */ } }
         const init = await initPaymentSheet({
           merchantDisplayName: "LoadQ",
           paymentIntentClientSecret: a.client_secret,
