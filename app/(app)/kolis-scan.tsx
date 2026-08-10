@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { ScanLine, Lock, X } from "lucide-react-native";
 import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { KolisAPI, ScanResult } from "../../services/kolis";
@@ -65,7 +66,19 @@ export default function KolisScan() {
       if (!d.ok) Alert.alert("Kolis", d.error === "payment_not_captured"
         ? (fr ? "Paiement non encaissé — contactez la répartition avant de livrer." : "Payment not captured — contact dispatch before delivering.")
         : (d.error || (fr ? "Impossible de confirmer la livraison." : "Couldn't confirm delivery.")));
-      else { Alert.alert("Kolis", fr ? "Livré." : "Delivered."); router.back(); }
+      else {
+        // B4: photograph the handoff, then email/SMS the branded card to both sides.
+        let photoUrl: string | null = null;
+        const cam = await ImagePicker.requestCameraPermissionsAsync();
+        if (cam.granted) {
+          const shot = await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: false });
+          const uri = shot.assets?.[0]?.uri;
+          if (uri) { const up = await KolisAPI.uploadProofPhoto(res.parcelId, uri, "door"); photoUrl = up.url ?? null; }
+        }
+        await KolisAPI.sendDeliveryCard(res.parcelId, photoUrl);
+        Alert.alert("Kolis", fr ? "Livré — carte envoyée à l'expéditeur et au destinataire." : "Delivered — card sent to sender & recipient.");
+        router.back();
+      }
     }
     setConfirming(false);
   };

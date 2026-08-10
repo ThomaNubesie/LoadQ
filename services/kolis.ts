@@ -120,6 +120,14 @@ export const KolisAPI = {
     if (data?.error) return { ok: false, error: data.error };
     return { ok: true };
   },
+  // B4: after an attended (code-confirmed) delivery, store the handoff photo and
+  // email/SMS the branded "Delivered" card to the sender + recipient.
+  async sendDeliveryCard(parcelId: string, photoUrl?: string | null): Promise<{ ok: boolean; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("kolis-delivery-card", { body: { parcel_id: parcelId, photo_url: photoUrl ?? null } });
+    if (error) return { ok: false, error: error.message };
+    if (data?.error) return { ok: false, error: data.error };
+    return { ok: true };
+  },
 
   // ── Unattended proof-of-delivery ──────────────────────────────────────
   // Upload one proof photo to the public delivery-proof bucket, return its URL.
