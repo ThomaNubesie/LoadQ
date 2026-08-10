@@ -232,7 +232,7 @@ export default function BoardScreen() {
 
         {isExpanded && (
           <View style={s.expand}>
-            {car.make && <Image source={{ uri: getVehicleImageUrl(car.make || "", car.model || "", undefined, "side") }} style={s.expandVehicle} resizeMode="contain" />}
+            {car.make && <Image source={{ uri: getVehicleImageUrl(car.make || "", car.model || "", undefined, "side", car.color || undefined) }} style={s.expandVehicle} resizeMode="contain" />}
             <View style={s.expandRow}><Text style={s.expandKey}>{t("destinationLabel")}</Text><Text style={s.expandVal}>{getRegionName(dest)}</Text></View>
             <View style={s.expandRow}><Text style={s.expandKey}>{t("seatsLabel")}</Text><Text style={s.expandVal}>{car.seats_taken} / {car.seats} · {t("seatsLeftN", { n: car.seats_left })}</Text></View>
             <View style={s.expandRow}><Text style={s.expandKey}>{t("fareLabel")}</Text><Text style={[s.expandVal, { color: Colors.accent, fontWeight: "800" }]}>{formatFare(car.fare_cents)} {t("perSeat")}</Text></View>
@@ -369,7 +369,7 @@ export default function BoardScreen() {
                   {r.isNew
                     ? <View style={s.newBadge}><Text style={s.newBadgeTxt}>{t("badgeNew")}</Text></View>
                     : <View style={s.ratingRow}><Star size={13} color={Colors.yellow} fill={Colors.yellow} /><Text style={[s.rating, { fontSize: 14 }]}>{r.stars} · {t("ratingsCount", { n: profileCar.rating_count })}</Text></View>}
-                  {profileCar.make && <Image source={{ uri: getVehicleImageUrl(profileCar.make || "", profileCar.model || "", undefined, "side") }} style={s.profileVehicle} resizeMode="contain" />}
+                  {profileCar.make && <Image source={{ uri: getVehicleImageUrl(profileCar.make || "", profileCar.model || "", undefined, "side", profileCar.color || undefined) }} style={s.profileVehicle} resizeMode="contain" />}
                   <Text style={s.profileVehTxt}>{vehicleLabel(profileCar)} · {t("seatsN", { n: profileCar.seats })}</Text>
                 </>
               );
