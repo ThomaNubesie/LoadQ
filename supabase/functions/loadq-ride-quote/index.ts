@@ -110,16 +110,22 @@ Deno.serve(async (req) => {
       origin_lat: origin.lat, origin_lng: origin.lng, dest_lat: dest.lat, dest_lng: dest.lng,
     }).eq("id", reqRow.id);
 
-    // fare = seat fare (if set) + a flat $5 route-pickup fee per request
+    // Fare = the matched departure zone's seat fare (loadq_route_fares) + a flat
+    // $5 route-pickup fee. Looked up per zone+destination, not destination alone,
+    // so a Toronto→Montréal pickup isn't priced like an Ottawa→Montréal one.
     const PICKUP_FEE_CENTS = 500;
-    const { data: fareRow } = await admin.from("loadq_route_fares").select("fare_cents")
-      .eq("destination_region", reqRow.dest_region).limit(1).maybeSingle();
-    const base_fare_cents = fareRow?.fare_cents ?? null;
-    const fare_cents = (base_fare_cents ?? 0) + PICKUP_FEE_CENTS;
+    const fareForZone = async (zid: string | null | undefined): Promise<number | null> => {
+      if (!zid) return null;
+      const { data } = await admin.from("loadq_route_fares").select("fare_cents")
+        .eq("zone_id", zid).eq("destination_region", reqRow.dest_region).maybeSingle();
+      return data?.fare_cents ?? null;
+    };
 
-    // finalize a station pickup chosen by the passenger
+    // finalize a station pickup chosen by the passenger (zone already matched)
     if (b.chosen_pickup?.lat != null) {
       const cp = b.chosen_pickup;
+      const base_fare_cents = await fareForZone(reqRow.departure_zone_id);
+      const fare_cents = (base_fare_cents ?? 0) + PICKUP_FEE_CENTS;
       await admin.rpc("loadq_ride_set_quote", {
         p_request_id: reqRow.id, p_pickup_type: "station", p_pickup_label: cp.label ?? "Meeting point",
         p_pickup_lat: cp.lat, p_pickup_lng: cp.lng, p_off_route_km: cp.off_route_km ?? null,
@@ -151,6 +157,10 @@ Deno.serve(async (req) => {
     // Persist the matched departure zone so loadq-ride-cascade knows which
     // queued drivers to offer this route pickup to.
     await admin.from("loadq_ride_requests").update({ departure_zone_id: best.zone }).eq("id", reqRow.id);
+
+    // Price from the matched zone's fare row.
+    const base_fare_cents = await fareForZone(best.zone);
+    const fare_cents = (base_fare_cents ?? 0) + PICKUP_FEE_CENTS;
 
     if (best.km <= MI5) {
       const off_km = Math.round((best.km / 1000) * 10) / 10;
