@@ -49,7 +49,7 @@ export default function AlertsScreen() {
     <SafeAreaView style={s.screen} edges={["top"]}>
       <Text style={s.title}>{t("navAlerts")}</Text>
       {loading ? (
-        <ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} />
+        <View style={s.center}><ActivityIndicator color={Colors.accent} /></View>
       ) : alerts.length === 0 ? (
         <View style={s.center}>
           <Bell size={30} color={Colors.t3} strokeWidth={1.8} />

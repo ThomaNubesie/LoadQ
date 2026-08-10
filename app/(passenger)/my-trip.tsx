@@ -98,7 +98,7 @@ export default function MyTripScreen() {
   }
 
   if (loading) {
-    return <SafeAreaView style={s.screen} edges={["top"]}><Text style={s.title}>{t("myTripTitle")}</Text><ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} /><PassengerBottomNav /></SafeAreaView>;
+    return <SafeAreaView style={s.screen} edges={["top"]}><Text style={s.title}>{t("myTripTitle")}</Text><View style={s.center}><ActivityIndicator color={Colors.accent} /></View><PassengerBottomNav /></SafeAreaView>;
   }
 
   if (!trip) {
