@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const now = Date.now();
     for (const r of reqs ?? []) {
       if (RESOLVED.includes(r.status)) { skipped++; continue; }
-      if (r.payment_method === "interac" && r.payment_status !== "paid") { skipped++; continue; }
+      if ((r.payment_method === "interac" || r.payment_method === "card") && r.payment_status !== "paid") { skipped++; continue; }
       const { data: offers } = await admin
         .from("loadq_ride_offers").select("status, expires_at").eq("request_id", r.id);
       const hasLive = (offers ?? []).some((o: any) => o.status === "offered" && new Date(o.expires_at).getTime() > now);

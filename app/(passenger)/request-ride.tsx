@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
+import { useStripe } from "@stripe/stripe-react-native";
 import { RidesAPI, RIDE_TERMINAL, type MyRideRequest } from "../../services/rides";
 import { DESTINATION_CITIES, getRegionName } from "../../constants/pricing";
 import { useStrings } from "../../hooks/useStrings";
@@ -16,10 +17,11 @@ type Coords = { label: string; lat: number; lng: number };
 export default function RequestRideScreen() {
   const router = useRouter();
   const { t } = useStrings();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [phase, setPhase] = useState<"loading" | "form" | "active">("loading");
   const [kind, setKind] = useState<"route_pickup" | "on_demand">("route_pickup");
-  const [pay, setPay] = useState<"interac" | "cash">("interac");
+  const [pay, setPay] = useState<"interac" | "cash" | "card">("interac");
   const [dest, setDest] = useState<string | null>(null);
   const [pickup, setPickup] = useState<Coords | null>(null);
   const [locating, setLocating] = useState(false);
@@ -76,12 +78,30 @@ export default function RequestRideScreen() {
       const q = await RidesAPI.quote(c.id);
       if (!q.ok) { setBusy(false); Alert.alert(t.reqRideTitle, q.error || "Quote failed"); return; }
     } else {
-      // On-demand: depart from the nearest loading zone, then dispatch.
+      // On-demand: depart from the nearest loading zone, then dispatch (which
+      // prices the ride and, for card/Interac, returns awaiting_payment first).
       const z = await RidesAPI.nearestZone(pickup.lat, pickup.lng);
       if (!z?.id) { setBusy(false); Alert.alert(t.reqRideTitle, t.reqNoZone); return; }
       await RidesAPI.setDeparture(c.id, z.id);
       const d = await RidesAPI.dispatch(c.id);
       if (!d.ok) { setBusy(false); Alert.alert(t.reqRideTitle, d.error || "Dispatch failed"); return; }
+
+      if (method === "card") {
+        // Pre-authorize the fare (manual capture = held, not taken) via PaymentSheet.
+        const a = await RidesAPI.authorizeCard(c.id);
+        if (a.error || !a.client_secret) { setBusy(false); Alert.alert(t.reqRideTitle, a.error || "Card setup failed"); return; }
+        const init = await initPaymentSheet({
+          merchantDisplayName: "LoadQ",
+          paymentIntentClientSecret: a.client_secret,
+          customerId: a.customer, customerEphemeralKeySecret: a.ephemeral_key,
+          allowsDelayedPaymentMethods: false,
+        });
+        if (init.error) { setBusy(false); Alert.alert(t.reqRideTitle, init.error.message); return; }
+        const present = await presentPaymentSheet();
+        if (present.error) { setBusy(false); return; } // user cancelled / declined — nothing held
+        await RidesAPI.confirmCard(c.id);   // verify hold server-side → paid
+        await RidesAPI.dispatch(c.id);      // now offer a driver
+      }
     }
     setBusy(false);
     await refresh();
@@ -143,6 +163,11 @@ export default function RequestRideScreen() {
             <TouchableOpacity style={[s.chip2, pay === "interac" && s.chip2On]} onPress={() => setPay("interac")}>
               <Text style={pay === "interac" ? s.chip2TxtOn : s.chip2Txt}>{t.reqInterac}</Text>
             </TouchableOpacity>
+            {kind === "on_demand" && (
+              <TouchableOpacity style={[s.chip2, pay === "card" && s.chip2On]} onPress={() => setPay("card")}>
+                <Text style={pay === "card" ? s.chip2TxtOn : s.chip2Txt}>{t.reqCard}</Text>
+              </TouchableOpacity>
+            )}
             {kind === "on_demand" && (
               <TouchableOpacity style={[s.chip2, pay === "cash" && s.chip2On]} onPress={() => setPay("cash")}>
                 <Text style={pay === "cash" ? s.chip2TxtOn : s.chip2Txt}>{t.reqCash}</Text>

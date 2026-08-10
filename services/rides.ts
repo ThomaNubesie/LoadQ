@@ -69,12 +69,25 @@ export const RidesAPI = {
     const { error } = await supabase.rpc("loadq_ride_set_departure", { p_request_id: requestId, p_zone_id: zoneId });
     return { error: error?.message };
   },
-  // On-demand dispatch (offers a queue driver, or returns awaiting_payment for Interac).
+  // On-demand dispatch (offers a queue driver, or returns awaiting_payment for Interac/card).
   async dispatch(requestId: string): Promise<{ ok: boolean; error?: string; data?: any }> {
     const { data, error } = await supabase.functions.invoke("loadq-ride-dispatch", { body: { request_id: requestId } });
     if (error) return { ok: false, error: error.message };
     if ((data as any)?.error) return { ok: false, error: (data as any).error };
     return { ok: true, data };
+  },
+  // Card pre-auth: create a manual-capture PaymentIntent (funds held only) for the fare.
+  async authorizeCard(requestId: string): Promise<{ client_secret?: string; customer?: string; ephemeral_key?: string; publishable_key?: string | null; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("loadq-ride-card", { body: { action: "authorize", request_id: requestId } });
+    if (error) return { error: error.message };
+    if ((data as any)?.error) return { error: (data as any).error };
+    return data as any;
+  },
+  // Verify the hold server-side (PI is requires_capture) and mark the ride paid.
+  async confirmCard(requestId: string): Promise<{ ok: boolean; status?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("loadq-ride-card", { body: { action: "confirm", request_id: requestId } });
+    if (error) return { ok: false, error: error.message };
+    return data as any;
   },
 
   // ── Driver side ───────────────────────────────────────────────────────────
