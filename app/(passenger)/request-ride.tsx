@@ -19,6 +19,7 @@ export default function RequestRideScreen() {
 
   const [phase, setPhase] = useState<"loading" | "form" | "active">("loading");
   const [kind, setKind] = useState<"route_pickup" | "on_demand">("route_pickup");
+  const [pay, setPay] = useState<"interac" | "cash">("interac");
   const [dest, setDest] = useState<string | null>(null);
   const [pickup, setPickup] = useState<Coords | null>(null);
   const [locating, setLocating] = useState(false);
@@ -64,15 +65,25 @@ export default function RequestRideScreen() {
   const submit = async () => {
     if (!dest) { Alert.alert(t.reqRideTitle, t.reqNeedDest); return; }
     if (!pickup) { Alert.alert(t.reqRideTitle, t.reqNeedLocation); return; }
+    const method = kind === "route_pickup" ? "interac" : pay;
     setBusy(true);
     const c = await RidesAPI.createRequest({
-      kind: "route_pickup", origin_address: pickup.label, origin_lat: pickup.lat, origin_lng: pickup.lng,
-      dest_region: dest, payment_method: "interac",
+      kind, origin_address: pickup.label, origin_lat: pickup.lat, origin_lng: pickup.lng,
+      dest_region: dest, payment_method: method,
     });
     if (c.error || !c.id) { setBusy(false); Alert.alert(t.reqRideTitle, c.error || "Error"); return; }
-    const q = await RidesAPI.quote(c.id);
+    if (kind === "route_pickup") {
+      const q = await RidesAPI.quote(c.id);
+      if (!q.ok) { setBusy(false); Alert.alert(t.reqRideTitle, q.error || "Quote failed"); return; }
+    } else {
+      // On-demand: depart from the nearest loading zone, then dispatch.
+      const z = await RidesAPI.nearestZone(pickup.lat, pickup.lng);
+      if (!z?.id) { setBusy(false); Alert.alert(t.reqRideTitle, t.reqNoZone); return; }
+      await RidesAPI.setDeparture(c.id, z.id);
+      const d = await RidesAPI.dispatch(c.id);
+      if (!d.ok) { setBusy(false); Alert.alert(t.reqRideTitle, d.error || "Dispatch failed"); return; }
+    }
     setBusy(false);
-    if (!q.ok) { Alert.alert(t.reqRideTitle, q.error || "Quote failed"); }
     await refresh();
   };
 
@@ -105,9 +116,9 @@ export default function RequestRideScreen() {
               <Text style={[s.segTxt, kind === "route_pickup" && s.segTxtOn]}>🛣️ {t.reqRoutePickup}</Text>
               <Text style={[s.segSub, kind === "route_pickup" && s.segSubOn]}>{t.reqRoutePickupSub}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.segBtn, s.segDisabled]} disabled>
-              <Text style={s.segTxt}>⚡ {t.reqOnDemand}</Text>
-              <Text style={s.segSub}>{t.reqOnDemandSub}</Text>
+            <TouchableOpacity style={[s.segBtn, kind === "on_demand" && s.segOn]} onPress={() => setKind("on_demand")}>
+              <Text style={[s.segTxt, kind === "on_demand" && s.segTxtOn]}>⚡ {t.reqOnDemand}</Text>
+              <Text style={[s.segSub, kind === "on_demand" && s.segSubOn]}>{t.reqOnDemandSub}</Text>
             </TouchableOpacity>
           </View>
 
@@ -129,7 +140,14 @@ export default function RequestRideScreen() {
 
           <Text style={s.lbl}>{t.reqPayment}</Text>
           <View style={s.chip2Row}>
-            <View style={[s.chip2, s.chip2On]}><Text style={s.chip2TxtOn}>{t.reqInterac}</Text></View>
+            <TouchableOpacity style={[s.chip2, pay === "interac" && s.chip2On]} onPress={() => setPay("interac")}>
+              <Text style={pay === "interac" ? s.chip2TxtOn : s.chip2Txt}>{t.reqInterac}</Text>
+            </TouchableOpacity>
+            {kind === "on_demand" && (
+              <TouchableOpacity style={[s.chip2, pay === "cash" && s.chip2On]} onPress={() => setPay("cash")}>
+                <Text style={pay === "cash" ? s.chip2TxtOn : s.chip2Txt}>{t.reqCash}</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <TouchableOpacity style={[s.cta, busy && s.ctaOff]} onPress={submit} disabled={busy}>
@@ -211,6 +229,7 @@ const s = StyleSheet.create({
   chip2Row:   { flexDirection: "row", gap: 8 },
   chip2:      { flex: 1, alignItems: "center", paddingVertical: 11, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
   chip2On:    { borderColor: Colors.accent },
+  chip2Txt:   { color: Colors.t2, fontWeight: "700", fontSize: 13 },
   chip2TxtOn: { color: Colors.accent, fontWeight: "700", fontSize: 13 },
   cta:        { marginTop: 24, backgroundColor: Colors.accent, borderRadius: 14, padding: 16, alignItems: "center" },
   ctaOff:     { opacity: 0.5 },

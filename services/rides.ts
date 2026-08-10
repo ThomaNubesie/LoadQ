@@ -60,6 +60,22 @@ export const RidesAPI = {
     const { error } = await supabase.rpc("loadq_ride_request_cancel", { p_request_id: id });
     return { error: error?.message };
   },
+  // On-demand: nearest loading zone to the pickup, to depart from.
+  async nearestZone(lat: number, lng: number): Promise<{ id: string; name?: string } | null> {
+    const { data } = await supabase.rpc("loadq_nearest_zone", { p_lat: lat, p_lng: lng });
+    return (data as { id: string; name?: string } | null) ?? null;
+  },
+  async setDeparture(requestId: string, zoneId: string): Promise<{ error?: string }> {
+    const { error } = await supabase.rpc("loadq_ride_set_departure", { p_request_id: requestId, p_zone_id: zoneId });
+    return { error: error?.message };
+  },
+  // On-demand dispatch (offers a queue driver, or returns awaiting_payment for Interac).
+  async dispatch(requestId: string): Promise<{ ok: boolean; error?: string; data?: any }> {
+    const { data, error } = await supabase.functions.invoke("loadq-ride-dispatch", { body: { request_id: requestId } });
+    if (error) return { ok: false, error: error.message };
+    if ((data as any)?.error) return { ok: false, error: (data as any).error };
+    return { ok: true, data };
+  },
 
   // ── Driver side ───────────────────────────────────────────────────────────
   // Active offers currently pending for THIS driver (soonest-expiring first).
