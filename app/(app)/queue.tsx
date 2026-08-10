@@ -14,6 +14,7 @@ import { QueueEntry, Vehicle } from "../../constants/types";
 import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
 import KolisParcels from "../../components/KolisParcels";
+import ParkingButton from "../../components/ParkingButton";
 import ZoneMap from "../../components/ZoneMap";
 import { loadingState, formatRemaining, isWithinHours, nextRegistrationOpen } from "../../utils/loadingTimer";
 import { getCurrentLocationWithTimeout, tryGetUserLocation } from "../../utils/gpsTimeout";
@@ -870,6 +871,10 @@ export default function QueueScreen() {
       >
         {/* Kolis: parcel offers for queued drivers (self-hides if none) */}
         <KolisParcels />
+        {/* A6: pay for on-street parking while waiting (self-hides if no providers) */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <ParkingButton />
+        </View>
         {loading ? (
           <View style={s.loadingBlock}>
             <ActivityIndicator color={Colors.accent} size="large" />
