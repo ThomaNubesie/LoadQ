@@ -68,7 +68,27 @@ Deno.serve(async (req) => {
       offered++;
     }
 
-    return json({ ok: true, expired: expired ?? 0, dispatched, offered, skipped });
+    // 4. Card holds: capture the fare on completed rides, release it on
+    //    cancelled/expired ones. Idempotent — 'paid' means held-not-resolved;
+    //    the card fn flips it to 'captured'/'released' so this won't re-run.
+    const { data: cardRides } = await admin
+      .from("loadq_ride_requests")
+      .select("id, status, payment_method, payment_status, stripe_pi_id")
+      .eq("payment_method", "card").not("stripe_pi_id", "is", null).eq("payment_status", "paid");
+    let captured = 0, released = 0;
+    for (const r of cardRides ?? []) {
+      const act = r.status === "completed" ? "capture"
+        : (["cancelled", "expired"].includes(r.status) ? "release" : null);
+      if (!act) continue;
+      await fetch(`${URL}/functions/v1/loadq-ride-card`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-kolis-secret": SECRET },
+        body: JSON.stringify({ action: act, request_id: r.id }),
+      }).catch(() => {});
+      if (act === "capture") captured++; else released++;
+    }
+
+    return json({ ok: true, expired: expired ?? 0, dispatched, offered, captured, released, skipped });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

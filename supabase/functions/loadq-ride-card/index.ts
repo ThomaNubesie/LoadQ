@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
       if (["requires_capture", "requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status)) {
         await stripe.paymentIntents.cancel(pi.id);
       }
+      await admin.from("loadq_ride_requests").update({ payment_status: "released" }).eq("id", r.id);
       return json({ ok: true, status: "released" });
     }
 

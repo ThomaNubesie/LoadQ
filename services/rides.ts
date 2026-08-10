@@ -91,6 +91,11 @@ export const RidesAPI = {
   },
 
   // ── Driver side ───────────────────────────────────────────────────────────
+  // Driver marks their assigned ride completed (cascade then captures a card hold).
+  async completeRide(requestId: string): Promise<{ error?: string }> {
+    const { error } = await supabase.rpc("loadq_ride_complete", { p_request_id: requestId });
+    return { error: error?.message };
+  },
   // Active offers currently pending for THIS driver (soonest-expiring first).
   async driverOffers(): Promise<RideOffer[]> {
     const { data, error } = await supabase.rpc("loadq_ride_driver_offers");

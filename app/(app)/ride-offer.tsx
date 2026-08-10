@@ -22,6 +22,8 @@ export default function RideOfferScreen() {
   const [secs, setSecs] = useState(WINDOW);
   const [busy, setBusy] = useState(false);
   const [acceptedPickup, setAcceptedPickup] = useState<string | null>(null);
+  const [acceptedReqId, setAcceptedReqId] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const pickCurrent = (list: RideOffer[]): RideOffer | null => {
@@ -57,7 +59,7 @@ export default function RideOfferScreen() {
     const r = await RidesAPI.respond(offer.offer_id, accept);
     setBusy(false);
     if (!accept) { load(); return; }
-    if (r.accepted) { setAcceptedPickup(offer.pickup_label); setPhase("accepted"); }
+    if (r.accepted) { setAcceptedPickup(offer.pickup_label); setAcceptedReqId(r.request_id ?? offer.request_id); setPhase("accepted"); }
     else { load(); } // taken/expired in the meantime → show the next one
   };
 
@@ -68,7 +70,16 @@ export default function RideOfferScreen() {
     Linking.openURL(url!).catch(() => {});
   };
 
-  const close = () => { try { router.back(); } catch { router.replace("/(app)/queue" as never); } };
+  const complete = async () => {
+    if (!acceptedReqId || completing) return;
+    setCompleting(true);
+    const { error } = await RidesAPI.completeRide(acceptedReqId);
+    setCompleting(false);
+    if (error) { close(); return; }
+    close();
+  };
+
+  function close() { try { router.back(); } catch { router.replace("/(app)/queue" as never); } }
 
   const dest = (o: RideOffer) => o.dest_region ? getRegionName(o.dest_region) : (o.dest_address || "—");
   const fare = (o: RideOffer) => `$${((o.fare_cents ?? 0) / 100).toFixed(2).replace(/\.00$/, "")}`;
@@ -135,6 +146,9 @@ export default function RideOfferScreen() {
           <TouchableOpacity style={s.navBtn} onPress={navigate}>
             <Navigation size={16} color={Colors.accentText} strokeWidth={2.4} /><Text style={s.navBtnTxt}>{t.rideNavigate}</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={s.completeBtn} onPress={complete} disabled={completing}>
+            <Text style={s.completeBtnTxt}>{completing ? "…" : t.rideComplete}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={s.ghostBtn} onPress={close}><Text style={s.ghostBtnTxt}>{t.rideDone}</Text></TouchableOpacity>
         </View>
       )}
@@ -183,6 +197,8 @@ const s = StyleSheet.create({
   acceptedSub: { color: Colors.t2, fontSize: 13.5, textAlign: "center", maxWidth: 240, lineHeight: 19 },
   navBtn:      { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 24, marginTop: 14 },
   navBtnTxt:   { color: Colors.accentText, fontWeight: "800", fontSize: 15 },
+  completeBtn: { marginTop: 12, borderWidth: 1.5, borderColor: "#2FBE6E", borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
+  completeBtnTxt: { color: "#2FBE6E", fontWeight: "800", fontSize: 15 },
   ghostBtn:    { marginTop: 12, paddingVertical: 10, paddingHorizontal: 20 },
   ghostBtnTxt: { color: Colors.t2, fontWeight: "700", fontSize: 14 },
 });
