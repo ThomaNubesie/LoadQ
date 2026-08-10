@@ -283,6 +283,12 @@ export default function BoardScreen() {
         contentContainerStyle={{ padding: 14, paddingBottom: 28 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       >
+        {/* A7: request an on-route pickup */}
+        <TouchableOpacity style={s.reqRideBtn} onPress={() => router.push("/(passenger)/request-ride" as any)} activeOpacity={0.85}>
+          <Text style={s.reqRideBtnTxt}>🚗  {t("reqRideTitle")}</Text>
+          <Text style={s.reqRideBtnArrow}>→</Text>
+        </TouchableOpacity>
+
         {!reservable && (
           <View style={s.viewOnlyBanner}><Text style={s.viewOnlyTxt}>{t("viewOnlyBanner", { city: regionName(homeCity) })}</Text></View>
         )}
@@ -435,6 +441,9 @@ const s = StyleSheet.create({
   dateTxt:     { color: Colors.t2, fontSize: 11.5, fontWeight: "700", marginTop: 3 },
   msgBtn:      { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
 
+  reqRideBtn:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 14 },
+  reqRideBtnTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 15 },
+  reqRideBtnArrow: { color: Colors.accentText, fontWeight: "800", fontSize: 18 },
   viewOnlyBanner: { backgroundColor: "rgba(245,200,66,0.12)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", borderRadius: 12, padding: 11, marginBottom: 12 },
   viewOnlyTxt:    { color: Colors.yellow, fontSize: 12, fontWeight: "600", lineHeight: 17 },
 
