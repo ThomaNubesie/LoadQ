@@ -132,9 +132,14 @@ export default function RootLayout() {
     let sub: { remove: () => void } | null = null;
     const go = (resp: Notifications.NotificationResponse | null) => {
       if (!resp) return;
-      const data = resp.notification.request.content.data as { route?: string; alertRef?: string } | undefined;
-      const pathname = data?.route ?? "/(app)/alerts";
+      const data = resp.notification.request.content.data as { route?: string; alertRef?: string; type?: string; offer_id?: string } | undefined;
       try {
+        // A7 dispatch: a ride offer opens the accept/decline screen directly.
+        if (data?.type === "ride_offer") {
+          router.push({ pathname: "/(app)/ride-offer", params: data.offer_id ? { offer_id: String(data.offer_id) } : {} } as never);
+          return;
+        }
+        const pathname = data?.route ?? "/(app)/alerts";
         router.push((data?.alertRef ? { pathname, params: { focus: String(data.alertRef) } } : pathname) as never);
       } catch { /* not signed in / bad route */ }
     };
