@@ -125,6 +125,17 @@ export const api = {
     return data as DocReviewResult;
   },
 
+  // ── Rides (on-route pickup + on-demand dispatch) ────────────────────────
+  async rides(status: string | null = null): Promise<RideRow[]> {
+    const { data, error } = await supabase.rpc("loadq_ride_admin_list", { p_status: status });
+    if (error) throw error;
+    return (data as RideRow[]) ?? [];
+  },
+  async rideMarkPaid(requestId: string): Promise<void> {
+    const { error } = await supabase.rpc("loadq_ride_mark_paid", { p_request_id: requestId, p_method: "interac" });
+    if (error) throw error;
+  },
+
   // ── Relocate (move people between locations) ────────────────────────────
   // Move a driver's active queue entry to another zone and/or destination.
   async relocateDriver(entryId: string, newZone: string, newDest: string | null, newPos: number | null, releasePassengers: boolean | null): Promise<void> {
@@ -175,6 +186,13 @@ export type PassengerLite = { id: string; full_name: string | null; phone: strin
 export type PassengerReservation = {
   claimStatus: string;
   entry: { id: string; zone_id: string; destination_region: string | null; position: number; driver?: { full_name: string | null; phone: string | null } | null } | null;
+};
+
+export type RideRow = {
+  id: string; kind: string; passenger_id: string; status: string;
+  payment_status: string; payment_method: string;
+  pickup_label: string | null; dest_region: string | null; fare_cents: number | null;
+  driver_id: string | null; driver_name: string | null; live_offers: number; created_at: string;
 };
 
 export type DocStatus = "pending" | "approved" | "rejected" | "expired" | "all";
