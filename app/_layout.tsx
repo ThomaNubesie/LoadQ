@@ -140,6 +140,10 @@ export default function RootLayout() {
           router.push({ pathname: "/(app)/ride-offer", params: data.offer_id ? { offer_id: String(data.offer_id) } : {} } as never);
           return;
         }
+        // A1: a driver submitting a document notifies admins → open the review queue.
+        if (data?.type === "doc_submitted") { router.push("/(app)/admin-docs" as never); return; }
+        // A1: approve/reject/expiry notifies the driver → open their Verification screen.
+        if (data?.type === "doc_review" || data?.type === "doc_expired") { router.push("/(app)/verification" as never); return; }
         const pathname = data?.route ?? "/(app)/alerts";
         router.push((data?.alertRef ? { pathname, params: { focus: String(data.alertRef) } } : pathname) as never);
       } catch { /* not signed in / bad route */ }

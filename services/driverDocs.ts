@@ -25,6 +25,48 @@ export const CONSENT_SCOPES = ["drivers_license", "registration", "driving_recor
 
 export type ScreeningConsent = { version: string; scopes: string[]; consented_at: string };
 
+// One row of the admin review queue (loadq_admin_docs_queue).
+export type AdminDocRow = {
+  doc_id: string;
+  driver_id: string;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  plate: string | null;
+  doc_type: DocType;
+  status: Exclude<DocStatus, "not_submitted">;
+  storage_path: string;
+  expires_on: string | null;
+  doc_number: string | null;
+  review_notes: string | null;
+  submitted_at: string | null;
+  driver_verified: boolean;
+};
+
+export const AdminDocsAPI = {
+  // Admin review queue. p_status: pending|approved|rejected|expired|all.
+  async queue(status: "pending" | "approved" | "rejected" | "expired" | "all" = "pending"): Promise<AdminDocRow[]> {
+    const { data, error } = await supabase.rpc("loadq_admin_docs_queue", { p_status: status });
+    if (error) throw error;
+    return (data as AdminDocRow[]) ?? [];
+  },
+
+  // Signed URL to view a driver's uploaded document (1h).
+  async signedUrl(storagePath: string): Promise<string | null> {
+    const { data } = await supabase.storage.from("driver-docs").createSignedUrl(storagePath, 3600);
+    return data?.signedUrl ?? null;
+  },
+
+  // Approve or reject a document. Push to the driver is fully server-side.
+  async review(docId: string, decision: "approved" | "rejected", notes?: string | null, expiresOn?: string | null): Promise<{ error?: string; driver_verified?: boolean }> {
+    const { data, error } = await supabase.rpc("loadq_admin_doc_review", {
+      p_doc_id: docId, p_decision: decision, p_notes: notes ?? null, p_expires_on: expiresOn ?? null,
+    });
+    if (error) return { error: error.message };
+    return { driver_verified: (data as any)?.driver_verified };
+  },
+};
+
 export const DriverDocsAPI = {
   // Latest active screening consent for this driver (null if none / revoked).
   async getConsent(): Promise<ScreeningConsent | null> {
