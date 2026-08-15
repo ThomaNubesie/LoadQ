@@ -291,14 +291,14 @@ export default function BoardScreen() {
           </View>
         )}
 
-        {isLoading && reservable && (
+        {reservable && (
           <TouchableOpacity
-            style={[s.reserveBtn, car.seats_left <= 0 && s.reserveBtnDisabled]}
+            style={[s.reserveBtn, car.seats_left <= 0 && s.reserveBtnDisabled, !isLoading && s.reserveBtnAlt]}
             disabled={car.seats_left <= 0}
             onPress={() => openReserve(car)}
             activeOpacity={0.85}
           >
-            <Text style={s.reserveBtnTxt}>{car.seats_left <= 0 ? t("seatsFull") : t("reserveSeat")}</Text>
+            <Text style={[s.reserveBtnTxt, !isLoading && s.reserveBtnAltTxt]}>{car.seats_left <= 0 ? t("seatsFull") : (isLoading ? t("reserveSeat") : t("prebookSeat"))}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -472,7 +472,7 @@ export default function BoardScreen() {
                 <Text style={s.priceLeft}>{reserveSeats} × {formatFare(reserveCar.fare_cents)}</Text>
                 <Text style={s.priceRight}>{formatFare((reserveCar.fare_cents ?? 0) * reserveSeats)}</Text>
               </View>
-              <Text style={s.holdNote}>🔒 {t("holdNote")}</Text>
+              <Text style={s.holdNote}>{reserveCar.status === "loading" ? t("holdNote") : t("prebookNote")}</Text>
               {reserveErr && <Text style={s.reserveErr}>{reserveErr}</Text>}
               <TouchableOpacity style={[s.reserveBtn, { marginTop: 14 }, reserving && { opacity: 0.6 }]} disabled={reserving} onPress={confirmReserve} activeOpacity={0.85}>
                 <Text style={s.reserveBtnTxt}>
@@ -579,13 +579,25 @@ export default function BoardScreen() {
                   <Text style={s.name} numberOfLines={1}>{c.driver_name}</Text>
                   <Text style={s.vehicle} numberOfLines={1}>{vehicleLabel(c) || t("newDriver")} · {t("seatsOpenN", { n: c.seats_left })}</Text>
                 </View>
-                <Text style={s.ocFare}>{formatFare(c.fare_cents)}</Text>
+                <View style={{ alignItems: "flex-end", gap: 6 }}>
+                  <Text style={s.ocFare}>{formatFare(c.fare_cents)}</Text>
+                  {reservable && (
+                    <TouchableOpacity
+                      style={[s.ocReserve, c.seats_left <= 0 && { opacity: 0.4 }]}
+                      disabled={c.seats_left <= 0}
+                      onPress={() => { setOtherCarsOpen(false); openReserve(c); }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={s.ocReserveTxt}>{c.seats_left <= 0 ? t("seatsFull") : t("prebookSeat")}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             ))}
             {cars.filter(c => c.status !== "loading").length === 0 && (
               <Text style={s.otherCarsSub}>{t("otherCarsNone")}</Text>
             )}
-            <Text style={s.ocNote}>{t("otherCarsNote")}</Text>
+            <Text style={s.ocNote}>{t("prebookNote")}</Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -697,6 +709,10 @@ const s = StyleSheet.create({
   ocPos:       { color: Colors.accentP, fontWeight: "800", fontSize: 13, width: 24 },
   ocAvatar:    { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" },
   ocFare:      { color: Colors.accentP, fontWeight: "800", fontSize: 13.5 },
+  ocReserve:   { borderWidth: 1.5, borderColor: Colors.accentP, borderRadius: 9, paddingVertical: 6, paddingHorizontal: 12 },
+  ocReserveTxt:{ color: Colors.accentP, fontWeight: "800", fontSize: 12 },
+  reserveBtnAlt:  { backgroundColor: "transparent", borderWidth: 1.5, borderColor: Colors.accentP },
+  reserveBtnAltTxt: { color: Colors.accentP },
   ocNote:      { color: Colors.t3, fontSize: 11, marginTop: 4, textAlign: "center", lineHeight: 16 },
   chOpt:       { flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, marginBottom: 9 },
   chOptOn:     { borderColor: Colors.accentP, backgroundColor: "rgba(234,106,30,0.08)" },

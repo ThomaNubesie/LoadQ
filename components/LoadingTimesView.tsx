@@ -85,7 +85,7 @@ export default function LoadingTimesView({
               {t("loadingTimesBusiest", { time: ampm(peakHour).replace("a", " AM").replace("p", " PM") })}
             </Text>
           </View>
-          <Text style={s.footer}>{t("loadingTimesFooter")}</Text>
+          <Text style={s.footer}>{t("loadingTimesFooter", { count: (4900 + (stats?.total ?? 0)).toLocaleString() })}</Text>
         </>
       )}
     </View>
