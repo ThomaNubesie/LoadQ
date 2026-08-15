@@ -110,10 +110,12 @@ Deno.serve(async (req) => {
       origin_lat: origin.lat, origin_lng: origin.lng, dest_lat: dest.lat, dest_lng: dest.lng,
     }).eq("id", reqRow.id);
 
-    // Fare = the matched departure zone's seat fare (loadq_route_fares) + a flat
-    // $5 route-pickup fee. Looked up per zone+destination, not destination alone,
-    // so a Toronto→Montréal pickup isn't priced like an Ottawa→Montréal one.
-    const PICKUP_FEE_CENTS = 500;
+    // Fare = the matched departure zone's seat fare (loadq_route_fares) + the
+    // route-pickup request fee (loadq_settings.route_pickup_fee_cents, default
+    // $12.99). Looked up per zone+destination, not destination alone, so a
+    // Toronto→Montréal pickup isn't priced like an Ottawa→Montréal one.
+    const { data: feeRow } = await admin.from("loadq_settings").select("value").eq("key", "route_pickup_fee_cents").maybeSingle();
+    const PICKUP_FEE_CENTS = feeRow?.value ? parseInt(String(feeRow.value), 10) : 1299;
     const fareForZone = async (zid: string | null | undefined): Promise<number | null> => {
       if (!zid) return null;
       const { data } = await admin.from("loadq_route_fares").select("fare_cents")
