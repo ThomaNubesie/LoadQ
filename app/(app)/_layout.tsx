@@ -28,6 +28,7 @@ export default function AppLayout() {
       <Stack.Screen name="admin-add-user" />
       <Stack.Screen name="loading-times" />
       <Stack.Screen name="admin-docs" />
+      <Stack.Screen name="feeder" />
     </Stack>
   );
 }

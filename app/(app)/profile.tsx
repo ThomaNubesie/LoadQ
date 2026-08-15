@@ -21,7 +21,7 @@ import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { VEHICLE_TYPES } from "../../constants/vehicles";
 import BottomNav from "../../components/BottomNav";
 import VerifiedBadge from "../../components/VerifiedBadge";
-import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, Clock, Pencil, Gift, Map, Inbox, BookOpen, ArrowLeftRight, Wallet, FileCheck } from "lucide-react-native";
+import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, Clock, Pencil, Gift, Map, Inbox, BookOpen, ArrowLeftRight, Wallet, FileCheck, Navigation } from "lucide-react-native";
 
 export default function ProfileScreen() {
   const router      = useRouter();
@@ -288,6 +288,13 @@ export default function ProfileScreen() {
           <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
             <Gift size={16} color={Colors.t1} strokeWidth={2} />
             <Text style={s.historyBtnText}>{t.referAndEarn}</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/feeder" as any)} activeOpacity={0.85}>
+          <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+            <Navigation size={16} color={Colors.t1} strokeWidth={2} />
+            <Text style={s.historyBtnText}>{t.feederTitle}</Text>
           </View>
         </TouchableOpacity>
 

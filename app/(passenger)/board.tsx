@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Modal, Pressable, Image, TextInput, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Star, MessageSquare, ChevronDown, X, Phone, Clock, Bell, Car } from "lucide-react-native";
+import { Star, MessageSquare, ChevronDown, X, Phone, Clock, Bell, Car, MapPin } from "lucide-react-native";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { useZones } from "../../hooks/useZones";
@@ -356,6 +356,11 @@ export default function BoardScreen() {
           </TouchableOpacity>
         )}
 
+        <TouchableOpacity style={s.pickupLink} activeOpacity={0.8} onPress={() => router.push("/(passenger)/pickup-request" as any)}>
+          <MapPin size={14} color={Colors.t2} />
+          <Text style={s.pickupLinkTxt}>{t("pickupBoardLink")}</Text>
+        </TouchableOpacity>
+
         {!reservable && (
           <View style={s.viewOnlyBanner}><Text style={s.viewOnlyTxt}>{t("viewOnlyBanner", { city: regionName(homeCity) })}</Text></View>
         )}
@@ -643,6 +648,8 @@ const s = StyleSheet.create({
   reqRideBtnArrow: { color: Colors.accentP, fontWeight: "800", fontSize: 18 },
   loadingTimesLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, marginBottom: 8 },
   loadingTimesLinkTxt: { color: Colors.accentP, fontWeight: "800", fontSize: 12.5 },
+  pickupLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, marginBottom: 6 },
+  pickupLinkTxt: { color: Colors.t2, fontWeight: "700", fontSize: 12 },
   viewOnlyBanner: { backgroundColor: "rgba(245,200,66,0.12)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", borderRadius: 12, padding: 11, marginBottom: 12 },
   viewOnlyTxt:    { color: Colors.yellow, fontSize: 12, fontWeight: "600", lineHeight: 17 },
 

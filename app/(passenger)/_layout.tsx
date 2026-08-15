@@ -14,6 +14,9 @@ export default function PassengerLayout() {
       <Stack.Screen name="history" />
       <Stack.Screen name="messages" />
       <Stack.Screen name="loading-times" />
+      <Stack.Screen name="pickup-request" />
+      <Stack.Screen name="pickup-pay" />
+      <Stack.Screen name="pickup-status" />
     </Stack>
   );
 }
