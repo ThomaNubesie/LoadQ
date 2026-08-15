@@ -3,8 +3,9 @@
 //  - geocodes the passenger origin + destination
 //  - routes each live departure-zone -> destination (Google Routes API)
 //  - measures the origin's distance to those routes
-//  - <= 5 mi off-route  -> quote an on-route pickup at the address (finalized)
-//  - >  5 mi            -> return gas stations within 5 mi of the route (Places API New)
+//  - within the corridor off-route (route_pickup_max_off_route_m, default 2.5 mi)
+//    -> quote an on-route pickup at the address (finalized)
+//  - beyond it -> return gas stations within the corridor of the route (Places API New)
 //  - chosen_pickup      -> finalize a station pickup
 // Also persists departure_zone_id (the matched zone) so loadq-ride-cascade knows
 // which queued drivers to offer for the route pickup.
@@ -14,7 +15,6 @@ const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE
 const GKEY = Deno.env.get("GOOGLE_MAPS_KEY")!;
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
-const MI5 = 8047; // 5 miles in metres
 
 const REGION_CITY: Record<string, string> = {
   montreal: "Montréal, QC, Canada", ottawa: "Ottawa, ON, Canada", quebec: "Québec City, QC, Canada",
@@ -110,12 +110,17 @@ Deno.serve(async (req) => {
       origin_lat: origin.lat, origin_lng: origin.lng, dest_lat: dest.lat, dest_lng: dest.lng,
     }).eq("id", reqRow.id);
 
-    // Fare = the matched departure zone's seat fare (loadq_route_fares) + the
-    // route-pickup request fee (loadq_settings.route_pickup_fee_cents, default
-    // $12.99). Looked up per zone+destination, not destination alone, so a
+    // Tunable settings (change without a redeploy):
+    //  - route_pickup_fee_cents        the request fee added to the seat fare (default $12.99)
+    //  - route_pickup_max_off_route_m  the on-route corridor: how far off a driver's
+    //                                  route your address can be and still be quoted (default 2.5 mi)
+    // Fare is looked up per zone+destination, not destination alone, so a
     // Toronto→Montréal pickup isn't priced like an Ottawa→Montréal one.
-    const { data: feeRow } = await admin.from("loadq_settings").select("value").eq("key", "route_pickup_fee_cents").maybeSingle();
-    const PICKUP_FEE_CENTS = feeRow?.value ? parseInt(String(feeRow.value), 10) : 1299;
+    const { data: cfg } = await admin.from("loadq_settings").select("key,value")
+      .in("key", ["route_pickup_fee_cents", "route_pickup_max_off_route_m"]);
+    const cfgMap: Record<string, string> = Object.fromEntries((cfg ?? []).map((r: any) => [r.key, r.value]));
+    const PICKUP_FEE_CENTS = cfgMap.route_pickup_fee_cents ? parseInt(cfgMap.route_pickup_fee_cents, 10) : 1299;
+    const OFF_ROUTE_M = cfgMap.route_pickup_max_off_route_m ? parseInt(cfgMap.route_pickup_max_off_route_m, 10) : 4023;
     const fareForZone = async (zid: string | null | undefined): Promise<number | null> => {
       if (!zid) return null;
       const { data } = await admin.from("loadq_route_fares").select("fare_cents")
@@ -164,7 +169,7 @@ Deno.serve(async (req) => {
     const base_fare_cents = await fareForZone(best.zone);
     const fare_cents = (base_fare_cents ?? 0) + PICKUP_FEE_CENTS;
 
-    if (best.km <= MI5) {
+    if (best.km <= OFF_ROUTE_M) {
       const off_km = Math.round((best.km / 1000) * 10) / 10;
       await admin.rpc("loadq_ride_set_quote", {
         p_request_id: reqRow.id, p_pickup_type: "on_route", p_pickup_label: reqRow.origin_address,
@@ -174,7 +179,7 @@ Deno.serve(async (req) => {
       return json({ mode: "on_route", pickup: { label: reqRow.origin_address, ...origin }, off_route_km: off_km, fare_cents, fee_cents: PICKUP_FEE_CENTS, base_fare_cents });
     }
 
-    // >5mi: gas stations near origin that are within 5 mi of the route
+    // beyond the corridor: gas stations near origin that are within it of the route
     const raw = await nearbyGas(origin, Math.min(best.km + 3000, 15000));
     const R = 6371000, rad = Math.PI / 180;
     const hav = (a: any, b: any) => { const dLa = (b.lat - a.lat) * rad, dLo = (b.lng - a.lng) * rad, la1 = a.lat * rad, la2 = b.lat * rad;
@@ -182,7 +187,7 @@ Deno.serve(async (req) => {
     const stations = raw
       .map((s: any) => ({ ...s, off_route_km: Math.round((distToPolyline(s, best!.poly) / 1000) * 10) / 10,
                           dist_to_you_km: Math.round((hav(origin, s) / 1000) * 10) / 10 }))
-      .filter((s: any) => s.off_route_km * 1000 <= MI5)
+      .filter((s: any) => s.off_route_km * 1000 <= OFF_ROUTE_M)
       .sort((a: any, b: any) => a.dist_to_you_km - b.dist_to_you_km)
       .slice(0, 3);
     return json({ mode: "stations", address_off_route_km: Math.round((best.km / 1000) * 10) / 10, stations, fare_cents, fee_cents: PICKUP_FEE_CENTS, base_fare_cents });
