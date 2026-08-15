@@ -96,6 +96,29 @@ export const PickupAPI = {
   },
 };
 
+export interface PickupReceipt {
+  request_id: string; code: string | null; service: string;
+  pickup: string | null; destination: string | null;
+  driver: string | null; car: string | null;
+  fee_cents: number | null; tax_cents: number | null; total_cents: number | null;
+  paid: boolean; paid_at: string | null; payment: string; hst_number: string;
+  contact_phone: string | null; error?: string;
+}
+
+export const ReceiptAPI = {
+  async get(requestId: string): Promise<PickupReceipt | null> {
+    const { data } = await supabase.rpc("loadq_pickup_receipt", { p_request: requestId });
+    return (data && !(data as any).error) ? (data as PickupReceipt) : null;
+  },
+  // Deliver by email (Resend) or SMS (Twilio) — server-side, only for a paid request.
+  async send(requestId: string, channel: "email" | "sms", to: string): Promise<{ ok?: boolean; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("loadq-pickup-receipt", { body: { request_id: requestId, channel, to } });
+    if (error) return { error: error.message };
+    if (data?.error) return { error: data.error };
+    return { ok: data?.ok === true };
+  },
+};
+
 export const fmtMoney = (cents: number | null | undefined) => `$${(((cents ?? 0)) / 100).toFixed(2)}`;
 
 // Google Places Autocomplete via the server-side proxy (key stays on the server).

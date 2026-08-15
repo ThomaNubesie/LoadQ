@@ -78,6 +78,13 @@ export default function PickupStatusScreen() {
             {!!mp.driver?.car && <View style={s.row}><Text style={s.rk}>{t("pickupCar")}</Text><Text style={s.rv}>{mp.driver.car}{mp.driver.plate ? ` · ${mp.driver.plate}` : ""}</Text></View>}
             <View style={s.row}><Text style={s.rk}>{t("pickupThen")}</Text><Text style={s.rv}>{t("pickupBoardVan")}</Text></View>
           </View>
+
+          {mp.paid && (
+            <TouchableOpacity style={s.receiptBtn} activeOpacity={0.85}
+              onPress={() => router.push({ pathname: "/(passenger)/pickup-receipt" as any, params: { request_id: String(request_id) } })}>
+              <Text style={s.receiptBtnTxt}>{t("receiptView")}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -109,4 +116,6 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   rk: { color: Colors.t2, fontSize: 13 },
   rv: { color: Colors.t1, fontWeight: "700", fontSize: 13 },
+  receiptBtn: { borderWidth: 1.5, borderColor: Colors.accentP, borderRadius: 12, alignItems: "center", paddingVertical: 13, marginTop: 16 },
+  receiptBtnTxt: { color: Colors.accentP, fontWeight: "800", fontSize: 14 },
 });

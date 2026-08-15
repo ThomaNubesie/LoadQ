@@ -189,7 +189,11 @@ export default function RequestRideScreen() {
           {req.driver_id ? (
             // Driver matched
             <>
-              <View style={s.pillWrap}><Text style={s.pillGreen}>✓ {t.reqDriverMatched}</Text></View>
+              <View style={s.pillWrap}><Text style={s.pillGreen}>
+                {req.status === "picked_up" ? `● ${t.reqInRideTo} ${destName(req)}`
+                  : (["assigned", "en_route"].includes(req.status) ? `● ${t.reqOnWayToYou}`
+                    : `✓ ${t.reqDriverMatched}`)}
+              </Text></View>
               <View style={s.drv}>
                 <Text style={s.drvName}>{req.driver_name || t.reqDriverMatched}</Text>
                 <Text style={s.drvCar}>{[req.vehicle_make, req.vehicle_model, req.vehicle_color].filter(Boolean).join(" · ")}{req.vehicle_seats ? ` · ${req.vehicle_seats}` : ""}</Text>
