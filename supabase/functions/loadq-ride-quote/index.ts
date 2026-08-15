@@ -141,15 +141,25 @@ Deno.serve(async (req) => {
       return json({ mode: "confirmed", pickup: cp, fare_cents, fee_cents: PICKUP_FEE_CENTS, base_fare_cents });
     }
 
-    // candidate departure zones = live zones feeding this destination (fallback: all active zones)
-    let zoneIds: string[] = [];
-    const { data: liveZ } = await admin.from("queue_entries").select("zone_id")
+    // Availability gate — only quote (and let the rider pay) if a live queue driver
+    // is actually heading to this destination WITH a free seat. No driver on duty =>
+    // no quote, no charge. (Previously fell back to all active zones, which could
+    // price a route with nobody driving it.)
+    const { data: liveQ } = await admin.from("queue_entries").select("zone_id, vehicle_id, seats_locked")
       .eq("destination_region", reqRow.dest_region).in("status", ["waiting", "loading", "standby"]);
-    zoneIds = [...new Set((liveZ ?? []).map((r: any) => r.zone_id))];
-    let zq = admin.from("zones").select("id,name,latitude,longitude").not("latitude", "is", null);
-    zq = zoneIds.length ? zq.in("id", zoneIds) : zq.eq("is_active", true);
-    const { data: zones } = await zq;
-    if (!zones?.length) return json({ error: "no candidate routes available" }, 422);
+    const vids = [...new Set((liveQ ?? []).map((r: any) => r.vehicle_id).filter(Boolean))];
+    const seatMap: Record<string, number> = {};
+    if (vids.length) {
+      const { data: vs } = await admin.from("vehicles").select("id,seats").in("id", vids);
+      (vs ?? []).forEach((v: any) => seatMap[v.id] = v.seats ?? 0);
+    }
+    const zoneIds = [...new Set((liveQ ?? [])
+      .filter((r: any) => (seatMap[r.vehicle_id] ?? 0) - (r.seats_locked ?? 0) > 0)
+      .map((r: any) => r.zone_id))];
+    if (!zoneIds.length) return json({ error: "no_drivers" }, 200);
+    const { data: zones } = await admin.from("zones").select("id,name,latitude,longitude")
+      .not("latitude", "is", null).in("id", zoneIds);
+    if (!zones?.length) return json({ error: "no_drivers" }, 200);
 
     // route each zone -> destination, keep the one the origin is closest to
     let best: { km: number; poly: [number, number][]; zone: string } | null = null;

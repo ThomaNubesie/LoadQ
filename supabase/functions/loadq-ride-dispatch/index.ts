@@ -55,6 +55,28 @@ Deno.serve(async (req) => {
     const leg = await route(origin, zpt);
     if (!leg) return json({ error: "could not route pickup -> loading zone" }, 422);
     const one_way_min = leg.sec / 60;
+    const round_trip_min = one_way_min * 2 + S.dispatch_safety_mins;
+
+    // AVAILABILITY GATE FIRST — never price or charge a rider unless a queue driver
+    // is on duty with enough slack to fetch them and return. No eligible driver =>
+    // no_driver, and NO fare/hold is created (the app stops before authorizing a card).
+    const { data: offers } = await admin.from("loadq_ride_offers").select("driver_id,status,expires_at").eq("request_id", r.id);
+    const now = Date.now();
+    if ((offers ?? []).some((o: any) => o.status === "offered" && new Date(o.expires_at).getTime() > now))
+      return json({ status: "pending", message: "an offer is already out" });
+    const alreadyTried = new Set((offers ?? []).map((o: any) => o.driver_id));
+
+    const { data: q } = await admin.from("queue_entries").select("driver_id,position,status")
+      .eq("zone_id", zone.id).in("status", ["waiting", "standby"]).order("position");
+    const eligible = (q ?? [])
+      .map((e: any) => ({ ...e, slack_min: Math.max(0, (e.position - 1)) * S.dispatch_slack_per_car_mins }))
+      .filter((e: any) => e.slack_min >= round_trip_min && !alreadyTried.has(e.driver_id));
+
+    if (!eligible.length)
+      return json({ status: "no_driver", round_trip_min: Math.round(round_trip_min),
+        message: "no queue driver is available right now" });
+
+    // A driver is available — now it's safe to price + collect payment.
     if (fare_cents == null) {
       const km = leg.meters / 1000;
       const est = S.ondemand_base_cents + Math.round(km * S.ondemand_per_km_cents) + Math.round(one_way_min * S.ondemand_per_min_cents);
@@ -78,27 +100,6 @@ Deno.serve(async (req) => {
       }
       return json(resp);
     }
-
-    // round-trip time the driver needs (zone -> client -> zone), + safety
-    const round_trip_min = one_way_min * 2 + S.dispatch_safety_mins;
-
-    // don't double-offer if a live offer is pending
-    const { data: offers } = await admin.from("loadq_ride_offers").select("driver_id,status,expires_at").eq("request_id", r.id);
-    const now = Date.now();
-    if ((offers ?? []).some((o: any) => o.status === "offered" && new Date(o.expires_at).getTime() > now))
-      return json({ status: "pending", message: "an offer is already out" });
-    const alreadyTried = new Set((offers ?? []).map((o: any) => o.driver_id));
-
-    // queue drivers at this zone with enough slack (position-based), not the loader
-    const { data: q } = await admin.from("queue_entries").select("driver_id,position,status")
-      .eq("zone_id", zone.id).in("status", ["waiting", "standby"]).order("position");
-    const eligible = (q ?? [])
-      .map((e: any) => ({ ...e, slack_min: Math.max(0, (e.position - 1)) * S.dispatch_slack_per_car_mins }))
-      .filter((e: any) => e.slack_min >= round_trip_min && !alreadyTried.has(e.driver_id));
-
-    if (!eligible.length)
-      return json({ status: "no_driver", fare_cents, round_trip_min: Math.round(round_trip_min),
-        message: "no queue driver has enough slack (or all have been tried)" });
 
     const pick = eligible[0]; // front-most eligible driver
     const { data: offerId } = await admin.rpc("loadq_ride_offer_next", {

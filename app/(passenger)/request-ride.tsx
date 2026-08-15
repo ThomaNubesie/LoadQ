@@ -76,7 +76,13 @@ export default function RequestRideScreen() {
     if (c.error || !c.id) { setBusy(false); Alert.alert(t.reqRideTitle, c.error || "Error"); return; }
     if (kind === "route_pickup") {
       const q = await RidesAPI.quote(c.id);
-      if (!q.ok) { setBusy(false); Alert.alert(t.reqRideTitle, q.error || "Quote failed"); return; }
+      // No live driver heading to the destination → don't charge; drop the request.
+      if (!q.ok || q.error === "no_drivers") {
+        setBusy(false);
+        await RidesAPI.cancelRequest(c.id);
+        Alert.alert(t.reqRideTitle, q.error === "no_drivers" ? t.reqNoDrivers : (q.error || t.reqNoDrivers));
+        return;
+      }
     } else {
       // On-demand: depart from the nearest loading zone, then dispatch (which
       // prices the ride and, for card/Interac, returns awaiting_payment first).
@@ -85,6 +91,13 @@ export default function RequestRideScreen() {
       await RidesAPI.setDeparture(c.id, z.id);
       const d = await RidesAPI.dispatch(c.id);
       if (!d.ok) { setBusy(false); Alert.alert(t.reqRideTitle, d.error || "Dispatch failed"); return; }
+      // No eligible driver on duty → stop BEFORE any card hold; drop the request.
+      if (d.data?.status === "no_driver") {
+        setBusy(false);
+        await RidesAPI.cancelRequest(c.id);
+        Alert.alert(t.reqRideTitle, t.reqNoDrivers);
+        return;
+      }
 
       if (method === "card") {
         // Pre-authorize the fare (manual capture = held, not taken) via PaymentSheet.
