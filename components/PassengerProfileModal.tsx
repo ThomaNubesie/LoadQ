@@ -70,7 +70,7 @@ export default function PassengerProfileModal({ passengerId, confirmed, onClose 
             <X size={22} color={Colors.t2} strokeWidth={2} />
           </TouchableOpacity>
           {loading || !stats ? (
-            <ActivityIndicator size="large" color={Colors.accent} style={{ paddingVertical: 24 }} />
+            <ActivityIndicator size="large" color={Colors.accentP} style={{ paddingVertical: 24 }} />
           ) : !passenger ? (
             <Text style={s.empty}>Passenger not found.</Text>
           ) : (
@@ -113,8 +113,8 @@ export default function PassengerProfileModal({ passengerId, confirmed, onClose 
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity style={[s.contactBtn, s.contactBtnPrimary]} onPress={onChat} activeOpacity={0.85}>
-                    <MessageSquare size={16} color={Colors.accentText} strokeWidth={2} />
-                    <Text style={[s.contactBtnLabel, { color: Colors.accentText }]}>Message</Text>
+                    <MessageSquare size={16} color={Colors.accentPText} strokeWidth={2} />
+                    <Text style={[s.contactBtnLabel, { color: Colors.accentPText }]}>Message</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -149,7 +149,7 @@ const s = StyleSheet.create({
   statKey:    { color: Colors.t3, fontSize: 10, fontWeight: "700", letterSpacing: 1, marginTop: 3, textAlign: "center" },
   contactRow: { flexDirection: "row", gap: 10, width: "100%", marginBottom: 12 },
   contactBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: Colors.cardAlt, borderWidth: 0.5, borderColor: Colors.border },
-  contactBtnPrimary: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  contactBtnPrimary: { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
   contactBtnEmoji:   { fontSize: 16 },
   contactBtnLabel:   { color: Colors.t1, fontSize: 13, fontWeight: "700" },
   gateHint:   { color: Colors.t3, fontSize: 12, textAlign: "center", paddingHorizontal: 8, marginBottom: 12, lineHeight: 17 },

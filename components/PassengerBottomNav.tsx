@@ -33,7 +33,7 @@ export default function PassengerBottomNav() {
           return (
             <TouchableOpacity key={route} style={s.item} activeOpacity={0.7}
               onPress={() => { if (!active) router.replace(route as any); }}>
-              <Icon size={19} color={active ? Colors.accent : Colors.t3} strokeWidth={active ? 2.4 : 2} />
+              <Icon size={19} color={active ? Colors.accentP : Colors.t3} strokeWidth={active ? 2.4 : 2} />
               <Text style={[s.label, active && s.labelActive]} numberOfLines={1}>{t(labelKey)}</Text>
             </TouchableOpacity>
           );
@@ -47,5 +47,5 @@ const s = StyleSheet.create({
   bar:         { flexDirection: "row", backgroundColor: "#101217", borderTopWidth: 0.5, borderTopColor: Colors.border, paddingTop: 8, paddingBottom: 12 },
   item:        { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 4 },
   label:       { fontSize: 9.5, color: Colors.t3, fontWeight: "700" },
-  labelActive: { color: Colors.accent },
+  labelActive: { color: Colors.accentP },
 });

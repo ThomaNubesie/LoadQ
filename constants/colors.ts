@@ -9,6 +9,10 @@ export const Colors = {
   border:     "#3E4453",
   accent:     "#FF6B00",
   accentText: "#20140A",
+  // Passenger surface uses a softer, less-neon orange than the driver side.
+  // Driver keeps #FF6B00; only app/(passenger)/* + the passenger nav use these.
+  accentP:     "#EA6A1E",
+  accentPText: "#20140A",
   blue:       "#3B82F6",
   yellow:     "#F5C842",
   red:        "#EF4444",

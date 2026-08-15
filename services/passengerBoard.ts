@@ -42,8 +42,11 @@ export interface BoardCar {
   color:          string | null;
   year:           number | null;
   seats:          number;
-  seats_taken:    number;
+  seats_taken:    number;          // seats_locked (boarded + held)
+  seats_boarded:  number;          // physically boarded → orange seats
+  seats_held:     number;          // reserved-not-boarded → yellow seats
   seats_left:     number;
+  next_hold_expires_at: string | null; // soonest hold expiry on this car (countdown)
   fare_cents:     number | null;
 }
 
@@ -187,6 +190,15 @@ export const PassengerBoardAPI = {
   },
 
   cachedMyTrip(): MyTrip | null { return _myTripCache; },
+
+  /** Subscribe to be told (sms|email) when a seat opens on a car. Optionally
+   *  saves the contact to the passenger profile so it's never asked again. */
+  async notifySeatOpen(queueEntryId: string, channel: "sms" | "email", contact: string, save = true): Promise<{ error?: string }> {
+    const { error } = await supabase.rpc("loadq_notify_seat_open", {
+      p_queue_entry_id: queueEntryId, p_channel: channel, p_contact: contact.trim(), p_save: save,
+    });
+    return { error: error?.message };
+  },
 
   /** Adjust seats on the caller's held reservation (add or decrease). */
   async updateSeats(tripId: string, seats: number): Promise<{ data?: Reservation; error?: ReserveError }> {

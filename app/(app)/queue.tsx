@@ -28,7 +28,7 @@ import { useDestinations } from "../../hooks/useDestinations";
 import { useFocusAndForeground } from "../../hooks/useFocusAndForeground";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../constants/pricing";
-import { ArrowRight, X, MapPin, CircleUserRound, MessageSquare, CarFront, Timer, DoorOpen, Star, Phone, Pencil, Moon } from "lucide-react-native";
+import { ArrowRight, X, MapPin, CircleUserRound, MessageSquare, CarFront, Timer, DoorOpen, Star, Phone, Pencil, Moon, BarChart3 } from "lucide-react-native";
 
 export default function QueueScreen() {
   const router = useRouter();
@@ -872,8 +872,16 @@ export default function QueueScreen() {
         {/* Kolis: parcel offers for queued drivers (self-hides if none) */}
         <KolisParcels />
         {/* A6: pay for on-street parking while waiting (self-hides if no providers) */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-          <ParkingButton />
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}><ParkingButton /></View>
+          <TouchableOpacity
+            style={s.loadingTimesBtn}
+            activeOpacity={0.85}
+            onPress={() => activeZone && router.push({ pathname: "/(app)/loading-times" as any, params: { zoneId: activeZone.id, zoneName: activeZone.name } })}
+          >
+            <BarChart3 size={16} color={Colors.accent} />
+            <Text style={s.loadingTimesBtnTxt}>{t.loadingTimesLink}</Text>
+          </TouchableOpacity>
         </View>
         {loading ? (
           <View style={s.loadingBlock}>
@@ -1374,6 +1382,8 @@ const s = StyleSheet.create({
   leaveChipText:      { color:Colors.red, fontSize:12, fontWeight:"800" },
   loadingText:        { color:Colors.t2, textAlign:"center" },
   loadingBlock:       { alignItems:"center", marginTop:60, gap:12 },
+  loadingTimesBtn:    { flexDirection:"row", alignItems:"center", justifyContent:"center", gap:7, borderWidth:1.5, borderColor:Colors.border, borderRadius:12, paddingVertical:12, paddingHorizontal:14 },
+  loadingTimesBtnTxt: { color:Colors.accent, fontWeight:"800", fontSize:13.5 },
   empty:              { alignItems:"center", marginTop:80 },
   emptyEmoji:         { fontSize:48, marginBottom:12 },
   emptyText:          { fontSize:18, fontWeight:"700", color:Colors.t1 },

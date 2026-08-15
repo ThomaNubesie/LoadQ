@@ -11,10 +11,10 @@ import PassengerBottomNav from "../../components/PassengerBottomNav";
 // Localize known passenger alert kinds; fall back to the stored title/body.
 function present(a: AlertRow, t: (k: string) => string): { title: string; body: string; Icon: any; tint: string } {
   switch (a.kind) {
-    case "reservation_sent": return { title: t("alReservationSentT"), body: t("alReservationSentB"), Icon: Ticket, tint: Colors.accent };
+    case "reservation_sent": return { title: t("alReservationSentT"), body: t("alReservationSentB"), Icon: Ticket, tint: Colors.accentP };
     case "driver_accepted":  return { title: t("alDriverAcceptedT"),  body: t("alDriverAcceptedB"),  Icon: CheckCircle2, tint: Colors.green };
     case "hold_warning":     return { title: t("alHoldWarnT"),        body: a.body || t("alHoldWarnB"), Icon: Clock, tint: Colors.yellow };
-    case "slot_open":        return { title: a.title, body: a.body, Icon: Car, tint: Colors.accent };
+    case "slot_open":        return { title: a.title, body: a.body, Icon: Car, tint: Colors.accentP };
     default:                 return { title: a.title, body: a.body, Icon: Info, tint: Colors.t2 };
   }
 }
@@ -49,7 +49,7 @@ export default function AlertsScreen() {
     <SafeAreaView style={s.screen} edges={["top"]}>
       <Text style={s.title}>{t("navAlerts")}</Text>
       {loading ? (
-        <View style={s.center}><ActivityIndicator color={Colors.accent} /></View>
+        <View style={s.center}><ActivityIndicator color={Colors.accentP} /></View>
       ) : alerts.length === 0 ? (
         <View style={s.center}>
           <Bell size={30} color={Colors.t3} strokeWidth={1.8} />
@@ -57,7 +57,7 @@ export default function AlertsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}>
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
           {alerts.map(a => {
             const p = present(a, t as any);
             const unread = !a.read_at;
@@ -89,11 +89,11 @@ const s = StyleSheet.create({
   center:  { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 24 },
   empty:   { color: Colors.t3, fontSize: 14 },
   row:     { flexDirection: "row", alignItems: "flex-start", gap: 11, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, padding: 13, marginBottom: 9 },
-  rowUnread: { borderColor: Colors.accent + "66", backgroundColor: Colors.surface },
+  rowUnread: { borderColor: Colors.accentP + "66", backgroundColor: Colors.surface },
   iconWrap:{ width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   rowTop:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   rowTitle:{ color: Colors.t1, fontSize: 13.5, fontWeight: "800", flexShrink: 1 },
   rowTime: { color: Colors.t3, fontSize: 10.5, fontWeight: "600" },
   rowBody: { color: Colors.t2, fontSize: 12.5, marginTop: 3, lineHeight: 17 },
-  dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accent, marginTop: 4 },
+  dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accentP, marginTop: 4 },
 });

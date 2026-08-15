@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Modal, Pressable, Image } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Modal, Pressable, Image, TextInput, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Star, MessageSquare, ChevronDown, X, Phone } from "lucide-react-native";
+import { Star, MessageSquare, ChevronDown, X, Phone, Clock, Bell, Car } from "lucide-react-native";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { useZones } from "../../hooks/useZones";
@@ -16,6 +16,8 @@ import SeatSvg from "../../components/SeatSvg";
 import ZoneMap from "../../components/ZoneMap";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { PushAPI } from "../../services/push";
+import { PassengersAPI } from "../../services/passengers";
+import { Mail } from "lucide-react-native";
 
 const DEFAULT_ZONE_ID = "ottawa-universal-grocery";
 
@@ -53,6 +55,14 @@ export default function BoardScreen() {
 
   // reserve sheet
   const [reserveCar, setReserveCar]   = useState<BoardCar | null>(null);
+  const [heldCar, setHeldCar]         = useState<BoardCar | null>(null);   // held-seat info sheet
+  const [notifyCar, setNotifyCar]     = useState<BoardCar | null>(null);   // notify-when-open channel picker
+  const [meProfile, setMeProfile]     = useState<{ phone?: string | null; email?: string | null } | null>(null);
+  const [notifyChannel, setNotifyChannel] = useState<"sms" | "email">("sms");
+  const [notifyContact, setNotifyContact] = useState("");
+  const [notifySave, setNotifySave]   = useState(true);
+  const [notifyBusy, setNotifyBusy]   = useState(false);
+  const [otherCarsOpen, setOtherCarsOpen] = useState(false);               // see-other-cars (next 3) sheet
   const [reserveSeats, setReserveSeats] = useState(1);
   const [reserving, setReserving]     = useState(false);
   const [reserveErr, setReserveErr]   = useState<string | null>(null);
@@ -150,6 +160,36 @@ export default function BoardScreen() {
 
   function openReserve(car: BoardCar) { setReserveCar(car); setReserveSeats(1); setReserveErr(null); }
 
+  // Passenger contact (for the notify-when-open prefill).
+  useEffect(() => { PassengersAPI.getMe().then(p => setMeProfile(p ? { phone: p.phone, email: p.email } : null)); }, []);
+
+  // When the notify sheet opens, default to whichever contact is on file.
+  useEffect(() => {
+    if (!notifyCar) return;
+    const ph = meProfile?.phone?.trim(); const em = meProfile?.email?.trim();
+    if (ph)      { setNotifyChannel("sms");   setNotifyContact(ph); setNotifySave(false); }
+    else if (em) { setNotifyChannel("email"); setNotifyContact(em); setNotifySave(false); }
+    else         { setNotifyChannel("sms");   setNotifyContact(""); setNotifySave(true); }
+  }, [notifyCar]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  function pickNotifyChannel(ch: "sms" | "email") {
+    setNotifyChannel(ch);
+    const val = (ch === "sms" ? meProfile?.phone : meProfile?.email)?.trim() ?? "";
+    setNotifyContact(val); setNotifySave(!val);
+  }
+
+  async function submitNotify() {
+    if (!notifyCar) return;
+    if (!notifyContact.trim()) { Alert.alert(t("notifyWhenOpen"), t("notifyNeedContact")); return; }
+    setNotifyBusy(true);
+    const { error } = await PassengerBoardAPI.notifySeatOpen(notifyCar.queue_entry_id, notifyChannel, notifyContact, notifySave);
+    setNotifyBusy(false);
+    if (error) { Alert.alert(t("notifyWhenOpen"), t("errReserve")); return; }
+    if (notifySave) setMeProfile(m => ({ ...(m ?? {}), [notifyChannel === "sms" ? "phone" : "email"]: notifyContact.trim() }));
+    setNotifyCar(null);
+    Alert.alert(t("notifyArmedTitle"), notifyChannel === "sms" ? t("notifyArmedSms") : t("notifyArmedEmail"));
+  }
+
   async function confirmReserve() {
     if (!reserveCar) return;
     setReserving(true); setReserveErr(null);
@@ -214,9 +254,21 @@ export default function BoardScreen() {
 
         {isLoading && (
           <View style={s.seats}>
-            {Array.from({ length: car.seats }).map((_, i) => (
-              <SeatSvg key={i} size="mini" filled={i < car.seats_taken} color={Colors.accent} disabled />
-            ))}
+            {Array.from({ length: car.seats }).map((_, i) => {
+              const boarded = i < car.seats_boarded;
+              const held    = !boarded && i < car.seats_taken;   // reserved, not yet boarded
+              return (
+                <SeatSvg
+                  key={i}
+                  size="mini"
+                  filled={boarded}
+                  locked={held}
+                  color={Colors.accentP}
+                  disabled={!held}
+                  onPress={held ? () => setHeldCar(car) : undefined}
+                />
+              );
+            })}
             <Text style={s.seatTxt}>{t("seatsOf", { taken: car.seats_taken, total: car.seats })} · {t("seatsLeftN", { n: car.seats_left })}</Text>
           </View>
         )}
@@ -235,7 +287,7 @@ export default function BoardScreen() {
             {car.make && <Image source={{ uri: getVehicleImageUrl(car.make || "", car.model || "", undefined, "side", car.color || undefined) }} style={s.expandVehicle} resizeMode="contain" />}
             <View style={s.expandRow}><Text style={s.expandKey}>{t("destinationLabel")}</Text><Text style={s.expandVal}>{getRegionName(dest)}</Text></View>
             <View style={s.expandRow}><Text style={s.expandKey}>{t("seatsLabel")}</Text><Text style={s.expandVal}>{car.seats_taken} / {car.seats} · {t("seatsLeftN", { n: car.seats_left })}</Text></View>
-            <View style={s.expandRow}><Text style={s.expandKey}>{t("fareLabel")}</Text><Text style={[s.expandVal, { color: Colors.accent, fontWeight: "800" }]}>{formatFare(car.fare_cents)} {t("perSeat")}</Text></View>
+            <View style={s.expandRow}><Text style={s.expandKey}>{t("fareLabel")}</Text><Text style={[s.expandVal, { color: Colors.accentP, fontWeight: "800" }]}>{formatFare(car.fare_cents)} {t("perSeat")}</Text></View>
           </View>
         )}
 
@@ -260,7 +312,7 @@ export default function BoardScreen() {
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={s.zonePicker} onPress={() => setPickerOpen(true)} activeOpacity={0.8}>
             <Text style={s.zoneName} numberOfLines={1}>{zoneMeta?.name ?? t("findingZone")}</Text>
-            <Text style={s.zoneCity}>{regionName(zoneMeta?.region)} <ChevronDown size={13} color={Colors.accent} /></Text>
+            <Text style={s.zoneCity}>{regionName(zoneMeta?.region)} <ChevronDown size={13} color={Colors.accentP} /></Text>
           </TouchableOpacity>
           {zoneMeta && (
             <View style={s.liveRow}>
@@ -273,6 +325,7 @@ export default function BoardScreen() {
         </View>
         <TouchableOpacity onPress={() => router.push("/(passenger)/messages" as any)} style={s.msgBtn} activeOpacity={0.7} hitSlop={8}>
           <MessageSquare size={20} color={Colors.t1} strokeWidth={2} />
+          <Text style={s.msgAdminTag}>{t("adminTag")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -281,13 +334,27 @@ export default function BoardScreen() {
 
       <ScrollView
         contentContainerStyle={{ padding: 14, paddingBottom: 28 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}
       >
-        {/* A7: request an on-route pickup */}
+        {/* A7: request an on-route pickup (A2: restrained outline, lucide icon) */}
         <TouchableOpacity style={s.reqRideBtn} onPress={() => router.push("/(passenger)/request-ride" as any)} activeOpacity={0.85}>
-          <Text style={s.reqRideBtnTxt}>🚗  {t("reqRideTitle")}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Car size={17} color={Colors.accentP} />
+            <Text style={s.reqRideBtnTxt}>{t("reqRideTitle")}</Text>
+          </View>
           <Text style={s.reqRideBtnArrow}>→</Text>
         </TouchableOpacity>
+
+        {zoneId && zoneMeta && (
+          <TouchableOpacity
+            style={s.loadingTimesLink}
+            activeOpacity={0.8}
+            onPress={() => router.push({ pathname: "/(passenger)/loading-times" as any, params: { zoneId, zoneName: zoneMeta.name, dest: dest ? getRegionName(dest) : "" } })}
+          >
+            <Clock size={14} color={Colors.accentP} />
+            <Text style={s.loadingTimesLinkTxt}>{t("loadingTimesLink")}</Text>
+          </TouchableOpacity>
+        )}
 
         {!reservable && (
           <View style={s.viewOnlyBanner}><Text style={s.viewOnlyTxt}>{t("viewOnlyBanner", { city: regionName(homeCity) })}</Text></View>
@@ -305,7 +372,7 @@ export default function BoardScreen() {
         <Text style={s.sectionLbl}>{t("liveQueue")} · {cars.length === 1 ? t("carOne") : t("carsCount", { n: cars.length })}</Text>
 
         {loading ? (
-          <ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} />
+          <ActivityIndicator color={Colors.accentP} style={{ marginTop: 40 }} />
         ) : !dest ? (
           <Text style={s.empty}>{t("pickDestination")}</Text>
         ) : cars.length === 0 ? (
@@ -343,7 +410,7 @@ export default function BoardScreen() {
                   <Text style={s.zoneRowAddr} numberOfLines={1}>{z.address ?? regionName(z.region)}</Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={[s.zoneRowCount, z.car_count > 0 && { color: Colors.accent }]}>{t("carsCount", { n: z.car_count })}</Text>
+                  <Text style={[s.zoneRowCount, z.car_count > 0 && { color: Colors.accentP }]}>{t("carsCount", { n: z.car_count })}</Text>
                   {z.has_loading && <Text style={s.zoneRowLoading}>● {t("statusLoading")}</Text>}
                 </View>
               </TouchableOpacity>
@@ -417,6 +484,112 @@ export default function BoardScreen() {
         </View>
       </Modal>
 
+      {/* Held-seat info sheet — reserved by another passenger, opens in ~15 min if no-show */}
+      <Modal visible={!!heldCar} transparent animationType="slide" onRequestClose={() => setHeldCar(null)}>
+        <Pressable style={s.sheetDim} onPress={() => setHeldCar(null)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <View style={s.grip} />
+            {heldCar && (
+              <>
+                <View style={s.heldHead}>
+                  <Clock size={18} color={Colors.yellow} />
+                  <Text style={s.heldTitle}>{t("heldSeatTitle")}</Text>
+                </View>
+                <Text style={s.heldBody}>{t("heldSeatBody")}</Text>
+                {heldCar.next_hold_expires_at && (
+                  <Text style={s.heldCountdown}>{countdown(heldCar.next_hold_expires_at, now)}</Text>
+                )}
+                <TouchableOpacity style={s.notifyBtn} activeOpacity={0.85} onPress={() => { const c = heldCar; setHeldCar(null); setNotifyCar(c); }}>
+                  <Bell size={16} color={Colors.yellow} />
+                  <Text style={s.notifyBtnTxt}>{t("notifyWhenOpen")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.otherCarsBtn} activeOpacity={0.85} onPress={() => { setHeldCar(null); setOtherCarsOpen(true); }}>
+                  <Car size={16} color={Colors.t2} />
+                  <Text style={s.otherCarsBtnTxt}>{t("seeOtherCars")}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Notify me when a seat opens — pick SMS or Email, capture + save if missing */}
+      <Modal visible={!!notifyCar} transparent animationType="slide" onRequestClose={() => setNotifyCar(null)}>
+        <Pressable style={s.sheetDim} onPress={() => setNotifyCar(null)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <View style={s.grip} />
+            <Text style={s.sheetTitle}>{t("notifyWhenOpen")}</Text>
+            <Text style={s.otherCarsSub}>{t("notifySub")}</Text>
+
+            <TouchableOpacity style={[s.chOpt, notifyChannel === "sms" && s.chOptOn]} activeOpacity={0.85} onPress={() => pickNotifyChannel("sms")}>
+              <View style={s.chIco}><MessageSquare size={17} color={Colors.t1} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.chTitle}>{t("notifySms")}</Text>
+                {!!meProfile?.phone && <Text style={s.chSub}>{maskContact(meProfile.phone)}</Text>}
+              </View>
+              <View style={[s.radio, notifyChannel === "sms" && s.radioOn]} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[s.chOpt, notifyChannel === "email" && s.chOptOn]} activeOpacity={0.85} onPress={() => pickNotifyChannel("email")}>
+              <View style={s.chIco}><Mail size={17} color={Colors.t1} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.chTitle}>{t("notifyEmail")}</Text>
+                {!!meProfile?.email && <Text style={s.chSub}>{maskContact(meProfile.email)}</Text>}
+              </View>
+              <View style={[s.radio, notifyChannel === "email" && s.radioOn]} />
+            </TouchableOpacity>
+
+            <TextInput
+              style={s.notifyInput}
+              value={notifyContact}
+              onChangeText={setNotifyContact}
+              placeholder={notifyChannel === "sms" ? t("notifyPhonePh") : t("notifyEmailPh")}
+              placeholderTextColor={Colors.t3}
+              keyboardType={notifyChannel === "sms" ? "phone-pad" : "email-address"}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <TouchableOpacity style={s.saveRow} activeOpacity={0.8} onPress={() => setNotifySave(v => !v)}>
+              <View style={[s.checkbox, notifySave && s.checkboxOn]}>{notifySave && <Text style={s.checkboxTick}>✓</Text>}</View>
+              <Text style={s.saveTxt}>{t("notifySaveProfile")}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[s.reserveBtn, { marginTop: 14 }, notifyBusy && { opacity: 0.6 }]} disabled={notifyBusy} onPress={submitNotify} activeOpacity={0.85}>
+              <Text style={s.reserveBtnTxt}>{notifyBusy ? t("reserving") : t("notifyConfirm")}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* See other cars — the next queued cars after the one loading */}
+      <Modal visible={otherCarsOpen} transparent animationType="slide" onRequestClose={() => setOtherCarsOpen(false)}>
+        <Pressable style={s.sheetDim} onPress={() => setOtherCarsOpen(false)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <View style={s.grip} />
+            <Text style={s.sheetTitle}>{t("otherCarsTitle")}</Text>
+            <Text style={s.otherCarsSub}>{t("otherCarsSub", { dest: getRegionName(dest) })}</Text>
+            {cars.filter(c => c.status !== "loading").slice(0, 3).map((c, idx) => (
+              <View key={c.queue_entry_id} style={s.ocRow}>
+                <Text style={s.ocPos}>#{idx + 2}</Text>
+                {c.avatar_url
+                  ? <Image source={{ uri: c.avatar_url }} style={s.ocAvatar} />
+                  : <View style={s.ocAvatar}><Text style={s.avatarTxt}>{initials(c.driver_name)}</Text></View>}
+                <View style={{ flex: 1 }}>
+                  <Text style={s.name} numberOfLines={1}>{c.driver_name}</Text>
+                  <Text style={s.vehicle} numberOfLines={1}>{vehicleLabel(c) || t("newDriver")} · {t("seatsOpenN", { n: c.seats_left })}</Text>
+                </View>
+                <Text style={s.ocFare}>{formatFare(c.fare_cents)}</Text>
+              </View>
+            ))}
+            {cars.filter(c => c.status !== "loading").length === 0 && (
+              <Text style={s.otherCarsSub}>{t("otherCarsNone")}</Text>
+            )}
+            <Text style={s.ocNote}>{t("otherCarsNote")}</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <PassengerBottomNav />
     </SafeAreaView>
   );
@@ -428,36 +601,50 @@ function initials(name?: string): string {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
+// Mask a phone/email for display: keep the ends, dot out the middle.
+function maskContact(v?: string | null): string {
+  const s = (v ?? "").trim();
+  if (!s) return "";
+  if (s.includes("@")) {
+    const [u, d] = s.split("@");
+    return `${u.slice(0, 2)}•••@${d}`;
+  }
+  return s.length <= 4 ? s : `${s.slice(0, 3)} ••• ${s.slice(-4)}`;
+}
+
 const s = StyleSheet.create({
   screen:      { flex: 1, backgroundColor: Colors.bg },
   header:      { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 10 },
   zonePicker:  { flexDirection: "column" },
   zoneName:    { fontSize: 22, fontWeight: "800", color: Colors.t1 },
-  zoneCity:    { fontSize: 13.5, color: Colors.accent, fontWeight: "700", marginTop: 1 },
+  zoneCity:    { fontSize: 13.5, color: Colors.accentP, fontWeight: "700", marginTop: 1 },
   liveRow:     { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 },
-  liveDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.accent },
+  liveDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.accentP },
   liveTxt:     { fontSize: 12, color: Colors.t2, fontWeight: "600" },
   watchTag:    { fontSize: 12, color: Colors.yellow, fontWeight: "700" },
   dateTxt:     { color: Colors.t2, fontSize: 11.5, fontWeight: "700", marginTop: 3 },
-  msgBtn:      { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  msgBtn:      { width: 40, alignItems: "center", justifyContent: "center", gap: 1 },
+  msgAdminTag: { fontSize: 8.5, fontWeight: "700", color: Colors.t3, letterSpacing: 0.3, opacity: 0.6 },
 
-  reqRideBtn:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 14 },
-  reqRideBtnTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 15 },
-  reqRideBtnArrow: { color: Colors.accentText, fontWeight: "800", fontSize: 18 },
+  reqRideBtn:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(234,106,30,0.06)", borderWidth: 1.5, borderColor: Colors.accentP, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 16, marginBottom: 12 },
+  reqRideBtnTxt: { color: Colors.accentP, fontWeight: "800", fontSize: 15 },
+  reqRideBtnArrow: { color: Colors.accentP, fontWeight: "800", fontSize: 18 },
+  loadingTimesLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, marginBottom: 8 },
+  loadingTimesLinkTxt: { color: Colors.accentP, fontWeight: "800", fontSize: 12.5 },
   viewOnlyBanner: { backgroundColor: "rgba(245,200,66,0.12)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", borderRadius: 12, padding: 11, marginBottom: 12 },
   viewOnlyTxt:    { color: Colors.yellow, fontSize: 12, fontWeight: "600", lineHeight: 17 },
 
   pills:       { marginBottom: 14 },
   pill:        { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  pillOn:      { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  pillOn:      { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
   pillTxt:     { color: Colors.t2, fontWeight: "700", fontSize: 13 },
-  pillTxtOn:   { color: Colors.accentText },
+  pillTxtOn:   { color: Colors.accentPText },
 
   sectionLbl:  { color: Colors.t3, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 10 },
   empty:       { color: Colors.t3, fontSize: 13, textAlign: "center", marginTop: 34, paddingHorizontal: 20, lineHeight: 19 },
 
   car:         { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 15, padding: 12, marginBottom: 10 },
-  carLoading:  { borderColor: Colors.accent },
+  carLoading:  { borderColor: Colors.accentP },
   carTop:      { flexDirection: "row", alignItems: "center", gap: 9 },
   avatar:      { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" },
   avatarTxt:   { color: Colors.t1, fontWeight: "800", fontSize: 13 },
@@ -476,7 +663,7 @@ const s = StyleSheet.create({
 
   statusRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 9 },
   chipLoad:    { backgroundColor: "rgba(255,107,0,0.16)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  chipLoadTxt: { color: Colors.accent, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
+  chipLoadTxt: { color: Colors.accentP, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
   chipQueue:   { backgroundColor: Colors.cardAlt, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   chipQueueTxt:{ color: Colors.t2, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
   timer:       { color: Colors.t2, fontSize: 10.5 },
@@ -487,9 +674,9 @@ const s = StyleSheet.create({
   expandKey:   { color: Colors.t3, fontSize: 11.5, fontWeight: "600" },
   expandVal:   { color: Colors.t1, fontSize: 12.5, fontWeight: "600" },
 
-  reserveBtn:  { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 11 },
+  reserveBtn:  { backgroundColor: Colors.accentP, borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 11 },
   reserveBtnDisabled: { backgroundColor: Colors.cardAlt },
-  reserveBtnTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 13.5 },
+  reserveBtnTxt: { color: Colors.accentPText, fontWeight: "800", fontSize: 13.5 },
 
   // picker / sheets
   sheetDim:    { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
@@ -497,21 +684,48 @@ const s = StyleSheet.create({
   grip:        { width: 36, height: 4, borderRadius: 3, backgroundColor: Colors.border, alignSelf: "center", marginBottom: 12 },
   sheetTitle:  { color: Colors.t1, fontSize: 17, fontWeight: "800", marginBottom: 12 },
   sheetDriver: { flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 6 },
+  heldHead:    { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  heldTitle:   { color: Colors.yellow, fontWeight: "800", fontSize: 16 },
+  heldBody:    { color: Colors.t2, fontSize: 13, lineHeight: 19 },
+  heldCountdown:{ color: Colors.yellow, fontSize: 26, fontWeight: "800", fontVariant: ["tabular-nums"], marginTop: 10, letterSpacing: 1 },
+  notifyBtn:   { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: Colors.yellow, borderRadius: 12, paddingVertical: 12, marginTop: 16 },
+  notifyBtnTxt:{ color: Colors.yellow, fontWeight: "800", fontSize: 14 },
+  otherCarsBtn:{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, paddingVertical: 12, marginTop: 10 },
+  otherCarsBtnTxt:{ color: Colors.t2, fontWeight: "700", fontSize: 14 },
+  otherCarsSub:{ color: Colors.t2, fontSize: 12.5, marginTop: -6, marginBottom: 12 },
+  ocRow:       { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 11, marginBottom: 9 },
+  ocPos:       { color: Colors.accentP, fontWeight: "800", fontSize: 13, width: 24 },
+  ocAvatar:    { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" },
+  ocFare:      { color: Colors.accentP, fontWeight: "800", fontSize: 13.5 },
+  ocNote:      { color: Colors.t3, fontSize: 11, marginTop: 4, textAlign: "center", lineHeight: 16 },
+  chOpt:       { flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, marginBottom: 9 },
+  chOptOn:     { borderColor: Colors.accentP, backgroundColor: "rgba(234,106,30,0.08)" },
+  chIco:       { width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" },
+  chTitle:     { color: Colors.t1, fontWeight: "700", fontSize: 14 },
+  chSub:       { color: Colors.t2, fontSize: 11.5, marginTop: 1 },
+  radio:       { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.border },
+  radioOn:     { borderColor: Colors.accentP, borderWidth: 6 },
+  notifyInput: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 11, paddingHorizontal: 13, paddingVertical: 12, color: Colors.t1, fontSize: 15, fontWeight: "600", marginTop: 3 },
+  saveRow:     { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 13 },
+  checkbox:    { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: Colors.accentP, alignItems: "center", justifyContent: "center" },
+  checkboxOn:  { backgroundColor: Colors.accentP },
+  checkboxTick:{ color: Colors.accentPText, fontWeight: "900", fontSize: 13 },
+  saveTxt:     { color: Colors.t2, fontSize: 12.5 },
   pickerNote:  { color: Colors.yellow, fontSize: 11.5, marginBottom: 10, lineHeight: 16 },
 
   cityChip:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  cityChipOn:  { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  cityChipOn:  { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
   cityChipTxt: { color: Colors.t2, fontWeight: "700", fontSize: 13 },
-  cityChipTxtOn: { color: Colors.accentText },
+  cityChipTxtOn: { color: Colors.accentPText },
 
   zoneRow:     { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 8 },
-  zoneRowOn:   { borderColor: Colors.accent, backgroundColor: "rgba(255,107,0,0.08)" },
+  zoneRowOn:   { borderColor: Colors.accentP, backgroundColor: "rgba(255,107,0,0.08)" },
   zoneRowName: { color: Colors.t1, fontSize: 14, fontWeight: "700", flexShrink: 1 },
   zoneRowAddr: { color: Colors.t3, fontSize: 11, marginTop: 2 },
   zoneRowCount:{ color: Colors.t2, fontSize: 12, fontWeight: "800" },
-  zoneRowLoading: { color: Colors.accent, fontSize: 9.5, fontWeight: "800", marginTop: 2 },
-  busyTag:     { backgroundColor: Colors.accent, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 5 },
-  busyTagTxt:  { color: Colors.accentText, fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
+  zoneRowLoading: { color: Colors.accentP, fontSize: 9.5, fontWeight: "800", marginTop: 2 },
+  busyTag:     { backgroundColor: Colors.accentP, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 5 },
+  busyTagTxt:  { color: Colors.accentPText, fontSize: 8.5, fontWeight: "900", letterSpacing: 0.4 },
 
   // driver profile
   centerDim:   { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", padding: 30 },

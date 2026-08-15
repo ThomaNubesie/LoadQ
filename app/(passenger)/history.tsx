@@ -33,7 +33,7 @@ interface ActivityRow {
 }
 
 const KIND_META: Record<ActivityRow["kind"], { icon: ReactNode; color: string; label: string }> = {
-  loading:    { icon: <RefreshCw size={18} color={Colors.accent} strokeWidth={2.5} />, color: Colors.accent, label: "loading" },
+  loading:    { icon: <RefreshCw size={18} color={Colors.accentP} strokeWidth={2.5} />, color: Colors.accentP, label: "loading" },
   departed:   { icon: <Text style={{ color: "#22C55E", fontSize: 20, fontWeight: "900" }}>✓</Text>, color: "#22C55E", label: "departed" },
   timeout_2h: { icon: <Text style={{ color: Colors.red, fontSize: 20, fontWeight: "900" }}>✗</Text>, color: Colors.red, label: "timed out" },
   eod_close:  { icon: <Text style={{ color: Colors.red, fontSize: 20, fontWeight: "900" }}>✗</Text>, color: Colors.red, label: "day close" },
@@ -186,11 +186,11 @@ export default function PassengerHistoryScreen() {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={s.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accentP} />}
       >
         {loading ? (
           <View style={s.loadingBlock}>
-            <ActivityIndicator color={Colors.accent} size="large" />
+            <ActivityIndicator color={Colors.accentP} size="large" />
             <Text style={s.empty}>{t.loading}</Text>
           </View>
         ) : rows.length === 0 ? (
@@ -250,9 +250,9 @@ const s = StyleSheet.create({
   title:            { fontSize: 13, fontWeight: "800", color: Colors.t1, letterSpacing: 2 },
   chipRow:          { flexDirection: "row", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
   chip:             { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border },
-  chipActive:       { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  chipActive:       { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
   chipText:         { fontSize: 12, fontWeight: "700", color: Colors.t2 },
-  chipTextActive:   { color: Colors.accentText },
+  chipTextActive:   { color: Colors.accentPText },
   scroll:           { padding: 16, paddingBottom: 32 },
   empty:            { color: Colors.t3, textAlign: "center", marginTop: 40 },
   loadingBlock:     { alignItems: "center", marginTop: 60, gap: 12 },
@@ -265,7 +265,7 @@ const s = StyleSheet.create({
   rowMeta:          { color: Colors.t3, fontSize: 11, marginTop: 3, fontWeight: "500" },
   savingsCard:      { marginTop: 24, padding: 18, borderRadius: 16, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, alignItems: "center" },
   savingsLabel:     { fontSize: 11, fontWeight: "800", color: Colors.t3, letterSpacing: 2, marginBottom: 6 },
-  savingsBig:       { fontSize: 40, fontWeight: "900", color: Colors.accent, letterSpacing: -1 },
+  savingsBig:       { fontSize: 40, fontWeight: "900", color: Colors.accentP, letterSpacing: -1 },
   savingsSub:       { fontSize: 12, color: Colors.t2, marginTop: 2, marginBottom: 14, fontWeight: "600" },
   savingsBreak:     { alignSelf: "stretch", gap: 2, borderTopWidth: 0.5, borderTopColor: Colors.border, paddingTop: 12 },
   savingsBreakRow:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 7 },

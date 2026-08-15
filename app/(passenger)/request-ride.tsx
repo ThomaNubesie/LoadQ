@@ -129,7 +129,7 @@ export default function RequestRideScreen() {
         <View style={{ width: 20 }} />
       </View>
 
-      {phase === "loading" && <View style={s.center}><ActivityIndicator color={Colors.accent} /></View>}
+      {phase === "loading" && <View style={s.center}><ActivityIndicator color={Colors.accentP} /></View>}
 
       {phase === "form" && (
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
@@ -147,9 +147,9 @@ export default function RequestRideScreen() {
 
           <Text style={s.lbl}>{t.reqPickup}</Text>
           <TouchableOpacity style={s.field} onPress={useMyLocation} activeOpacity={0.85}>
-            <MapPin size={17} color={Colors.accent} strokeWidth={2} />
+            <MapPin size={17} color={Colors.accentP} strokeWidth={2} />
             <Text style={[s.fieldTxt, !pickup && s.fieldPh]} numberOfLines={1}>{pickup ? pickup.label : t.reqUseLocation}</Text>
-            {locating ? <ActivityIndicator color={Colors.accent} /> : <Text style={s.fieldAction}>{pickup ? t.reqUseLocation : "→"}</Text>}
+            {locating ? <ActivityIndicator color={Colors.accentP} /> : <Text style={s.fieldAction}>{pickup ? t.reqUseLocation : "→"}</Text>}
           </TouchableOpacity>
 
           <Text style={s.lbl}>{t.reqDestination}</Text>
@@ -195,7 +195,7 @@ export default function RequestRideScreen() {
                 <Text style={s.drvCar}>{[req.vehicle_make, req.vehicle_model, req.vehicle_color].filter(Boolean).join(" · ")}{req.vehicle_seats ? ` · ${req.vehicle_seats}` : ""}</Text>
                 {!!req.vehicle_plate && <Text style={s.plate}>{req.vehicle_plate}</Text>}
                 <View style={s.drvBtns}>
-                  {!!req.driver_phone && <TouchableOpacity style={[s.db, s.dbCall]} onPress={() => Linking.openURL(`tel:${req.driver_phone}`)}><Phone size={15} color={Colors.accentText} /><Text style={s.dbCallTxt}>{t.reqCall}</Text></TouchableOpacity>}
+                  {!!req.driver_phone && <TouchableOpacity style={[s.db, s.dbCall]} onPress={() => Linking.openURL(`tel:${req.driver_phone}`)}><Phone size={15} color={Colors.accentPText} /><Text style={s.dbCallTxt}>{t.reqCall}</Text></TouchableOpacity>}
                   <TouchableOpacity style={[s.db, s.dbMsg]} onPress={() => router.push({ pathname: "/(passenger)/thread", params: { id: req.driver_id, name: req.driver_name || "", phone: req.driver_phone || "" } } as any)}><MessageCircle size={15} color={Colors.t1} /><Text style={s.dbMsgTxt}>{t.reqMessage}</Text></TouchableOpacity>
                 </View>
               </View>
@@ -208,13 +208,13 @@ export default function RequestRideScreen() {
               <View style={s.interac}>
                 <Text style={s.interacTxt}>{t.reqPayInstruc}</Text>
                 <View style={s.refBox}><Text style={s.refTxt}>{req.pay_ref || "LQ-…"}</Text></View>
-                <Text style={s.interacTo}>{t.reqTo} <Text style={{ color: Colors.accent, fontWeight: "800" }}>{INTERAC_TO}</Text></Text>
+                <Text style={s.interacTo}>{t.reqTo} <Text style={{ color: Colors.accentP, fontWeight: "800" }}>{INTERAC_TO}</Text></Text>
               </View>
             </>
           ) : (
             // Paid, searching for a driver
             <View style={s.center}>
-              <ActivityIndicator size="large" color={Colors.accent} />
+              <ActivityIndicator size="large" color={Colors.accentP} />
               <Text style={s.finding}>{t.reqFinding}</Text>
             </View>
           )}
@@ -240,34 +240,34 @@ const s = StyleSheet.create({
   lbl:        { fontSize: 11, color: Colors.t3, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 16, marginBottom: 8 },
   seg:        { flexDirection: "row", gap: 8 },
   segBtn:     { flex: 1, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 6, alignItems: "center" },
-  segOn:      { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  segOn:      { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
   segDisabled:{ opacity: 0.45 },
   segTxt:     { fontWeight: "800", fontSize: 12.5, color: Colors.t2 },
-  segTxtOn:   { color: Colors.accentText },
+  segTxtOn:   { color: Colors.accentPText },
   segSub:     { fontSize: 9.5, color: Colors.t3, marginTop: 2 },
-  segSubOn:   { color: Colors.accentText, opacity: 0.8 },
+  segSubOn:   { color: Colors.accentPText, opacity: 0.8 },
   field:      { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 13 },
   fieldTxt:   { color: Colors.t1, fontSize: 14, flex: 1 },
   fieldPh:    { color: Colors.t3 },
-  fieldAction:{ color: Colors.accent, fontWeight: "800", fontSize: 12 },
+  fieldAction:{ color: Colors.accentP, fontWeight: "800", fontSize: 12 },
   chip:       { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-  chipOn:     { borderColor: Colors.accent, backgroundColor: "rgba(255,107,0,0.12)" },
+  chipOn:     { borderColor: Colors.accentP, backgroundColor: "rgba(255,107,0,0.12)" },
   chipTxt:    { color: Colors.t2, fontWeight: "700", fontSize: 13 },
-  chipTxtOn:  { color: Colors.accent },
+  chipTxtOn:  { color: Colors.accentP },
   chip2Row:   { flexDirection: "row", gap: 8 },
   chip2:      { flex: 1, alignItems: "center", paddingVertical: 11, borderRadius: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-  chip2On:    { borderColor: Colors.accent },
+  chip2On:    { borderColor: Colors.accentP },
   chip2Txt:   { color: Colors.t2, fontWeight: "700", fontSize: 13 },
-  chip2TxtOn: { color: Colors.accent, fontWeight: "700", fontSize: 13 },
-  cta:        { marginTop: 24, backgroundColor: Colors.accent, borderRadius: 14, padding: 16, alignItems: "center" },
+  chip2TxtOn: { color: Colors.accentP, fontWeight: "700", fontSize: 13 },
+  cta:        { marginTop: 24, backgroundColor: Colors.accentP, borderRadius: 14, padding: 16, alignItems: "center" },
   ctaOff:     { opacity: 0.5 },
-  ctaTxt:     { color: Colors.accentText, fontWeight: "800", fontSize: 16 },
+  ctaTxt:     { color: Colors.accentPText, fontWeight: "800", fontSize: 16 },
   priceBig:   { fontSize: 48, fontWeight: "900", color: Colors.t1, textAlign: "center", marginTop: 8, letterSpacing: -1 },
   priceSub:   { color: Colors.t3, fontSize: 12.5, textAlign: "center", marginTop: 2 },
   interac:    { backgroundColor: "rgba(255,107,0,0.10)", borderWidth: 1, borderColor: "rgba(255,107,0,0.4)", borderRadius: 14, padding: 14, marginTop: 16 },
   interacTxt: { color: Colors.t2, fontSize: 12.5, lineHeight: 18 },
-  refBox:     { alignItems: "center", backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 10, paddingVertical: 12, marginVertical: 10 },
-  refTxt:     { fontSize: 22, fontWeight: "900", letterSpacing: 2, color: Colors.accent },
+  refBox:     { alignItems: "center", backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.accentP, borderStyle: "dashed", borderRadius: 10, paddingVertical: 12, marginVertical: 10 },
+  refTxt:     { fontSize: 22, fontWeight: "900", letterSpacing: 2, color: Colors.accentP },
   interacTo:  { textAlign: "center", color: Colors.t1, fontSize: 12.5 },
   finding:    { color: Colors.t1, fontSize: 15, fontWeight: "700" },
   pillWrap:   { alignItems: "center", marginVertical: 6 },
@@ -278,13 +278,13 @@ const s = StyleSheet.create({
   plate:      { alignSelf: "flex-start", marginTop: 8, backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border, borderRadius: 7, paddingVertical: 5, paddingHorizontal: 12, fontWeight: "800", letterSpacing: 1, color: Colors.t1, overflow: "hidden" },
   drvBtns:    { flexDirection: "row", gap: 9, marginTop: 14 },
   db:         { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 12, paddingVertical: 12 },
-  dbCall:     { backgroundColor: Colors.accent },
-  dbCallTxt:  { color: Colors.accentText, fontWeight: "800", fontSize: 13 },
+  dbCall:     { backgroundColor: Colors.accentP },
+  dbCallTxt:  { color: Colors.accentPText, fontWeight: "800", fontSize: 13 },
   dbMsg:      { backgroundColor: Colors.cardAlt },
   dbMsgTxt:   { color: Colors.t1, fontWeight: "800", fontSize: 13 },
   legs:       { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, padding: 14, marginTop: 16 },
   legRow:     { flexDirection: "row", gap: 10, alignItems: "flex-start", paddingVertical: 3 },
-  legDot:     { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.accent, marginTop: 5 },
+  legDot:     { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.accentP, marginTop: 5 },
   legDot2:    { backgroundColor: "#2FBE6E" },
   legK:       { fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.5 },
   legV:       { fontSize: 14, fontWeight: "700", color: Colors.t1, marginTop: 1 },

@@ -101,8 +101,8 @@ export default function PassengerProfileScreen() {
               )}
               <View style={s.avatarEditBadge}>
                 {uploading
-                  ? <ActivityIndicator size="small" color={Colors.accentText} />
-                  : <Pencil size={14} color={Colors.accentText} strokeWidth={2} />}
+                  ? <ActivityIndicator size="small" color={Colors.accentPText} />
+                  : <Pencil size={14} color={Colors.accentPText} strokeWidth={2} />}
               </View>
             </View>
           </TouchableOpacity>
@@ -133,7 +133,7 @@ export default function PassengerProfileScreen() {
         <View style={s.langRow}>
           {(["en","fr"] as Lang[]).map(l => (
             <TouchableOpacity key={l} style={[s.langBtn, lang===l && s.langBtnActive]} onPress={() => setLang(l)}>
-              <Text style={[s.langBtnText, lang===l && { color: Colors.accent }]}>
+              <Text style={[s.langBtnText, lang===l && { color: Colors.accentP }]}>
                 {l === "en" ? "English" : "Français"}
               </Text>
             </TouchableOpacity>
@@ -178,8 +178,8 @@ export default function PassengerProfileScreen() {
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={() => openStoreListing()} activeOpacity={0.85}>
-          <Text style={[s.rowBtnText, { color: Colors.accent, fontWeight: "700" }]}>{lang === "fr" ? "Mettre à jour l'application" : "Update the app"}</Text>
-          <Text style={[s.rowBtnChevron, { color: Colors.accent }]}>›</Text>
+          <Text style={[s.rowBtnText, { color: Colors.accentP, fontWeight: "700" }]}>{lang === "fr" ? "Mettre à jour l'application" : "Update the app"}</Text>
+          <Text style={[s.rowBtnChevron, { color: Colors.accentP }]}>›</Text>
         </TouchableOpacity>
         <View style={[s.rowBtn, { justifyContent: "space-between" }]}>
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.versionLabel}</Text>
@@ -189,7 +189,7 @@ export default function PassengerProfileScreen() {
         <View style={{ alignItems: "center", marginTop: 20 }}>
           <Text style={{ color: Colors.t3, fontSize: 11.5, textAlign: "center" }}>{t.ownedBy}</Text>
           <TouchableOpacity onPress={() => Linking.openURL("https://www.concordexpress.ca").catch(() => {})}>
-            <Text style={{ color: Colors.accent, fontSize: 11.5, fontWeight: "600", marginTop: 2 }}>www.concordexpress.ca</Text>
+            <Text style={{ color: Colors.accentP, fontSize: 11.5, fontWeight: "600", marginTop: 2 }}>www.concordexpress.ca</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -209,9 +209,9 @@ const s = StyleSheet.create({
   avatarCircle:      { width:88, height:88, borderRadius:44, backgroundColor:Colors.card, borderWidth:1, borderColor:Colors.border, alignItems:"center", justifyContent:"center", marginBottom:10, overflow:"hidden" },
   avatarEmoji:       { fontSize:40 },
   avatarImg:         { width:88, height:88, borderRadius:44 },
-  avatarEditBadge:   { position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:14, backgroundColor:Colors.accent, alignItems:"center", justifyContent:"center", borderWidth:2, borderColor:Colors.bg },
-  avatarEditIcon:    { color:Colors.accentText, fontSize:14, fontWeight:"700" },
-  avatarHint:        { fontSize:12, color:Colors.accent, marginTop:6, fontWeight:"600" },
+  avatarEditBadge:   { position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:14, backgroundColor:Colors.accentP, alignItems:"center", justifyContent:"center", borderWidth:2, borderColor:Colors.bg },
+  avatarEditIcon:    { color:Colors.accentPText, fontSize:14, fontWeight:"700" },
+  avatarHint:        { fontSize:12, color:Colors.accentP, marginTop:6, fontWeight:"600" },
   name:              { fontSize:20, fontWeight:"700", color:Colors.t1, marginTop:4 },
   card:              { backgroundColor:Colors.card, borderRadius:14, padding:16, borderWidth:0.5, borderColor:Colors.border, marginBottom:24 },
   identRow:          { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:10, borderBottomWidth:0.5, borderBottomColor:Colors.border },
@@ -220,7 +220,7 @@ const s = StyleSheet.create({
   sectionLabel:      { fontSize:11, fontWeight:"800", color:Colors.t3, letterSpacing:2, marginBottom:10 },
   langRow:           { flexDirection:"row", gap:10, marginBottom:32 },
   langBtn:           { flex:1, backgroundColor:Colors.card, borderRadius:10, padding:12, borderWidth:1, borderColor:Colors.border, alignItems:"center" },
-  langBtnActive:     { borderColor:Colors.accent, backgroundColor:Colors.accent+"12" },
+  langBtnActive:     { borderColor:Colors.accentP, backgroundColor:Colors.accentP+"12" },
   langBtnText:       { fontSize:13, fontWeight:"600", color:Colors.t2 },
   rowBtn:            { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.card, borderRadius:12, paddingHorizontal:16, paddingVertical:14, borderWidth:0.5, borderColor:Colors.border, marginBottom:8 },
   rowBtnText:        { color:Colors.t1, fontSize:14, fontWeight:"600" },

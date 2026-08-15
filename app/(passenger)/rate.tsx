@@ -97,7 +97,7 @@ export default function RateScreen() {
         {err && <Text style={s.err}>{err}</Text>}
 
         <TouchableOpacity style={[s.submit, (stars < 1 || submitting) && s.submitOff]} disabled={stars < 1 || submitting} onPress={submit} activeOpacity={0.85}>
-          {submitting ? <ActivityIndicator color={Colors.accentText} /> : <Text style={s.submitTxt}>{t("submitRating")}</Text>}
+          {submitting ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.submitTxt}>{t("submitRating")}</Text>}
         </TouchableOpacity>
         <Text style={s.foot}>{t("driverRatesYouToo")}</Text>
       </ScrollView>
@@ -120,13 +120,13 @@ const s = StyleSheet.create({
   lbl:      { color: Colors.t3, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.3, textTransform: "uppercase", textAlign: "center", marginBottom: 10 },
   tags:     { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   tag:      { borderWidth: 1, borderColor: Colors.border, borderRadius: 20, paddingHorizontal: 13, paddingVertical: 7 },
-  tagOn:    { backgroundColor: "rgba(255,107,0,0.14)", borderColor: Colors.accent },
+  tagOn:    { backgroundColor: "rgba(255,107,0,0.14)", borderColor: Colors.accentP },
   tagTxt:   { color: Colors.t2, fontSize: 12.5, fontWeight: "600" },
-  tagTxtOn: { color: Colors.accent },
+  tagTxtOn: { color: Colors.accentP },
   note:     { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, color: Colors.t1, fontSize: 14, height: 74, marginTop: 16, textAlignVertical: "top" },
   err:      { color: Colors.red, fontSize: 12, marginTop: 10, textAlign: "center" },
-  submit:   { backgroundColor: Colors.accent, borderRadius: 13, paddingVertical: 14, alignItems: "center", marginTop: 16 },
+  submit:   { backgroundColor: Colors.accentP, borderRadius: 13, paddingVertical: 14, alignItems: "center", marginTop: 16 },
   submitOff:{ opacity: 0.5 },
-  submitTxt:{ color: Colors.accentText, fontWeight: "800", fontSize: 15 },
+  submitTxt:{ color: Colors.accentPText, fontWeight: "800", fontSize: 15 },
   foot:     { color: Colors.t3, fontSize: 10.5, textAlign: "center", marginTop: 10 },
 });

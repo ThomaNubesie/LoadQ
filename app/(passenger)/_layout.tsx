@@ -13,6 +13,7 @@ export default function PassengerLayout() {
       <Stack.Screen name="profile" />
       <Stack.Screen name="history" />
       <Stack.Screen name="messages" />
+      <Stack.Screen name="loading-times" />
     </Stack>
   );
 }

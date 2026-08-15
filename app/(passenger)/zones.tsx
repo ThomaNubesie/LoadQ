@@ -156,6 +156,6 @@ const s = StyleSheet.create({
   modalMeta:    { fontSize: 11, color: Colors.t3, marginBottom: 14, paddingHorizontal: 4 },
   modalAction:  { padding: 14, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, alignItems: "center", marginBottom: 8 },
   modalActionText: { fontSize: 14, fontWeight: "700", color: Colors.t1 },
-  modalViewBoard: { marginTop: 8, padding: 14, borderRadius: 10, backgroundColor: Colors.accent, alignItems: "center" },
-  modalViewBoardText: { fontSize: 14, fontWeight: "800", color: Colors.accentText },
+  modalViewBoard: { marginTop: 8, padding: 14, borderRadius: 10, backgroundColor: Colors.accentP, alignItems: "center" },
+  modalViewBoardText: { fontSize: 14, fontWeight: "800", color: Colors.accentPText },
 });

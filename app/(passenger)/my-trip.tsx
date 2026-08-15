@@ -12,6 +12,7 @@ import { PassengersAPI } from "../../services/passengers";
 import { getRegionName } from "../../constants/pricing";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import SeatSvg from "../../components/SeatSvg";
+import { getVehicleImageUrl } from "../../utils/vehicleImage";
 
 // Open turn-by-turn directions to the pickup zone (native maps → web fallback).
 async function openDirections(dst: string) {
@@ -98,7 +99,7 @@ export default function MyTripScreen() {
   }
 
   if (loading) {
-    return <SafeAreaView style={s.screen} edges={["top"]}><Text style={s.title}>{t("myTripTitle")}</Text><View style={s.center}><ActivityIndicator color={Colors.accent} /></View><PassengerBottomNav /></SafeAreaView>;
+    return <SafeAreaView style={s.screen} edges={["top"]}><Text style={s.title}>{t("myTripTitle")}</Text><View style={s.center}><ActivityIndicator color={Colors.accentP} /></View><PassengerBottomNav /></SafeAreaView>;
   }
 
   if (!trip) {
@@ -122,7 +123,7 @@ export default function MyTripScreen() {
     <SafeAreaView style={s.screen} edges={["top"]}>
       <Text style={s.title}>{t("myTripTitle")}</Text>
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
 
         {trip.status === "held" && trip.hold_expires_at && (
           <View style={s.holdCard}>
@@ -141,7 +142,7 @@ export default function MyTripScreen() {
               {!!trip.zone_address && <Text style={s.pickupAddr} numberOfLines={2}>{trip.zone_address}</Text>}
             </View>
             <TouchableOpacity style={s.dirBtn} onPress={() => openDirections(trip.zone_address || trip.zone_name || "")} activeOpacity={0.85}>
-              <Navigation size={15} color={Colors.accentText} /><Text style={s.dirBtnTxt}>{t("directions")}</Text>
+              <Navigation size={15} color={Colors.accentPText} /><Text style={s.dirBtnTxt}>{t("directions")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -160,6 +161,14 @@ export default function MyTripScreen() {
             </View>
           </View>
 
+          {!!trip.make && (
+            <Image
+              source={{ uri: getVehicleImageUrl(trip.make || "", trip.model || "", trip.year ?? undefined, "side", trip.color || undefined) }}
+              style={s.vehicleImg}
+              resizeMode="contain"
+            />
+          )}
+
           <View style={s.statusRow}>
             <View style={[s.chip, boarding ? s.chipHot : s.chipWait]}>
               <Text style={[s.chipTxt, boarding ? s.chipTxtHot : s.chipTxtWait]}>
@@ -175,7 +184,7 @@ export default function MyTripScreen() {
 
           <View style={s.seatRow}>
             {Array.from({ length: Math.max(trip.vehicle_seats ?? trip.seats, trip.seats) }).map((_, i) => (
-              <SeatSvg key={i} size="mini" filled={i < trip.seats} color={Colors.accent} disabled />
+              <SeatSvg key={i} size="mini" filled={i < trip.seats} color={Colors.accentP} disabled />
             ))}
           </View>
 
@@ -232,7 +241,7 @@ export default function MyTripScreen() {
           )}
           {!!trip.driver_id && (
             <TouchableOpacity style={[s.btn, s.btnMsg]} onPress={() => router.push({ pathname: "/(passenger)/thread", params: { id: trip.driver_id, name: trip.driver_name, phone: trip.driver_phone ?? "" } } as any)}>
-              <MessageCircle size={16} color={Colors.accentText} /><Text style={s.btnMsgTxt}>{t("messageDriver")}</Text>
+              <MessageCircle size={16} color={Colors.accentPText} /><Text style={s.btnMsgTxt}>{t("messageDriver")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -240,7 +249,7 @@ export default function MyTripScreen() {
         {boarded && (
           <TouchableOpacity style={s.rateBtn}
             onPress={() => router.push({ pathname: "/(passenger)/rate", params: { tripId: trip.trip_id, driverName: trip.driver_name, dest: trip.destination_region } } as any)}>
-            <Star size={15} color={Colors.accent} fill={Colors.accent} /><Text style={s.rateBtnTxt}>{t("rateRide")}</Text>
+            <Star size={15} color={Colors.accentP} fill={Colors.accentP} /><Text style={s.rateBtnTxt}>{t("rateRide")}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -255,17 +264,18 @@ const s = StyleSheet.create({
   center:   { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   empty:    { color: Colors.t1, fontSize: 15, fontWeight: "700" },
   sub:      { color: Colors.t3, fontSize: 13, marginTop: 6, textAlign: "center" },
-  goBoard:  { marginTop: 18, backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 26 },
-  goBoardTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 13.5 },
+  goBoard:  { marginTop: 18, backgroundColor: Colors.accentP, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 26 },
+  goBoardTxt: { color: Colors.accentPText, fontWeight: "800", fontSize: 13.5 },
 
-  holdCard: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.accent, borderRadius: 14, padding: 14, alignItems: "center", marginBottom: 12 },
-  holdLbl:  { color: Colors.accent, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.3, textTransform: "uppercase" },
+  holdCard: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.accentP, borderRadius: 14, padding: 14, alignItems: "center", marginBottom: 12 },
+  holdLbl:  { color: Colors.accentP, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.3, textTransform: "uppercase" },
   holdTimer:{ color: Colors.t1, fontSize: 30, fontWeight: "800", marginTop: 3, fontVariant: ["tabular-nums"] },
   holdSub:  { color: Colors.t3, fontSize: 10.5, marginTop: 2 },
 
   car:      { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 15, padding: 13 },
-  carHot:   { borderColor: Colors.accent },
+  carHot:   { borderColor: Colors.accentP },
   carTop:   { flexDirection: "row", alignItems: "center", gap: 10 },
+  vehicleImg:{ width: "100%", height: 88, marginTop: 10 },
   avatar:   { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" },
   avatarTxt:{ color: Colors.t1, fontWeight: "800", fontSize: 14 },
   nameRow:  { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -278,7 +288,7 @@ const s = StyleSheet.create({
   chipHot:  { backgroundColor: "rgba(255,107,0,0.16)" },
   chipWait: { backgroundColor: Colors.cardAlt },
   chipTxt:  { fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
-  chipTxtHot:  { color: Colors.accent },
+  chipTxtHot:  { color: Colors.accentP },
   chipTxtWait: { color: Colors.t2 },
   rowSplit: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 12, paddingTop: 11 },
   metaLbl:  { color: Colors.t3, fontSize: 9.5, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" },
@@ -293,8 +303,8 @@ const s = StyleSheet.create({
   pickupLbl:{ color: Colors.t3, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
   pickupName:{ color: Colors.t1, fontSize: 14.5, fontWeight: "800", marginTop: 2 },
   pickupAddr:{ color: Colors.t3, fontSize: 11, marginTop: 2 },
-  dirBtn:   { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.accent, borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12 },
-  dirBtnTxt:{ color: Colors.accentText, fontWeight: "800", fontSize: 12.5 },
+  dirBtn:   { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.accentP, borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12 },
+  dirBtnTxt:{ color: Colors.accentPText, fontWeight: "800", fontSize: 12.5 },
 
   seatRow:  { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 12, flexWrap: "wrap" },
   adjustRow:{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 11 },
@@ -317,8 +327,8 @@ const s = StyleSheet.create({
   btnCancelTxt: { color: Colors.red, fontWeight: "800", fontSize: 13 },
   btnCall:  { borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
   btnCallTxt:{ color: Colors.t1, fontWeight: "800", fontSize: 13 },
-  btnMsg:   { backgroundColor: Colors.accent },
-  btnMsgTxt:{ color: Colors.accentText, fontWeight: "800", fontSize: 13 },
+  btnMsg:   { backgroundColor: Colors.accentP },
+  btnMsgTxt:{ color: Colors.accentPText, fontWeight: "800", fontSize: 13 },
 
   rateBtn:  { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingVertical: 12 },
   rateBtnTxt: { color: Colors.t1, fontWeight: "800", fontSize: 13.5 },

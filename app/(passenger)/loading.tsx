@@ -250,7 +250,7 @@ export default function PassengerLoadingScreen() {
     const price = getPricePerSeat(activeZone?.region, entry.destination_region);
     const timerColor = lstate?.phase === "warning" || lstate?.phase === "expired"
       ? Colors.red
-      : lstate?.phase === "reduced3" ? Colors.yellow : Colors.accent;
+      : lstate?.phase === "reduced3" ? Colors.yellow : Colors.accentP;
     const tag = statusTag(entry.status);
     const isExpanded = expandedId === entry.id;
     const confirmed = seatClaims[entry.id] || [];
@@ -348,7 +348,7 @@ export default function PassengerLoadingScreen() {
             {price !== null && (
               <View style={s.expandRow}>
                 <Text style={s.expandKey}>{t.priceLabel}</Text>
-                <Text style={[s.expandVal, { color: Colors.accent, fontWeight: "700" }]}>C${price} / seat</Text>
+                <Text style={[s.expandVal, { color: Colors.accentP, fontWeight: "700" }]}>C${price} / seat</Text>
               </View>
             )}
             {isLoading && lstate && (
@@ -384,7 +384,7 @@ export default function PassengerLoadingScreen() {
                       size="full"
                       filled={isFilled}
                       locked={isLocked}
-                      color={isLoading ? Colors.accent : Colors.t3}
+                      color={isLoading ? Colors.accentP : Colors.t3}
                       disabled={!openSeatTappable}
                       onPress={openSeatTappable ? () => handleClaim(entry) : undefined}
                     />
@@ -463,9 +463,9 @@ export default function PassengerLoadingScreen() {
                   activeOpacity={0.85}
                 >
                   {canContact
-                    ? <MessageSquare size={14} color={Colors.accentText} strokeWidth={2} />
-                    : <Lock size={14} color={Colors.accentText} strokeWidth={2} />}
-                  <Text style={[s.passengerContactLabel, { color: Colors.accentText }]}>{t.messageLabel}</Text>
+                    ? <MessageSquare size={14} color={Colors.accentPText} strokeWidth={2} />
+                    : <Lock size={14} color={Colors.accentPText} strokeWidth={2} />}
+                  <Text style={[s.passengerContactLabel, { color: Colors.accentPText }]}>{t.messageLabel}</Text>
                   {unreadFromThis > 0 && (
                     <View style={s.passengerContactBadge}>
                       <Text style={s.passengerContactBadgeText}>
@@ -543,11 +543,11 @@ export default function PassengerLoadingScreen() {
 
       <ScrollView
         style={s.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accentP} />}
       >
         {loading ? (
           <View style={s.loadingBlock}>
-            <ActivityIndicator color={Colors.accent} size="large" />
+            <ActivityIndicator color={Colors.accentP} size="large" />
             <Text style={s.loadingText}>{t.loading}</Text>
           </View>
         ) : sortedDestKeys.length === 0 ? (
@@ -590,7 +590,7 @@ export default function PassengerLoadingScreen() {
                 style={[s.destPickRow, destFilter === null && s.destPickRowActive]}
                 onPress={() => { setDestFilter(null); setShowDestPicker(false); }}
               >
-                <Text style={[s.destPickName, destFilter === null && { color: Colors.accent }]}>{t.allDestinations}</Text>
+                <Text style={[s.destPickName, destFilter === null && { color: Colors.accentP }]}>{t.allDestinations}</Text>
               </TouchableOpacity>
               {allRegions.map(dest => {
                 const price = getPricePerSeat(activeZone?.region, dest);
@@ -602,7 +602,7 @@ export default function PassengerLoadingScreen() {
                     onPress={() => { setDestFilter(dest); setShowDestPicker(false); }}
                     disabled={!isReachable}
                   >
-                    <Text style={[s.destPickName, destFilter === dest && { color: Colors.accent }]}>→ {getRegionName(dest)}</Text>
+                    <Text style={[s.destPickName, destFilter === dest && { color: Colors.accentP }]}>→ {getRegionName(dest)}</Text>
                     {price !== null
                       ? <Text style={s.destPickPrice}>C${price} / seat</Text>
                       : <Text style={s.destPickPriceMuted}>No service</Text>}
@@ -629,15 +629,15 @@ const s = StyleSheet.create({
   addressArrow:{ color:Colors.t3, fontSize:20, fontWeight:"300" },
   destDropdown:      { flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:Colors.card, marginHorizontal:16, marginVertical:8, paddingVertical:12, paddingHorizontal:14, borderRadius:12, borderWidth:1, borderColor:Colors.border },
   destDropdownLabel: { fontSize:14, fontWeight:"700", color:Colors.t1 },
-  destDropdownArrow: { fontSize:14, color:Colors.accent, fontWeight:"700" },
+  destDropdownArrow: { fontSize:14, color:Colors.accentP, fontWeight:"700" },
   modalOverlay:      { flex:1, backgroundColor:"rgba(0,0,0,0.6)", justifyContent:"flex-end" },
   modalSheet:        { backgroundColor:Colors.card, borderTopLeftRadius:20, borderTopRightRadius:20, paddingTop:12, paddingBottom:24 },
   modalHandle:       { width:36, height:4, borderRadius:2, backgroundColor:Colors.border, alignSelf:"center", marginBottom:16 },
   modalTitle:        { fontSize:16, fontWeight:"700", color:Colors.t1, paddingHorizontal:16, marginBottom:8 },
   destPickRow:       { flexDirection:"row", justifyContent:"space-between", alignItems:"center", paddingVertical:14, paddingHorizontal:16, borderBottomWidth:0.5, borderBottomColor:Colors.border },
-  destPickRowActive: { backgroundColor:Colors.accent+"10" },
+  destPickRowActive: { backgroundColor:Colors.accentP+"10" },
   destPickName:      { fontSize:14, fontWeight:"600", color:Colors.t1 },
-  destPickPrice:     { fontSize:12, color:Colors.accent, fontWeight:"700" },
+  destPickPrice:     { fontSize:12, color:Colors.accentP, fontWeight:"700" },
   destPickPriceMuted:{ fontSize:11, color:Colors.t3, fontStyle:"italic" },
   scroll:      { flex:1, paddingHorizontal:16, paddingTop:8 },
   destGroup:       { marginBottom:14 },
@@ -647,8 +647,8 @@ const s = StyleSheet.create({
   cardLoading: { borderWidth:1.5, borderColor:"#22C55E" },
   cardHead:    { flexDirection:"row", alignItems:"center", gap:10, padding:12 },
   vehicleImg:  { width:"100%", height:130, backgroundColor:Colors.cardAlt, borderRadius:10, marginBottom:8 },
-  yourTripBanner: { paddingVertical:8, paddingHorizontal:12, backgroundColor:Colors.accent+"22", borderRadius:8, marginBottom:8, alignItems:"center" },
-  yourTripText:   { color:Colors.accent, fontSize:11, fontWeight:"800", letterSpacing:1 },
+  yourTripBanner: { paddingVertical:8, paddingHorizontal:12, backgroundColor:Colors.accentP+"22", borderRadius:8, marginBottom:8, alignItems:"center" },
+  yourTripText:   { color:Colors.accentP, fontSize:11, fontWeight:"800", letterSpacing:1 },
   avatar:      { width:44, height:44, borderRadius:22, backgroundColor:Colors.cardAlt },
   avatarFallback: { width:44, height:44, borderRadius:22, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center", borderWidth:0.5, borderColor:Colors.border },
   driverNameRow:{ flexDirection:"row", alignItems:"center", gap:6 },
@@ -660,7 +660,7 @@ const s = StyleSheet.create({
   tagMeta:     { fontSize:11, color:Colors.t3, fontWeight:"600" },
   vehicleInfoText: { fontSize:11, color:Colors.t3, marginBottom:8, fontWeight:"500" },
   priceBox:    { alignItems:"flex-end" },
-  priceText:   { fontSize:18, fontWeight:"800", color:Colors.accent },
+  priceText:   { fontSize:18, fontWeight:"800", color:Colors.accentP },
   priceSub:    { fontSize:10, color:Colors.t3 },
   chevron:     { fontSize:16, color:Colors.t3, fontWeight:"800", marginLeft:2 },
   expandPanel: { borderTopWidth:0.5, borderTopColor:Colors.border, borderLeftWidth:3, padding:12, backgroundColor:Colors.bg },
@@ -677,7 +677,7 @@ const s = StyleSheet.create({
   seatExpiredText:   { color:Colors.red, fontSize:30, fontWeight:"900", opacity:0.85 },
   passengerContactRow:        { flexDirection:"row", gap:8, paddingVertical:10 },
   passengerContactBtn:        { flex:1, flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6, paddingVertical:10, borderRadius:10, backgroundColor:Colors.cardAlt, borderWidth:0.5, borderColor:Colors.border },
-  passengerContactBtnPrimary: { backgroundColor:Colors.accent, borderColor:Colors.accent },
+  passengerContactBtnPrimary: { backgroundColor:Colors.accentP, borderColor:Colors.accentP },
   passengerContactBtnLocked:  { opacity:0.5 },
   passengerContactEmoji:      { fontSize:14 },
   passengerContactLabel:      { color:Colors.t1, fontSize:13, fontWeight:"700" },
@@ -687,7 +687,7 @@ const s = StyleSheet.create({
   warnText:    { color:Colors.red, fontSize:11, textAlign:"center", fontWeight:"600" },
   claimBtn:    { backgroundColor:"#22C55E", padding:14, alignItems:"center", borderRadius:10, marginTop:6 },
   claimBtnText:{ color:"#fff", fontSize:14, fontWeight:"800" },
-  claimBtnClaimed:  { backgroundColor:Colors.accent },
+  claimBtnClaimed:  { backgroundColor:Colors.accentP },
   claimBtnRequested:{ backgroundColor:Colors.yellow },
   claimBtnDisabled: { backgroundColor:Colors.card, opacity:0.7 },
   boardingClosed:   { backgroundColor:Colors.cardAlt, borderRadius:10, padding:12, marginTop:6, alignItems:"center" },
