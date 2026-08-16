@@ -128,6 +128,9 @@ export const STRINGS = {
 
     // Profile
     profile:          "Profile",
+    updateTitle:      "Update available",
+    updateSub:        "Version {v} is ready — tap to update",
+    updateNow:        "Update",
     myVehicles:       "My vehicles",
     addVehicle:       "Add vehicle",
     vehicleType:      "Vehicle type",
@@ -995,6 +998,9 @@ export const STRINGS = {
 
     // Profile
     profile:          "Profil",
+    updateTitle:      "Mise à jour disponible",
+    updateSub:        "La version {v} est prête — touchez pour mettre à jour",
+    updateNow:        "Mettre à jour",
     myVehicles:       "Mes véhicules",
     addVehicle:       "Ajouter un véhicule",
     vehicleType:      "Type de véhicule",

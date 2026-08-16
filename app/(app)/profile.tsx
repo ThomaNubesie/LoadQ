@@ -10,6 +10,7 @@ import { DriverDocsAPI } from "../../services/driverDocs";
 import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
+import { useAppUpdate } from "../../hooks/useAppUpdate";
 import { openStoreListing } from "../../utils/appStore";
 import HowToUse from "../../components/HowToUse";
 import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
@@ -26,6 +27,7 @@ import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, 
 export default function ProfileScreen() {
   const router      = useRouter();
   const { t, lang } = useStrings();
+  const update = useAppUpdate();
   const [showHowTo, setShowHowTo] = useState(false);
   const [driver,    setDriver]    = useState<Driver|null>(null);
   const [vehicles,  setVehicles]  = useState<Vehicle[]>([]);
@@ -133,6 +135,16 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={s.inner}>
+        {update.available && (
+          <TouchableOpacity style={s.updateRow} onPress={update.openStore} activeOpacity={0.85}>
+            <View style={s.updateBadge}><Text style={s.updateBadgeTxt}>{update.behind}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.updateTitle}>{t.updateTitle}</Text>
+              <Text style={s.updateSub}>{t("updateSub", { v: update.latest ?? "" })}</Text>
+            </View>
+            <Text style={s.updateCta}>{t.updateNow}</Text>
+          </TouchableOpacity>
+        )}
         {/* Avatar */}
         <View style={s.avatar}>
           <TouchableOpacity onPress={handlePickAvatar} disabled={uploading} activeOpacity={0.8}>
@@ -478,6 +490,12 @@ const s = StyleSheet.create({
   historyBtnText:    { color:Colors.t1, fontSize:14, fontWeight:"700" },
   unreadBadge:       { marginLeft:8, minWidth:22, height:22, borderRadius:11, backgroundColor:Colors.red, paddingHorizontal:6, alignItems:"center", justifyContent:"center" },
   unreadBadgeText:   { color:"#fff", fontSize:11, fontWeight:"800" },
+  updateRow:         { flexDirection:"row", alignItems:"center", gap:12, backgroundColor:Colors.accent+"14", borderWidth:1, borderColor:Colors.accent+"55", borderRadius:14, padding:13, marginBottom:14 },
+  updateBadge:       { minWidth:26, height:26, borderRadius:13, backgroundColor:"#EF4444", alignItems:"center", justifyContent:"center", paddingHorizontal:6 },
+  updateBadgeTxt:    { color:"#fff", fontWeight:"900", fontSize:13 },
+  updateTitle:       { color:Colors.t1, fontWeight:"800", fontSize:14 },
+  updateSub:         { color:Colors.t2, fontSize:11.5, marginTop:1 },
+  updateCta:         { color:Colors.accent, fontWeight:"800", fontSize:13 },
   adminBtn:          { backgroundColor:Colors.accent+"12", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.accent+"40", marginBottom:10 },
   adminBtnText:      { color:Colors.accent, fontSize:14, fontWeight:"700" },
   signOutBtn:        { backgroundColor:Colors.red+"15", borderRadius:12, padding:14, alignItems:"center", borderWidth:0.5, borderColor:Colors.red+"30" },

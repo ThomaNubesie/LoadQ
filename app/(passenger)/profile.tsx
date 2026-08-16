@@ -9,6 +9,7 @@ import { PassengersAPI, Passenger } from "../../services/passengers";
 import { MessagesAPI } from "../../services/messages";
 import { supabase } from "../../services/supabase";
 import { useStrings, setLang } from "../../hooks/useStrings";
+import { useAppUpdate } from "../../hooks/useAppUpdate";
 import { openStoreListing } from "../../utils/appStore";
 import HowToUse from "../../components/HowToUse";
 import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
@@ -20,6 +21,7 @@ import { CircleUserRound, Pencil, BookOpen } from "lucide-react-native";
 export default function PassengerProfileScreen() {
   const router      = useRouter();
   const { t, lang } = useStrings();
+  const update = useAppUpdate();
   const [passenger, setPassenger] = useState<Passenger | null>(null);
   const [showHowTo, setShowHowTo] = useState(false);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
@@ -91,6 +93,16 @@ export default function PassengerProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={s.inner}>
+        {update.available && (
+          <TouchableOpacity style={s.updateRow} onPress={update.openStore} activeOpacity={0.85}>
+            <View style={s.updateBadge}><Text style={s.updateBadgeTxt}>{update.behind}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.updateTitle}>{t("updateTitle")}</Text>
+              <Text style={s.updateSub}>{t("updateSub", { v: update.latest ?? "" })}</Text>
+            </View>
+            <Text style={s.updateCta}>{t("updateNow")}</Text>
+          </TouchableOpacity>
+        )}
         <View style={s.avatar}>
           <TouchableOpacity onPress={handlePickAvatar} disabled={uploading} activeOpacity={0.8}>
             <View style={s.avatarCircle}>
@@ -205,6 +217,12 @@ const s = StyleSheet.create({
   header:            { flexDirection:"row", alignItems:"center", justifyContent:"space-between", padding:16 },
   title:             { fontSize:17, fontWeight:"700", color:Colors.t1 },
   inner:             { padding:20, paddingBottom:120 },
+  updateRow:         { flexDirection:"row", alignItems:"center", gap:12, backgroundColor:Colors.accentP+"14", borderWidth:1, borderColor:Colors.accentP+"55", borderRadius:14, padding:13, marginBottom:16 },
+  updateBadge:       { minWidth:26, height:26, borderRadius:13, backgroundColor:"#EF4444", alignItems:"center", justifyContent:"center", paddingHorizontal:6 },
+  updateBadgeTxt:    { color:"#fff", fontWeight:"900", fontSize:13 },
+  updateTitle:       { color:Colors.t1, fontWeight:"800", fontSize:14 },
+  updateSub:         { color:Colors.t2, fontSize:11.5, marginTop:1 },
+  updateCta:         { color:Colors.accentP, fontWeight:"800", fontSize:13 },
   avatar:            { alignItems:"center", marginBottom:24 },
   avatarCircle:      { width:88, height:88, borderRadius:44, backgroundColor:Colors.card, borderWidth:1, borderColor:Colors.border, alignItems:"center", justifyContent:"center", marginBottom:10, overflow:"hidden" },
   avatarEmoji:       { fontSize:40 },
