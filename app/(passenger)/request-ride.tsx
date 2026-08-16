@@ -1,33 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Linking } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Linking, KeyboardAvoidingView, Platform, Modal, Pressable } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
-import { useStripe, initStripe } from "@stripe/stripe-react-native";
 import { RidesAPI, RIDE_TERMINAL, type MyRideRequest } from "../../services/rides";
 import { DESTINATION_CITIES, getRegionName } from "../../constants/pricing";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
-import { ArrowLeft, MapPin, Navigation, Phone, MessageCircle } from "lucide-react-native";
+import { ArrowLeft, Navigation, Phone, MessageCircle, Route, Home, Info, X, Check, Clock, DollarSign } from "lucide-react-native";
+import ZoneMap from "../../components/ZoneMap";
+import AddressAutocomplete from "../../components/AddressAutocomplete";
 
 const INTERAC_TO = "shaloderick@gmail.com"; // LoadQ Interac address (matches dispatch fallback).
-
-type Coords = { label: string; lat: number; lng: number };
 
 export default function RequestRideScreen() {
   const router = useRouter();
   const { t } = useStrings();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const insets = useSafeAreaInsets();
 
   const [phase, setPhase] = useState<"loading" | "form" | "active">("loading");
   const [kind, setKind] = useState<"route_pickup" | "on_demand">("route_pickup");
-  const [pay, setPay] = useState<"interac" | "cash" | "card">("interac");
   const [dest, setDest] = useState<string | null>(null);
-  const [pickup, setPickup] = useState<Coords | null>(null);
+  const [addr, setAddr] = useState("");                                   // typed/selected pickup address
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [infoOpen, setInfoOpen] = useState<"route_pickup" | "on_demand" | null>(null);
   const [req, setReq] = useState<MyRideRequest | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+  const seeded = useRef(false);
 
   // On focus: if there's already an active request, jump straight to its status.
   const refresh = useCallback(async () => {
@@ -47,76 +48,86 @@ export default function RequestRideScreen() {
     return () => { if (poll.current) clearInterval(poll.current); };
   }, [phase]);
 
+  // Fill the pickup address + coords from the device GPS (right-side location button).
   const useMyLocation = async () => {
     setLocating(true);
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== "granted") { Alert.alert(t.reqRideTitle, t.reqNeedLocation); setLocating(false); return; }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      let label = t.reqUseLocation;
+      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       try {
         const g = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         const a = g[0];
-        if (a) label = [a.name || a.street, a.city].filter(Boolean).join(", ") || label;
-      } catch { /* keep default label */ }
-      setPickup({ label, lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const label = a ? [a.name || a.street, a.city].filter(Boolean).join(", ") : "";
+        if (label) setAddr(label);
+      } catch { /* keep coords, no label */ }
     } catch { Alert.alert(t.reqRideTitle, t.reqNeedLocation); }
     setLocating(false);
   };
 
+  // Seed the map from GPS once when the form opens (silent — only if already granted).
+  useEffect(() => {
+    if (phase !== "form" || seeded.current) return;
+    seeded.current = true;
+    (async () => {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (perm.status !== "granted") return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const g = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        const a = g[0];
+        setAddr((prev) => prev || (a ? [a.name || a.street, a.city].filter(Boolean).join(", ") : prev));
+      } catch { /* no seed */ }
+    })();
+  }, [phase]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When a suggestion is picked, resolve its coords so the map re-centres.
+  const onPickAddr = async (desc: string) => {
+    try { const g = await Location.geocodeAsync(desc); if (g[0]) setCoords({ lat: g[0].latitude, lng: g[0].longitude }); } catch { /* resolved on submit */ }
+  };
+
   const submit = async () => {
     if (!dest) { Alert.alert(t.reqRideTitle, t.reqNeedDest); return; }
-    if (!pickup) { Alert.alert(t.reqRideTitle, t.reqNeedLocation); return; }
-    const method = kind === "route_pickup" ? "interac" : pay;
+    if (!addr.trim()) { Alert.alert(t.reqRideTitle, t.reqNeedLocation); return; }
     setBusy(true);
-    const c = await RidesAPI.createRequest({
-      kind, origin_address: pickup.label, origin_lat: pickup.lat, origin_lng: pickup.lng,
-      dest_region: dest, payment_method: method,
+    // Resolve coordinates for the typed/selected address if we don't already have them.
+    let c = coords;
+    if (!c) {
+      try { const g = await Location.geocodeAsync(addr.trim()); if (g[0]) c = { lat: g[0].latitude, lng: g[0].longitude }; } catch { /* */ }
+    }
+    if (!c) { setBusy(false); Alert.alert(t.reqRideTitle, t.reqBadAddress); return; }
+
+    // Both ride types pay by Interac.
+    const created = await RidesAPI.createRequest({
+      kind, origin_address: addr.trim(), origin_lat: c.lat, origin_lng: c.lng,
+      dest_region: dest, payment_method: "interac",
     });
-    if (c.error || !c.id) { setBusy(false); Alert.alert(t.reqRideTitle, c.error || "Error"); return; }
+    if (created.error || !created.id) { setBusy(false); Alert.alert(t.reqRideTitle, created.error || "Error"); return; }
+
     if (kind === "route_pickup") {
-      const q = await RidesAPI.quote(c.id);
+      const q = await RidesAPI.quote(created.id);
       // No live driver heading to the destination → don't charge; drop the request.
       if (!q.ok || q.error === "no_drivers") {
         setBusy(false);
-        await RidesAPI.cancelRequest(c.id);
+        await RidesAPI.cancelRequest(created.id);
         Alert.alert(t.reqRideTitle, q.error === "no_drivers" ? t.reqNoDrivers : (q.error || t.reqNoDrivers));
         return;
       }
     } else {
-      // On-demand: depart from the nearest loading zone, then dispatch (which
-      // prices the ride and, for card/Interac, returns awaiting_payment first).
-      const z = await RidesAPI.nearestZone(pickup.lat, pickup.lng);
-      if (!z?.id) { setBusy(false); Alert.alert(t.reqRideTitle, t.reqNoZone); return; }
-      await RidesAPI.setDeparture(c.id, z.id);
-      const d = await RidesAPI.dispatch(c.id);
-      if (!d.ok) { setBusy(false); Alert.alert(t.reqRideTitle, d.error || "Dispatch failed"); return; }
-      // No eligible driver on duty → stop BEFORE any card hold; drop the request.
+      // Home pickup: depart from the nearest loading zone, then dispatch.
+      const z = await RidesAPI.nearestZone(c.lat, c.lng);
+      if (!z?.id) { setBusy(false); await RidesAPI.cancelRequest(created.id); Alert.alert(t.reqRideTitle, t.reqNoZone); return; }
+      await RidesAPI.setDeparture(created.id, z.id);
+      const d = await RidesAPI.dispatch(created.id);
+      if (!d.ok) { setBusy(false); await RidesAPI.cancelRequest(created.id); Alert.alert(t.reqRideTitle, d.error || "Dispatch failed"); return; }
+      // No eligible driver on duty → drop the request; nothing is charged.
       if (d.data?.status === "no_driver") {
         setBusy(false);
-        await RidesAPI.cancelRequest(c.id);
+        await RidesAPI.cancelRequest(created.id);
         Alert.alert(t.reqRideTitle, t.reqNoDrivers);
         return;
-      }
-
-      if (method === "card") {
-        // Pre-authorize the fare (manual capture = held, not taken) via PaymentSheet.
-        const a = await RidesAPI.authorizeCard(c.id);
-        if (a.error || !a.client_secret) { setBusy(false); Alert.alert(t.reqRideTitle, a.error || "Card setup failed"); return; }
-        // Initialize Stripe with the publishable key returned by the backend
-        // (from the STRIPE_PUBLISHABLE_KEY secret) — no key baked into the build.
-        if (a.publishable_key) { try { await initStripe({ publishableKey: a.publishable_key }); } catch { /* provider already set */ } }
-        const init = await initPaymentSheet({
-          merchantDisplayName: "LoadQ",
-          paymentIntentClientSecret: a.client_secret,
-          customerId: a.customer, customerEphemeralKeySecret: a.ephemeral_key,
-          allowsDelayedPaymentMethods: false,
-        });
-        if (init.error) { setBusy(false); Alert.alert(t.reqRideTitle, init.error.message); return; }
-        const present = await presentPaymentSheet();
-        if (present.error) { setBusy(false); return; } // user cancelled / declined — nothing held
-        await RidesAPI.confirmCard(c.id);   // verify hold server-side → paid
-        await RidesAPI.dispatch(c.id);      // now offer a driver
       }
     }
     setBusy(false);
@@ -145,57 +156,96 @@ export default function RequestRideScreen() {
       {phase === "loading" && <View style={s.center}><ActivityIndicator color={Colors.accentP} /></View>}
 
       {phase === "form" && (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
-          <Text style={s.lbl}>{t.reqRideType}</Text>
-          <View style={s.seg}>
-            <TouchableOpacity style={[s.segBtn, kind === "route_pickup" && s.segOn]} onPress={() => setKind("route_pickup")}>
-              <Text style={[s.segTxt, kind === "route_pickup" && s.segTxtOn]}>🛣️ {t.reqRoutePickup}</Text>
-              <Text style={[s.segSub, kind === "route_pickup" && s.segSubOn]}>{t.reqRoutePickupSub}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.segBtn, kind === "on_demand" && s.segOn]} onPress={() => setKind("on_demand")}>
-              <Text style={[s.segTxt, kind === "on_demand" && s.segTxtOn]}>⚡ {t.reqOnDemand}</Text>
-              <Text style={[s.segSub, kind === "on_demand" && s.segSubOn]}>{t.reqOnDemandSub}</Text>
-            </TouchableOpacity>
-          </View>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={insets.top + 8}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {/* Map hero — centred on the pickup */}
+            {coords
+              ? <ZoneMap latitude={coords.lat} longitude={coords.lng} label={addr || t.reqPickup} height={190} />
+              : <View style={s.mapPlaceholder}><Navigation size={22} color={Colors.t3} /><Text style={s.mapPlaceholderTxt}>{t.reqMapHint}</Text></View>}
 
-          <Text style={s.lbl}>{t.reqPickup}</Text>
-          <TouchableOpacity style={s.field} onPress={useMyLocation} activeOpacity={0.85}>
-            <MapPin size={17} color={Colors.accentP} strokeWidth={2} />
-            <Text style={[s.fieldTxt, !pickup && s.fieldPh]} numberOfLines={1}>{pickup ? pickup.label : t.reqUseLocation}</Text>
-            {locating ? <ActivityIndicator color={Colors.accentP} /> : <Text style={s.fieldAction}>{pickup ? t.reqUseLocation : "→"}</Text>}
-          </TouchableOpacity>
-
-          <Text style={s.lbl}>{t.reqDestination}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-            {DESTINATION_CITIES.map((c) => (
-              <TouchableOpacity key={c.code} style={[s.chip, dest === c.code && s.chipOn]} onPress={() => setDest(c.code)}>
-                <Text style={[s.chipTxt, dest === c.code && s.chipTxtOn]}>{c.name}</Text>
+            <View style={s.sheet}>
+              {/* Ride type — segmented pill */}
+              <View style={s.segC}>
+                <TouchableOpacity style={[s.segCb, kind === "route_pickup" && s.segCbOn]} onPress={() => setKind("route_pickup")} activeOpacity={0.85}>
+                  <Route size={17} color={kind === "route_pickup" ? Colors.accentPText : Colors.t2} />
+                  <Text style={[s.segCbTxt, kind === "route_pickup" && s.segCbTxtOn]}>{t.reqRoutePickup}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.segCb, kind === "on_demand" && s.segCbOn]} onPress={() => setKind("on_demand")} activeOpacity={0.85}>
+                  <Home size={17} color={kind === "on_demand" ? Colors.accentPText : Colors.t2} />
+                  <Text style={[s.segCbTxt, kind === "on_demand" && s.segCbTxtOn]}>{t.reqHomePickup}</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={s.infoHint} onPress={() => setInfoOpen(kind)} activeOpacity={0.7}>
+                <Info size={13} color={Colors.accentP} />
+                <Text style={s.infoHintTxt}>{kind === "route_pickup" ? t.reqWhatRoute : t.reqWhatHome}</Text>
               </TouchableOpacity>
-            ))}
+
+              {/* Pickup — address on the left, location icon on the right */}
+              <Text style={s.lbl}>{t.reqPickup}</Text>
+              <AddressAutocomplete
+                value={addr}
+                onChangeText={(x) => { setAddr(x); setCoords(null); }}
+                onPick={onPickAddr}
+                placeholder={t.reqPickupAddrPh}
+                accent={Colors.accentP}
+                leftIcon={false}
+                rightSlot={
+                  <TouchableOpacity onPress={useMyLocation} hitSlop={8} style={s.locBtn} activeOpacity={0.8}>
+                    {locating ? <ActivityIndicator size="small" color={Colors.accentP} /> : <Navigation size={18} color={Colors.accentP} />}
+                  </TouchableOpacity>
+                }
+              />
+
+              {/* Destination */}
+              <Text style={s.lbl}>{t.reqDestination}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }} keyboardShouldPersistTaps="handled">
+                {DESTINATION_CITIES.map((c) => (
+                  <TouchableOpacity key={c.code} style={[s.chip, dest === c.code && s.chipOn]} onPress={() => setDest(c.code)}>
+                    <Text style={[s.chipTxt, dest === c.code && s.chipTxtOn]}>{c.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Payment — Interac only, centred */}
+              <Text style={s.lbl}>{t.reqPayment}</Text>
+              <View style={s.payWrap}>
+                <View style={s.payPill}><Navigation size={14} color={Colors.accentP} /><Text style={s.payPillTxt}>{t.reqInterac}</Text></View>
+              </View>
+
+              <TouchableOpacity style={[s.cta, busy && s.ctaOff]} onPress={submit} disabled={busy}>
+                <Text style={s.ctaTxt}>{busy ? "…" : t.reqGetPrice}</Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
-
-          <Text style={s.lbl}>{t.reqPayment}</Text>
-          <View style={s.chip2Row}>
-            <TouchableOpacity style={[s.chip2, pay === "interac" && s.chip2On]} onPress={() => setPay("interac")}>
-              <Text style={pay === "interac" ? s.chip2TxtOn : s.chip2Txt}>{t.reqInterac}</Text>
-            </TouchableOpacity>
-            {kind === "on_demand" && (
-              <TouchableOpacity style={[s.chip2, pay === "card" && s.chip2On]} onPress={() => setPay("card")}>
-                <Text style={pay === "card" ? s.chip2TxtOn : s.chip2Txt}>{t.reqCard}</Text>
-              </TouchableOpacity>
-            )}
-            {kind === "on_demand" && (
-              <TouchableOpacity style={[s.chip2, pay === "cash" && s.chip2On]} onPress={() => setPay("cash")}>
-                <Text style={pay === "cash" ? s.chip2TxtOn : s.chip2Txt}>{t.reqCash}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <TouchableOpacity style={[s.cta, busy && s.ctaOff]} onPress={submit} disabled={busy}>
-            <Text style={s.ctaTxt}>{busy ? "…" : t.reqGetPrice}</Text>
-          </TouchableOpacity>
-        </ScrollView>
+        </KeyboardAvoidingView>
       )}
+
+      {/* Ride-type "what is this?" popup */}
+      <Modal visible={!!infoOpen} transparent animationType="slide" onRequestClose={() => setInfoOpen(null)}>
+        <Pressable style={s.dim} onPress={() => setInfoOpen(null)}>
+          <Pressable style={s.infoSheet} onPress={() => {}}>
+            <View style={s.grab} />
+            {infoOpen === "route_pickup" ? (
+              <>
+                <View style={s.infoTitle}><Route size={24} color={Colors.accentP} /><Text style={s.infoTitleTxt}>{t.reqRoutePickup}</Text></View>
+                <Text style={s.infoBody}>{t.reqInfoRouteBody}</Text>
+                <InfoFeat icon={<Navigation size={16} color={Colors.accentP} />} txt={t.reqInfoRouteF1} />
+                <InfoFeat icon={<DollarSign size={16} color={Colors.accentP} />} txt={t.reqInfoRouteF2} />
+                <InfoFeat icon={<Check size={16} color={Colors.accentP} />} txt={t.reqInfoNoCharge} />
+              </>
+            ) : (
+              <>
+                <View style={s.infoTitle}><Home size={24} color={Colors.accentP} /><Text style={s.infoTitleTxt}>{t.reqHomePickup}</Text></View>
+                <Text style={s.infoBody}>{t.reqInfoHomeBody}</Text>
+                <InfoFeat icon={<Clock size={16} color={Colors.accentP} />} txt={t.reqInfoHomeF1} />
+                <InfoFeat icon={<DollarSign size={16} color={Colors.accentP} />} txt={t.reqInfoHomeF2} />
+                <InfoFeat icon={<Check size={16} color={Colors.accentP} />} txt={t.reqInfoNoCharge} />
+              </>
+            )}
+            <TouchableOpacity style={s.infoBtn} onPress={() => setInfoOpen(null)} activeOpacity={0.85}><Text style={s.infoBtnTxt}>{t.reqGotIt}</Text></TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {phase === "active" && req && (
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
@@ -249,8 +299,36 @@ export default function RequestRideScreen() {
   );
 }
 
+function InfoFeat({ icon, txt }: { icon: React.ReactNode; txt: string }) {
+  return <View style={s.infoFeat}><View style={{ marginTop: 1 }}>{icon}</View><Text style={s.infoFeatTxt}>{txt}</Text></View>;
+}
+
 const s = StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.bg },
+  mapPlaceholder: { height: 190, backgroundColor: Colors.card, alignItems: "center", justifyContent: "center", gap: 8 },
+  mapPlaceholderTxt: { color: Colors.t3, fontSize: 12 },
+  sheet:      { backgroundColor: Colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, marginTop: -20, paddingHorizontal: 16, paddingTop: 16 },
+  segC:       { flexDirection: "row", backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 13, padding: 4, gap: 4 },
+  segCb:      { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 11, borderRadius: 10 },
+  segCbOn:    { backgroundColor: Colors.accentP },
+  segCbTxt:   { color: Colors.t2, fontWeight: "800", fontSize: 13 },
+  segCbTxtOn: { color: Colors.accentPText },
+  infoHint:   { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9 },
+  infoHintTxt:{ color: Colors.accentP, fontWeight: "700", fontSize: 12 },
+  locBtn:     { width: 40, height: 40, borderRadius: 9, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" },
+  payWrap:    { alignItems: "center" },
+  payPill:    { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: Colors.accentP, backgroundColor: "rgba(234,106,30,0.08)", borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18 },
+  payPillTxt: { color: Colors.accentP, fontWeight: "800", fontSize: 13.5 },
+  dim:        { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
+  infoSheet:  { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 18, paddingBottom: 26 },
+  grab:       { width: 36, height: 4, borderRadius: 3, backgroundColor: "#333", alignSelf: "center", marginBottom: 14 },
+  infoTitle:  { flexDirection: "row", alignItems: "center", gap: 10 },
+  infoTitleTxt:{ fontSize: 18, fontWeight: "800", color: Colors.t1 },
+  infoBody:   { color: Colors.t2, fontSize: 13, lineHeight: 20, marginTop: 12 },
+  infoFeat:   { flexDirection: "row", gap: 10, marginTop: 12 },
+  infoFeatTxt:{ flex: 1, color: Colors.t2, fontSize: 12.5, lineHeight: 18 },
+  infoBtn:    { backgroundColor: Colors.accentP, borderRadius: 12, alignItems: "center", paddingVertical: 14, marginTop: 18 },
+  infoBtnTxt: { color: Colors.accentPText, fontWeight: "900", fontSize: 15 },
   header:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
   title:      { fontSize: 17, fontWeight: "700", color: Colors.t1 },
   center:     { alignItems: "center", justifyContent: "center", padding: 30, gap: 12 },

@@ -9,12 +9,15 @@ import { useStrings } from "../hooks/useStrings";
 import { addressAutocomplete } from "../services/pickup";
 
 export default function AddressAutocomplete({
-  value, onChangeText, placeholder, accent = Colors.accent,
+  value, onChangeText, onPick, placeholder, accent = Colors.accent, leftIcon = true, rightSlot,
 }: {
   value: string;
   onChangeText: (t: string) => void;
+  onPick?: (desc: string) => void;
   placeholder?: string;
   accent?: string;
+  leftIcon?: boolean;
+  rightSlot?: React.ReactNode;
 }) {
   const { lang } = useStrings();
   const [preds, setPreds] = useState<{ description: string; place_id: string }[]>([]);
@@ -33,12 +36,12 @@ export default function AddressAutocomplete({
     return () => { clearTimeout(id); setLoading(false); };
   }, [value, lang]);
 
-  function pick(desc: string) { skip.current = true; onChangeText(desc); setPreds([]); setOpen(false); }
+  function pick(desc: string) { skip.current = true; onChangeText(desc); onPick?.(desc); setPreds([]); setOpen(false); }
 
   return (
     <View style={{ position: "relative", zIndex: 20 }}>
       <View style={[s.field, open && preds.length > 0 && s.fieldOpen]}>
-        <MapPin size={16} color={Colors.t3} />
+        {leftIcon && <MapPin size={16} color={Colors.t3} />}
         <TextInput
           style={s.input}
           value={value}
@@ -48,6 +51,7 @@ export default function AddressAutocomplete({
           autoCorrect={false}
         />
         {loading && <ActivityIndicator size="small" color={accent} />}
+        {rightSlot}
       </View>
       {open && preds.length > 0 && (
         <View style={s.drop}>
