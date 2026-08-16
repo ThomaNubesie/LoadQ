@@ -8,8 +8,18 @@ import { DESTINATION_CITIES, getRegionName } from "../../constants/pricing";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { ArrowLeft, Navigation, Phone, MessageCircle, Route, Home, Info, X, Check, Clock, DollarSign } from "lucide-react-native";
-import ZoneMap from "../../components/ZoneMap";
+import PickupPinMap from "../../components/PickupPinMap";
 import AddressAutocomplete from "../../components/AddressAutocomplete";
+import DriverTrackMap from "../../components/DriverTrackMap";
+
+// Rough ETA (min) driver→pickup: straight-line distance at ~30 km/h city speed.
+function etaMinutes(dLat: number, dLng: number, pLat: number, pLng: number): number {
+  const R = 6371, rad = Math.PI / 180;
+  const dLa = (pLat - dLat) * rad, dLo = (pLng - dLng) * rad;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(dLat * rad) * Math.cos(pLat * rad) * Math.sin(dLo / 2) ** 2;
+  const km = 2 * R * Math.asin(Math.sqrt(h));
+  return Math.max(1, Math.round((km / 30) * 60));
+}
 
 const INTERAC_TO = "shaloderick@gmail.com"; // LoadQ Interac address (matches dispatch fallback).
 
@@ -54,7 +64,7 @@ export default function RequestRideScreen() {
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== "granted") { Alert.alert(t.reqRideTitle, t.reqNeedLocation); setLocating(false); return; }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       try {
         const g = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
@@ -74,7 +84,7 @@ export default function RequestRideScreen() {
       try {
         const perm = await Location.getForegroundPermissionsAsync();
         if (perm.status !== "granted") return;
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         const g = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         const a = g[0];
@@ -86,6 +96,17 @@ export default function RequestRideScreen() {
   // When a suggestion is picked, resolve its coords so the map re-centres.
   const onPickAddr = async (desc: string) => {
     try { const g = await Location.geocodeAsync(desc); if (g[0]) setCoords({ lat: g[0].latitude, lng: g[0].longitude }); } catch { /* resolved on submit */ }
+  };
+
+  // Dragging the pin sets the exact pickup point; refresh the address label to match.
+  const onPinMove = async (la: number, ln: number) => {
+    setCoords({ lat: la, lng: ln });
+    try {
+      const g = await Location.reverseGeocodeAsync({ latitude: la, longitude: ln });
+      const a = g[0];
+      const label = a ? [a.name || a.street, a.city].filter(Boolean).join(", ") : "";
+      if (label) setAddr(label);
+    } catch { /* keep coords */ }
   };
 
   const submit = async () => {
@@ -158,9 +179,14 @@ export default function RequestRideScreen() {
       {phase === "form" && (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={insets.top + 8}>
           <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {/* Map hero — centred on the pickup */}
+            {/* Map hero — draggable pin for a pinpoint pickup */}
             {coords
-              ? <ZoneMap latitude={coords.lat} longitude={coords.lng} label={addr || t.reqPickup} height={190} />
+              ? (
+                <View>
+                  <PickupPinMap lat={coords.lat} lng={coords.lng} onMove={onPinMove} height={190} />
+                  <Text style={s.pinHint}>{t.reqDragPin}</Text>
+                </View>
+              )
               : <View style={s.mapPlaceholder}><Navigation size={22} color={Colors.t3} /><Text style={s.mapPlaceholderTxt}>{t.reqMapHint}</Text></View>}
 
             <View style={s.sheet}>
@@ -252,6 +278,17 @@ export default function RequestRideScreen() {
           {req.driver_id ? (
             // Driver matched
             <>
+              {["assigned", "en_route"].includes(req.status) && req.driver_lat != null && req.driver_lng != null && req.pickup_lat != null && req.pickup_lng != null && (
+                <>
+                  <DriverTrackMap driver={{ lat: req.driver_lat, lng: req.driver_lng }} pickup={{ lat: req.pickup_lat, lng: req.pickup_lng }} height={220} />
+                  <View style={s.etaWrap}>
+                    <View style={s.etaPill}>
+                      <Navigation size={14} color={Colors.accentP} />
+                      <Text style={s.etaTxt}>{t("reqDriverAway", { name: req.driver_name || t.reqDriver, n: etaMinutes(req.driver_lat, req.driver_lng, req.pickup_lat, req.pickup_lng) })}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
               <View style={s.pillWrap}><Text style={s.pillGreen}>
                 {req.status === "picked_up" ? `● ${t.reqInRideTo} ${destName(req)}`
                   : (["assigned", "en_route"].includes(req.status) ? `● ${t.reqOnWayToYou}`
@@ -307,6 +344,7 @@ const s = StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.bg },
   mapPlaceholder: { height: 190, backgroundColor: Colors.card, alignItems: "center", justifyContent: "center", gap: 8 },
   mapPlaceholderTxt: { color: Colors.t3, fontSize: 12 },
+  pinHint:    { position: "absolute", bottom: 10, alignSelf: "center", backgroundColor: "rgba(12,13,16,0.85)", color: Colors.accentP, fontSize: 11, fontWeight: "700", paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999, overflow: "hidden" },
   sheet:      { backgroundColor: Colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, marginTop: -20, paddingHorizontal: 16, paddingTop: 16 },
   segC:       { flexDirection: "row", backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 13, padding: 4, gap: 4 },
   segCb:      { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 11, borderRadius: 10 },
@@ -365,6 +403,9 @@ const s = StyleSheet.create({
   refTxt:     { fontSize: 22, fontWeight: "900", letterSpacing: 2, color: Colors.accentP },
   interacTo:  { textAlign: "center", color: Colors.t1, fontSize: 12.5 },
   finding:    { color: Colors.t1, fontSize: 15, fontWeight: "700" },
+  etaWrap:    { alignItems: "center", marginTop: -18, marginBottom: 4 },
+  etaPill:    { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(12,13,16,0.92)", borderWidth: 1, borderColor: Colors.accentP, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 15 },
+  etaTxt:     { color: Colors.accentP, fontWeight: "800", fontSize: 12.5 },
   pillWrap:   { alignItems: "center", marginVertical: 6 },
   pillGreen:  { backgroundColor: "rgba(47,190,110,0.15)", color: "#2FBE6E", fontWeight: "800", fontSize: 11.5, paddingVertical: 4, paddingHorizontal: 11, borderRadius: 999, overflow: "hidden" },
   drv:        { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 16, marginTop: 8 },

@@ -20,6 +20,8 @@ export interface MyRideRequest {
   driver_name: string | null; driver_phone: string | null;
   vehicle_make: string | null; vehicle_model: string | null; vehicle_color: string | null;
   vehicle_plate: string | null; vehicle_seats: number | null; created_at: string;
+  pickup_lat: number | null; pickup_lng: number | null;
+  driver_lat: number | null; driver_lng: number | null; driver_loc_at: string | null;
 }
 
 // Ride request is resolved (terminal) — nothing more to poll/act on.
@@ -95,6 +97,17 @@ export const RidesAPI = {
   async completeRide(requestId: string): Promise<{ error?: string }> {
     const { error } = await supabase.rpc("loadq_ride_complete", { p_request_id: requestId });
     return { error: error?.message };
+  },
+  // Driver: share live GPS while assigned (geofence auto-advances to picked_up ~50m).
+  async driverPing(requestId: string, lat: number, lng: number): Promise<{ status?: string }> {
+    const { data } = await supabase.rpc("loadq_ride_driver_ping", { p_request_id: requestId, p_lat: lat, p_lng: lng });
+    return { status: (data as any)?.status };
+  },
+  // Driver: mark the passenger picked up (button path).
+  async markPickedUp(requestId: string): Promise<{ ok: boolean; status?: string; error?: string }> {
+    const { data, error } = await supabase.rpc("loadq_ride_mark_picked_up", { p_request_id: requestId });
+    if (error) return { ok: false, error: error.message };
+    return { ok: (data as any)?.ok === true, status: (data as any)?.status };
   },
   // Active offers currently pending for THIS driver (soonest-expiring first).
   async driverOffers(): Promise<RideOffer[]> {

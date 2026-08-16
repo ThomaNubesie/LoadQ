@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking, P
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
+import * as Location from "expo-location";
 import { RidesAPI, type RideOffer } from "../../services/rides";
 import { getRegionName } from "../../constants/pricing";
 import { useStrings } from "../../hooks/useStrings";
@@ -24,7 +25,9 @@ export default function RideOfferScreen() {
   const [acceptedPickup, setAcceptedPickup] = useState<string | null>(null);
   const [acceptedReqId, setAcceptedReqId] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
+  const [picked, setPicked] = useState(false);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+  const watcher = useRef<Location.LocationSubscription | null>(null);
 
   const pickCurrent = (list: RideOffer[]): RideOffer | null => {
     const live = list.filter((o) => new Date(o.expires_at).getTime() > Date.now());
@@ -77,6 +80,31 @@ export default function RideOfferScreen() {
     setCompleting(false);
     if (error) { close(); return; }
     close();
+  };
+
+  // Share live GPS while the ride is accepted → the passenger sees the driver
+  // approach, and a 50 m geofence auto-advances the ride to picked_up.
+  useEffect(() => {
+    if (phase !== "accepted" || !acceptedReqId) return;
+    let alive = true;
+    (async () => {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== "granted") return;
+      watcher.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Highest, distanceInterval: 15, timeInterval: 12000 },
+        async (pos) => {
+          const { status } = await RidesAPI.driverPing(acceptedReqId, pos.coords.latitude, pos.coords.longitude);
+          if (alive && status === "picked_up") setPicked(true);
+        },
+      );
+    })();
+    return () => { alive = false; if (watcher.current) { watcher.current.remove(); watcher.current = null; } };
+  }, [phase, acceptedReqId]);
+
+  const markPicked = async () => {
+    if (!acceptedReqId) return;
+    const r = await RidesAPI.markPickedUp(acceptedReqId);
+    if (r.ok || r.status === "picked_up") setPicked(true);
   };
 
   function close() { try { router.back(); } catch { router.replace("/(app)/queue" as never); } }
@@ -146,6 +174,9 @@ export default function RideOfferScreen() {
           <TouchableOpacity style={s.navBtn} onPress={navigate}>
             <Navigation size={16} color={Colors.accentText} strokeWidth={2.4} /><Text style={s.navBtnTxt}>{t.rideNavigate}</Text>
           </TouchableOpacity>
+          {picked
+            ? <View style={s.onboard}><Text style={s.onboardTxt}>{t.rideOnBoard}</Text></View>
+            : <TouchableOpacity style={s.pickedBtn} onPress={markPicked}><Text style={s.pickedBtnTxt}>{t.ridePickedUp}</Text></TouchableOpacity>}
           <TouchableOpacity style={s.completeBtn} onPress={complete} disabled={completing}>
             <Text style={s.completeBtnTxt}>{completing ? "…" : t.rideComplete}</Text>
           </TouchableOpacity>
@@ -199,6 +230,10 @@ const s = StyleSheet.create({
   navBtnTxt:   { color: Colors.accentText, fontWeight: "800", fontSize: 15 },
   completeBtn: { marginTop: 12, borderWidth: 1.5, borderColor: "#2FBE6E", borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
   completeBtnTxt: { color: "#2FBE6E", fontWeight: "800", fontSize: 15 },
+  pickedBtn: { marginTop: 12, backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 28 },
+  pickedBtnTxt: { color: Colors.accentText, fontWeight: "900", fontSize: 15 },
+  onboard: { marginTop: 12, backgroundColor: "rgba(47,190,110,0.15)", borderWidth: 1, borderColor: "rgba(47,190,110,0.5)", borderRadius: 12, paddingVertical: 11, paddingHorizontal: 24 },
+  onboardTxt: { color: "#2FBE6E", fontWeight: "800", fontSize: 14 },
   ghostBtn:    { marginTop: 12, paddingVertical: 10, paddingHorizontal: 20 },
   ghostBtnTxt: { color: Colors.t2, fontWeight: "700", fontSize: 14 },
 });
