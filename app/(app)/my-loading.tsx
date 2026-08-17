@@ -21,6 +21,7 @@ import { useZones } from "../../hooks/useZones";
 import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../constants/pricing";
 import { useDestinations } from "../../hooks/useDestinations";
 import { PassengerBoardAPI, CarPassenger } from "../../services/passengerBoard";
+import { PickupAPI, type FeederRun } from "../../services/pickup";
 import { ArrowLeft, MessageSquare, CarFront, CircleUserRound, MapPin, Clock, Timer, X, Lock, Hand, BellRing, Calendar, AlertTriangle, Hourglass, Bus } from "lucide-react-native";
 
 // seat_states can come back from the DB as a JSON string, null, an array of
@@ -47,7 +48,8 @@ function seatCountFor(entry: QueueEntry | null): number {
 
 export default function MyLoadingScreen() {
   const router     = useRouter();
-  const { t }  = useStrings();
+  const { t, lang }  = useStrings();
+  const [feederRun, setFeederRun] = useState<FeederRun|null>(null);
   const [entry,         setEntry]         = useState<QueueEntry|null>(null);
   const [loading,       setLoading]       = useState(true);
   const [pendingClaims, setPendingClaims] = useState<SeatClaim[]>([]);
@@ -60,6 +62,15 @@ export default function MyLoadingScreen() {
   // Which passenger's profile is currently open in the popup, if any.
   // Set by tapping a locked seat's avatar.
   const [openPassengerId, setOpenPassengerId] = useState<string | null>(null);
+
+  // Feeder pickup: show an assigned pooled-pickup run at the top of My Trip.
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    const load = () => PickupAPI.myRun().then(r => { if (alive) setFeederRun(r); }).catch(() => {});
+    load();
+    const iv = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(iv); };
+  }, []));
 
   const refreshAll = async () => {
     const mine = await QueueAPI.getMyEntry();
@@ -328,6 +339,24 @@ export default function MyLoadingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={s.inner}>
+        {feederRun && (
+          <TouchableOpacity
+            onPress={() => router.push("/(app)/feeder" as any)}
+            activeOpacity={0.85}
+            style={{ flexDirection:"row", alignItems:"center", gap:10, backgroundColor:"#FF6B00", borderRadius:14, paddingVertical:13, paddingHorizontal:15, marginBottom:12 }}
+          >
+            <Bus size={20} color="#20140A" strokeWidth={2.4} />
+            <View style={{ flex:1 }}>
+              <Text style={{ color:"#20140A", fontWeight:"900", fontSize:14 }}>
+                {lang === "fr" ? "Course de ramassage assignée" : "Pickup run assigned"}
+              </Text>
+              <Text style={{ color:"#3A2410", fontWeight:"700", fontSize:12, marginTop:2 }}>
+                {(feederRun.stops?.length ?? 0)} {lang === "fr" ? "arrêt(s)" : "stop(s)"} · {feederRun.run_min} min · {lang === "fr" ? "toucher pour ouvrir" : "tap to open"}
+              </Text>
+            </View>
+            <Text style={{ color:"#20140A", fontWeight:"900", fontSize:22 }}>›</Text>
+          </TouchableOpacity>
+        )}
         {loading ? (
           <View style={s.loadingBlock}>
             <ActivityIndicator color={Colors.accent} size="large" />

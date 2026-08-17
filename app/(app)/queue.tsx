@@ -8,6 +8,7 @@ import { MessageEvents } from "../../services/messageEvents";
 import * as Location from "expo-location";
 import { startBackgroundTracking } from "../../services/backgroundLocation";
 import { DriversAPI } from "../../services/drivers";
+import { PickupAPI, type FeederRun } from "../../services/pickup";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { QueueEntry, Vehicle } from "../../constants/types";
@@ -48,6 +49,7 @@ export default function QueueScreen() {
   const [previewEntry, setPreviewEntry] = useState<QueueEntry|null>(null);
   const [userRegion,   setUserRegion]   = useState<RegionCode|null>(null);
   const [activeZone,   setActiveZone]   = useState<ZoneLocation|null>(null);
+  const [feederRun,    setFeederRun]    = useState<FeederRun|null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   // Sticky loading location: once a zone is chosen (auto-detected on first load,
   // or manually picked) it does NOT change on refresh/refocus — only via the
@@ -305,6 +307,16 @@ export default function QueueScreen() {
     push();
     const iv = setInterval(push, 60_000);
     return () => clearInterval(iv);
+  }, []));
+
+  // Feeder pickup: surface an assigned pooled-pickup run on the board so the
+  // driver can open it (auto-assigned — no accept/decline; also texted).
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    const load = () => PickupAPI.myRun().then(r => { if (alive) setFeederRun(r); }).catch(() => {});
+    load();
+    const iv = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(iv); };
   }, []));
 
   // Background location (1.2.6+): start reporting immediately the moment the
@@ -775,6 +787,25 @@ export default function QueueScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* ── Feeder pickup run banner (assigned pooled pickup) ── */}
+      {feederRun && (
+        <TouchableOpacity
+          onPress={() => router.push("/(app)/feeder" as any)}
+          activeOpacity={0.85}
+          style={{ flexDirection:"row", alignItems:"center", gap:10, marginHorizontal:16, marginTop:10, backgroundColor:"#FF6B00", borderRadius:14, paddingVertical:13, paddingHorizontal:15 }}
+        >
+          <View style={{ flex:1 }}>
+            <Text style={{ color:"#20140A", fontWeight:"900", fontSize:14 }}>
+              {lang === "fr" ? "Course de ramassage assignée" : "Pickup run assigned"}
+            </Text>
+            <Text style={{ color:"#3A2410", fontWeight:"700", fontSize:12, marginTop:2 }}>
+              {(feederRun.stops?.length ?? 0)} {lang === "fr" ? "arrêt(s)" : "stop(s)"} · {feederRun.run_min} min · {lang === "fr" ? "toucher pour ouvrir" : "tap to open"}
+            </Text>
+          </View>
+          <Text style={{ color:"#20140A", fontWeight:"900", fontSize:22 }}>›</Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── My vehicle card ── */}
       {myVehicle && (
