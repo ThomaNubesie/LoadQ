@@ -11,17 +11,21 @@ import { PickupAPI } from "../../services/pickup";
 import { PassengersAPI } from "../../services/passengers";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import AddressAutocomplete from "../../components/AddressAutocomplete";
+import { ZonesAPI, ZoneRow } from "../../services/zones";
 
 export default function PickupRequestScreen() {
   const router = useRouter();
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
   const [address, setAddress] = useState("");
   const [dest, setDest] = useState<string | null>(null);
   const [me, setMe] = useState<{ full_name?: string; phone?: string | null } | null>(null);
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [zones, setZones] = useState<ZoneRow[]>([]);
+  const [zoneId, setZoneId] = useState<string | null>(null);
 
   useEffect(() => { PassengersAPI.getMe().then(p => setMe(p ? { full_name: p.full_name, phone: p.phone } : null)); }, []);
+  useEffect(() => { ZonesAPI.list(false).then(setZones).catch(() => {}); }, []);
 
   async function useMyLocation() {
     setLocating(true);
@@ -38,7 +42,7 @@ export default function PickupRequestScreen() {
   async function getQuote() {
     if (!address.trim() || !dest) { Alert.alert(t("reqPickupTitle"), t("pickupNeedFields")); return; }
     setBusy(true);
-    const res = await PickupAPI.quote(address.trim(), dest, me?.full_name, me?.phone);
+    const res = await PickupAPI.quote(address.trim(), dest, me?.full_name, me?.phone, zoneId);
     setBusy(false);
     if ("error" in res) { Alert.alert(t("reqPickupTitle"), res.error); return; }
     router.push({
@@ -77,6 +81,19 @@ export default function PickupRequestScreen() {
           ))}
         </View>
 
+        <Text style={s.label}>{lang === "fr" ? "Point de chargement (dépôt)" : "Loading zone (drop-off)"}</Text>
+        <View style={{ gap: 8 }}>
+          {zones.filter(z => !dest || z.region !== dest).map(z => {
+            const on = zoneId === z.id;
+            return (
+              <TouchableOpacity key={z.id} onPress={() => setZoneId(z.id)} activeOpacity={0.85} style={[s.zoneRow, on && s.zoneRowOn]}>
+                <View style={{ flex: 1 }}><Text style={s.zoneName}>{z.name}</Text>{!!z.address && <Text style={s.zoneSub} numberOfLines={1}>{z.address}</Text>}</View>
+                <View style={[s.radio, on && s.radioOn]} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <View style={s.note}><Text style={s.noteTxt}>{t("pickupFeeNote")}</Text></View>
 
         <TouchableOpacity style={[s.cta, busy && { opacity: 0.6 }]} onPress={getQuote} disabled={busy} activeOpacity={0.85}>
@@ -106,4 +123,10 @@ const s = StyleSheet.create({
   noteTxt: { color: Colors.t2, fontSize: 12, lineHeight: 18 },
   cta: { backgroundColor: Colors.accentP, borderRadius: 13, alignItems: "center", paddingVertical: 15, marginTop: 20 },
   ctaTxt: { color: Colors.accentPText, fontWeight: "900", fontSize: 16 },
+  zoneRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 12 },
+  zoneRowOn: { borderColor: Colors.accentP, borderWidth: 2 },
+  zoneName: { color: Colors.t1, fontWeight: "800", fontSize: 13.5 },
+  zoneSub: { color: Colors.t3, fontSize: 11, marginTop: 2 },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: Colors.border },
+  radioOn: { borderColor: Colors.accentP, borderWidth: 6 },
 });

@@ -61,10 +61,10 @@ export interface FeederRun {
 
 export const PickupAPI = {
   // Rider: price a pickup + create a pending (unpaid) request. Returns the LQ ref.
-  async quote(address: string, destinationRegion: string, name?: string | null, phone?: string | null): Promise<PickupQuote | { error: string }> {
+  async quote(address: string, destinationRegion: string, name?: string | null, phone?: string | null, loadingZoneId?: string | null): Promise<PickupQuote | { error: string }> {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("loadq-pickup", {
-      body: { action: "quote", address, destination_region: destinationRegion, name: name ?? null, phone: phone ?? null, passenger_id: user?.id ?? null },
+      body: { action: "quote", address, destination_region: destinationRegion, name: name ?? null, phone: phone ?? null, passenger_id: user?.id ?? null, loading_zone_id: loadingZoneId ?? null },
     });
     if (error) return { error: error.message };
     if (data?.error) return { error: data.detail || data.error };

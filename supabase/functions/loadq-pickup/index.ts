@@ -79,6 +79,10 @@ async function loadingZone(dest: string): Promise<{ lat: number; lng: number; id
   const { data: z } = await admin.from("zones").select("latitude,longitude").eq("id", zid).maybeSingle();
   return (z?.latitude != null && z?.longitude != null) ? { lat: z.latitude, lng: z.longitude, id: zid } : null;
 }
+async function zoneById(id: string): Promise<{ lat: number; lng: number; id: string } | null> {
+  const { data: z } = await admin.from("zones").select("latitude,longitude").eq("id", id).eq("is_active", true).maybeSingle();
+  return (z?.latitude != null && z?.longitude != null) ? { lat: z.latitude, lng: z.longitude, id } : null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -93,7 +97,8 @@ Deno.serve(async (req) => {
       if (!address || !dest) return json({ error: "address and destination_region required" }, 400);
       const geo = await geocode(address);
       if (!geo) return json({ error: "could not geocode pickup" }, 422);
-      const lz = await loadingZone(dest);
+      const chosenZoneId = b.loading_zone_id ? String(b.loading_zone_id) : null;
+      const lz = chosenZoneId ? await zoneById(chosenZoneId) : await loadingZone(dest);
       if (!lz) return json({ error: "no loading zone for destination" }, 422);
       const rj = await routes({ origin: pt(lz.lat, lz.lng), destination: pt(geo.lat, geo.lng), travelMode: "DRIVE", routingPreference: "TRAFFIC_UNAWARE" }, "routes.duration,routes.distanceMeters");
       const rt = rj?.routes?.[0]; if (!rt) return json({ error: "no_route", detail: rj?.error?.message }, 502);
@@ -104,7 +109,7 @@ Deno.serve(async (req) => {
       const tax = Math.round(reserve * rc.hst), total = reserve + tax;
       const ref = payRef();
       const { data: ins, error } = await admin.from("loadq_pickup_requests").insert({
-        contact_name: b.name || null, contact_phone: b.phone || null, passenger_id: b.passenger_id || null, pickup_address: address,
+        contact_name: b.name || null, contact_phone: b.phone || null, passenger_id: b.passenger_id || null, drop_zone_id: lz.id, pickup_address: address,
         pickup_lat: geo.lat, pickup_lng: geo.lng, destination_region: dest, seats: b.seats || 1,
         ride_cents: null, fee_cents: reserve, tax_cents: tax, total_cents: total, pay_ref: ref, status: "quoted",
       }).select("id").single();
@@ -117,12 +122,14 @@ Deno.serve(async (req) => {
       const capMin = await setting("pickup_detour_cap_min", 5);
       const { data: pend } = await admin.from("loadq_pickup_requests").select("*").eq("status", "pending").not("paid_at", "is", null);
       if (!pend || !pend.length) return json({ ok: true, batched: 0, note: "no paid pending requests" });
-      const byDest: Record<string, any[]> = {};
-      for (const r of pend) (byDest[r.destination_region] ||= []).push(r);
+      // Group by destination AND the rider's chosen drop zone (if any).
+      const byGroup: Record<string, any[]> = {};
+      for (const r of pend) { const k = `${r.destination_region}||${r.drop_zone_id || ""}`; (byGroup[k] ||= []).push(r); }
       const results: any[] = [];
 
-      for (const [dest, reqs] of Object.entries(byDest)) {
-        const lz = await loadingZone(dest);
+      for (const [k, reqs] of Object.entries(byGroup)) {
+        const [dest, dzid] = k.split("||");
+        const lz = dzid ? await zoneById(dzid) : await loadingZone(dest);
         if (!lz) { results.push({ dest, skipped: "no loading zone" }); continue; }
         let driver: any = null;
         const { data: pds } = await admin.from("loadq_pickup_drivers").select("driver_id,vehicle_id,lat,lng").eq("on_duty", true).is("active_run_id", null);
