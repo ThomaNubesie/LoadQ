@@ -26,7 +26,7 @@ export default function LanguageScreen() {
       <View style={s.inner}>
         <View style={s.logoBox}>
           <Text style={s.logo}>LOADQ</Text>
-          <Text style={s.logoSub}>Smart queue management</Text>
+          <Text style={s.logoSub}>{STRINGS[selected].smartQueue}</Text>
         </View>
 
         <Text style={s.title}>{STRINGS[selected].chooseLanguage}</Text>

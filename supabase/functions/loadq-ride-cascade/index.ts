@@ -86,6 +86,33 @@ Deno.serve(async (req) => {
       offered++;
     }
 
+    // 3b. Scheduled door-to-door: on/after its day, offer unclaimed PAID trips to
+    //     queue drivers heading to the destination (cascades to the next driver).
+    let offeredScheduled = 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: sched } = await admin
+      .from("loadq_ride_requests")
+      .select("id, status, dest_region, departure_zone_id, payment_status, scheduled_date")
+      .eq("kind", "scheduled").is("driver_id", null).eq("payment_status", "paid");
+    for (const r of sched ?? []) {
+      if (RESOLVED.includes(r.status)) { skipped++; continue; }
+      if (!r.scheduled_date || r.scheduled_date > today) { skipped++; continue; } // not its day yet
+      if (!r.departure_zone_id) { skipped++; continue; }
+      const { data: offers } = await admin
+        .from("loadq_ride_offers").select("driver_id, status, expires_at").eq("request_id", r.id);
+      if ((offers ?? []).some((o: any) => o.status === "offered" && new Date(o.expires_at).getTime() > now)) { skipped++; continue; }
+      const tried = new Set((offers ?? []).map((o: any) => o.driver_id));
+      const { data: q } = await admin
+        .from("queue_entries").select("driver_id, position, status")
+        .eq("zone_id", r.departure_zone_id).eq("destination_region", r.dest_region)
+        .in("status", ["loading", "waiting", "standby"]).order("position");
+      const next = (q ?? []).find((e: any) => e.position >= MIN_POS && !tried.has(e.driver_id));
+      if (!next) { skipped++; continue; }
+      await admin.rpc("loadq_ride_offer_next", { p_request_id: r.id, p_driver_id: next.driver_id, p_rank: next.position, p_window_seconds: 120 });
+      await sms(next.driver_id, "LoadQ: a scheduled door-to-door trip is available today. Open LoadQ to accept (2 min).");
+      offeredScheduled++;
+    }
+
     // 4. Card holds: capture the fare on completed rides, release it on
     //    cancelled/expired ones. Idempotent — 'paid' means held-not-resolved;
     //    the card fn flips it to 'captured'/'released' so this won't re-run.
@@ -106,7 +133,7 @@ Deno.serve(async (req) => {
       if (act === "capture") captured++; else released++;
     }
 
-    return json({ ok: true, expired: expired ?? 0, dispatched, offered, captured, released, skipped });
+    return json({ ok: true, expired: expired ?? 0, dispatched, offered, offeredScheduled, captured, released, skipped });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

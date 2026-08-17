@@ -87,6 +87,7 @@ export const STRINGS = {
     accountOnHoldSub:   "Your free trial has ended. Pick a plan to keep loading.",
 
     // Onboarding
+    smartQueue:       "Smart queue management",
     chooseLanguage:   "Choose your language",
     langSub:          "The app will run in this language.",
     welcome:          "Welcome to LoadQ",
@@ -957,6 +958,7 @@ export const STRINGS = {
     wrongNumber:      "Mauvais numéro ?",
 
     // Onboarding
+    smartQueue:       "Gestion intelligente de file d'attente",
     chooseLanguage:   "Choisissez votre langue",
     langSub:          "L'application fonctionnera dans cette langue.",
     welcome:          "Bienvenue sur LoadQ",
