@@ -124,26 +124,28 @@ Deno.serve(async (req) => {
           travelMode: "DRIVE", optimizeWaypointOrder: true, routingPreference: "TRAFFIC_UNAWARE",
         }, "routes.duration,routes.legs.duration,routes.optimizedIntermediateWaypointIndex");
         const rt = rj?.routes?.[0]; if (!rt) { results.push({ dest, skipped: "no_route", detail: rj?.error?.message }); continue; }
-        const order: number[] = rt.optimizedIntermediateWaypointIndex || take.map((_: any, i: number) => i);
+        const idx: number[] = Array.isArray(rt.optimizedIntermediateWaypointIndex) ? rt.optimizedIntermediateWaypointIndex : take.map((_: any, i: number) => i);
         const legMin: number[] = (rt.legs || []).map((l: any) => durMin(l.duration));
-        let ordered = order.map(i => take[i]);
+        let ordered = idx.map((i: number) => take[i]).filter((r: any) => r && r.id); // drop any out-of-range index
+        if (!ordered.length) ordered = take;                                          // never empty a valid batch
         let total = durMin(rt.duration);
         const budget = cap * capMin + 45;
-        while (ordered.length > 1 && total > budget) { ordered = ordered.slice(0, -1); total = legMin.slice(0, ordered.length + 1).reduce((a, b) => a + b, 0); }
+        while (ordered.length > 1 && total > budget) { ordered = ordered.slice(0, -1); total = legMin.slice(0, ordered.length + 1).reduce((a: number, b: number) => a + b, 0); }
 
-        const { data: run } = await admin.from("loadq_pickup_runs").insert({
+        const { data: run, error: runErr } = await admin.from("loadq_pickup_runs").insert({
           driver_id: driver.driver_id, vehicle_id: driver.vehicle_id, loading_zone_id: lz.id,
           destination_region: dest, loop_min: total, seats_total: cap, seats_filled: 0, status: "active",
         }).select("id").single();
-        await admin.from("loadq_pickup_drivers").update({ active_run_id: run!.id }).eq("driver_id", driver.driver_id);
+        if (runErr || !run) { results.push({ dest, skipped: "run_insert_failed", detail: runErr?.message }); continue; }
+        await admin.from("loadq_pickup_drivers").update({ active_run_id: run.id }).eq("driver_id", driver.driver_id);
         let cum = 0;
         for (let s = 0; s < ordered.length; s++) {
           cum += legMin[s] || 0;
-          await admin.from("loadq_pickup_requests").update({ run_id: run!.id, seq: s + 1, status: "batched", eta_min: cum }).eq("id", ordered[s].id);
+          await admin.from("loadq_pickup_requests").update({ run_id: run.id, seq: s + 1, status: "batched", eta_min: cum }).eq("id", ordered[s].id);
         }
         // Alert the feeder driver by SMS (in addition to the in-app run).
         await smsDriver(driver.driver_id, `LoadQ: new pickup run — ${ordered.length} rider${ordered.length > 1 ? "s" : ""} to collect, then drop at the loading point. Open LoadQ.`);
-        results.push({ dest, pickup_driver: driver.driver_id, run_id: run!.id, stops: ordered.length, run_min: total, dropoff: lz.id });
+        results.push({ dest, pickup_driver: driver.driver_id, run_id: run.id, stops: ordered.length, run_min: total, dropoff: lz.id });
       }
       return json({ ok: true, batched: results.reduce((n, r) => n + (r.stops || 0), 0), runs: results });
     }
