@@ -41,6 +41,18 @@ function receiptHtml(r: any, hst: string, fr: boolean): string {
   </div>`;
 }
 
+// Plain-text receipt for SMS — same line items as the email, one per line.
+function receiptText(r: any, fr: boolean): string {
+  const L = fr ? { t: "Reçu de prise en charge", pickup: "Départ", dest: "Destination", svc: "Service", drv: "Conducteur", fee: "Frais de prise en charge", tax: "TVH (13 %)", total: "Total payé · Interac", svcV: "Navette", thanks: "Merci !" }
+               : { t: "Pickup receipt", pickup: "Pickup", dest: "Destination", svc: "Service", drv: "Driver", fee: "Reserve fee", tax: "HST (13%)", total: "Total paid · Interac", svcV: "Feeder pickup", thanks: "Thank you!" };
+  const rows = [`LoadQ — ${L.t}`, `${r.code || ""}`, ``,
+    `${L.pickup}: ${r.pickup || ""}`, `${L.dest}: ${cap(r.destination || "")}`, `${L.svc}: ${L.svcV}`];
+  if (r.driver) rows.push(`${L.drv}: ${r.driver}`);
+  rows.push(`${L.fee}: ${money(r.fee_cents)}`, `${L.tax}: ${money(r.tax_cents)}`, `${L.total}: ${money(r.total_cents)}`,
+    ``, `${L.thanks} — loadq.ca`);
+  return rows.join("\n");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -66,9 +78,7 @@ Deno.serve(async (req) => {
     // SMS: short confirmation with the totals + ref.
     if (!TW_SID || !TW_TOKEN || !TW_FROM) return json({ error: "sms_unavailable" }, 503);
     let n = String(to).replace(/[^\d+]/g, ""); if (!n.startsWith("+")) n = n.length === 10 ? "+1" + n : "+" + n;
-    const body = fr
-      ? `Reçu LoadQ ${rc.code} : ${cap(rc.destination || "")} — total ${money(rc.total_cents)} (dont TVH ${money(rc.tax_cents)}) payé par Interac. Merci !`
-      : `LoadQ receipt ${rc.code}: ${cap(rc.destination || "")} — total ${money(rc.total_cents)} (incl. HST ${money(rc.tax_cents)}) paid by Interac. Thank you!`;
+    const body = receiptText(rc, fr);
     const f = new URLSearchParams({ To: n, Body: body }); TW_FROM.startsWith("MG") ? f.set("MessagingServiceSid", TW_FROM) : f.set("From", TW_FROM);
     const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, { method: "POST", headers: { Authorization: "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" }, body: f.toString() }).catch(() => null);
     return json({ ok: !!r && r.ok });
