@@ -16,14 +16,17 @@ export async function initLang(): Promise<void> {
 
 export async function setLang(lang: Lang): Promise<void> {
   _lang = lang;
-  await AsyncStorage.setItem("userLang", lang);
+  try { await AsyncStorage.setItem("userLang", lang); } catch { /* ignore */ }
   _listeners.forEach(fn => fn());
-  // Best-effort: persist a passenger's language to passengers.locale so the
-  // board's server-side copy can honor it. No-op for drivers / logged-out.
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) await supabase.from("passengers").update({ locale: lang }).eq("id", user.id);
-  } catch { /* ignore */ }
+  // Best-effort, FIRE-AND-FORGET: persist a passenger's language to
+  // passengers.locale. Never await this — navigation must not block on the
+  // network (a slow/unreachable backend used to freeze the "Get started" button).
+  void (async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await supabase.from("passengers").update({ locale: lang }).eq("id", user.id);
+    } catch { /* ignore */ }
+  })();
 }
 
 export function getCurrentLang(): Lang {
