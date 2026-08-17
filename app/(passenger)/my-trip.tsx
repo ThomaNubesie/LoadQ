@@ -321,7 +321,7 @@ const s = StyleSheet.create({
   rating:   { color: Colors.yellow, fontSize: 11, fontWeight: "700" },
   statusRow:{ marginTop: 11 },
   chip:     { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  chipHot:  { backgroundColor: "rgba(255,107,0,0.16)" },
+  chipHot:  { backgroundColor: "rgba(76,130,240,0.16)" },
   chipWait: { backgroundColor: Colors.cardAlt },
   chipTxt:  { fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
   chipTxtHot:  { color: Colors.accentP },

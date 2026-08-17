@@ -199,7 +199,7 @@ const s = StyleSheet.create({
   ringNum:     { position: "absolute", alignItems: "center" },
   ringBig:     { fontSize: 32, fontWeight: "800", color: Colors.t1, lineHeight: 34 },
   ringUnit:    { fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 1, marginTop: 2 },
-  kind:        { alignSelf: "center", backgroundColor: "rgba(255,107,0,0.14)", borderRadius: 999, paddingVertical: 5, paddingHorizontal: 12, marginBottom: 14 },
+  kind:        { alignSelf: "center", backgroundColor: "rgba(76,130,240,0.14)", borderRadius: 999, paddingVertical: 5, paddingHorizontal: 12, marginBottom: 14 },
   kindOd:      { backgroundColor: "rgba(47,190,110,0.14)" },
   kindTxt:     { color: Colors.accent, fontWeight: "800", fontSize: 11.5 },
   kindTxtOd:   { color: "#2FBE6E" },

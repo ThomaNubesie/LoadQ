@@ -343,18 +343,18 @@ export default function MyLoadingScreen() {
           <TouchableOpacity
             onPress={() => router.push("/(app)/feeder" as any)}
             activeOpacity={0.85}
-            style={{ flexDirection:"row", alignItems:"center", gap:10, backgroundColor:"#FF6B00", borderRadius:14, paddingVertical:13, paddingHorizontal:15, marginBottom:12 }}
+            style={{ flexDirection:"row", alignItems:"center", gap:10, backgroundColor:Colors.accent, borderRadius:14, paddingVertical:13, paddingHorizontal:15, marginBottom:12 }}
           >
-            <Bus size={20} color="#20140A" strokeWidth={2.4} />
+            <Bus size={20} color={Colors.accentText} strokeWidth={2.4} />
             <View style={{ flex:1 }}>
-              <Text style={{ color:"#20140A", fontWeight:"900", fontSize:14 }}>
+              <Text style={{ color:Colors.accentText, fontWeight:"900", fontSize:14 }}>
                 {lang === "fr" ? "Course de ramassage assignée" : "Pickup run assigned"}
               </Text>
-              <Text style={{ color:"#3A2410", fontWeight:"700", fontSize:12, marginTop:2 }}>
+              <Text style={{ color:"rgba(255,255,255,0.9)", fontWeight:"700", fontSize:12, marginTop:2 }}>
                 {(feederRun.stops?.length ?? 0)} {lang === "fr" ? "arrêt(s)" : "stop(s)"} · {feederRun.run_min} min · {lang === "fr" ? "toucher pour ouvrir" : "tap to open"}
               </Text>
             </View>
-            <Text style={{ color:"#20140A", fontWeight:"900", fontSize:22 }}>›</Text>
+            <Text style={{ color:Colors.accentText, fontWeight:"900", fontSize:22 }}>›</Text>
           </TouchableOpacity>
         )}
         {loading ? (

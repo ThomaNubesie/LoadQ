@@ -173,6 +173,6 @@ const s = StyleSheet.create({
   doneTag: { color: Colors.green, fontWeight: "800", fontSize: 11 },
   markBtn: { borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 },
   markTxt: { color: Colors.accent, fontWeight: "800", fontSize: 11.5 },
-  drop: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "rgba(255,107,0,0.10)", borderWidth: 1, borderColor: "rgba(255,107,0,0.5)", borderRadius: 12, padding: 12, marginTop: 4 },
+  drop: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "rgba(76,130,240,0.10)", borderWidth: 1, borderColor: "rgba(76,130,240,0.5)", borderRadius: 12, padding: 12, marginTop: 4 },
   dropTxt: { color: Colors.accent, fontWeight: "700", fontSize: 12.5 },
 });

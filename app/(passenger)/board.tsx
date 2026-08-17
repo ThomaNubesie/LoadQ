@@ -681,7 +681,7 @@ const s = StyleSheet.create({
   seatTxt:     { color: Colors.t2, fontSize: 10.5, marginLeft: 6 },
 
   statusRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 9 },
-  chipLoad:    { backgroundColor: "rgba(255,107,0,0.16)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  chipLoad:    { backgroundColor: "rgba(76,130,240,0.16)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   chipLoadTxt: { color: Colors.accentP, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
   chipQueue:   { backgroundColor: Colors.cardAlt, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   chipQueueTxt:{ color: Colors.t2, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
@@ -742,7 +742,7 @@ const s = StyleSheet.create({
   cityChipTxtOn: { color: Colors.accentPText },
 
   zoneRow:     { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 8 },
-  zoneRowOn:   { borderColor: Colors.accentP, backgroundColor: "rgba(255,107,0,0.08)" },
+  zoneRowOn:   { borderColor: Colors.accentP, backgroundColor: "rgba(76,130,240,0.08)" },
   zoneRowName: { color: Colors.t1, fontSize: 14, fontWeight: "700", flexShrink: 1 },
   zoneRowAddr: { color: Colors.t3, fontSize: 11, marginTop: 2 },
   zoneRowCount:{ color: Colors.t2, fontSize: 12, fontWeight: "800" },
