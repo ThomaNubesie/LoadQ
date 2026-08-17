@@ -336,8 +336,8 @@ export default function BoardScreen() {
         contentContainerStyle={{ padding: 14, paddingBottom: 28 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}
       >
-        {/* A7: request an on-route pickup (A2: restrained outline, lucide icon) */}
-        <TouchableOpacity style={s.reqRideBtn} onPress={() => router.push("/(passenger)/request-ride" as any)} activeOpacity={0.85}>
+        {/* Pickup chooser: on-route · home→zone (feeder) · door-to-door (scheduled) */}
+        <TouchableOpacity style={s.reqRideBtn} onPress={() => router.push("/(passenger)/pickup-options" as any)} activeOpacity={0.85}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Car size={17} color={Colors.accentP} />
             <Text style={s.reqRideBtnTxt}>{t("reqRideTitle")}</Text>
@@ -356,7 +356,7 @@ export default function BoardScreen() {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={s.pickupLink} activeOpacity={0.8} onPress={() => router.push("/(passenger)/pickup-request" as any)}>
+        <TouchableOpacity style={s.pickupLink} activeOpacity={0.8} onPress={() => router.push("/(passenger)/pickup-options" as any)}>
           <MapPin size={14} color={Colors.t2} />
           <Text style={s.pickupLinkTxt}>{t("pickupBoardLink")}</Text>
         </TouchableOpacity>

@@ -46,6 +46,18 @@ export interface ScheduledMine {
   rider_phone: string | null;
 }
 
+export interface ScheduledRider {
+  request_id: string;
+  scheduled_date: string;
+  status: string;
+  origin: string;
+  dropoff: string;
+  dest_region: string;
+  fare_cents: number;
+  paid: boolean;
+  has_driver: boolean;
+}
+
 export const ScheduledAPI = {
   // Rider: price + create a scheduled door-to-door request (pay Interac at booking).
   async quote(originAddress: string, dropoffAddress: string, destinationRegion: string, scheduledDate: string, name?: string | null, phone?: string | null): Promise<ScheduledQuote | { error: string }> {
@@ -82,6 +94,12 @@ export const ScheduledAPI = {
     const { data, error } = await supabase.rpc("loadq_scheduled_decline", { p_request: requestId });
     if (error) return { error: error.message };
     return data as any;
+  },
+
+  // Rider: my upcoming scheduled trips (for My Trips).
+  async rider(): Promise<ScheduledRider[]> {
+    const { data } = await supabase.rpc("loadq_scheduled_rider");
+    return (data as ScheduledRider[]) ?? [];
   },
 
   // Rider: cancel — returns the refund tier + amount per policy.

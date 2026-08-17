@@ -914,6 +914,15 @@ export default function QueueScreen() {
             <Text style={s.loadingTimesBtnTxt}>{t.loadingTimesLink}</Text>
           </TouchableOpacity>
         </View>
+        {/* Scheduled door-to-door trips to claim ahead */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/(app)/scheduled" as any)}
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 16, marginTop: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.accentWarm, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}
+        >
+          <Text style={{ color: Colors.t1, fontWeight: "800", fontSize: 13.5 }}>{lang === "fr" ? "Courses planifiées à réserver" : "Scheduled trips to claim"}</Text>
+          <Text style={{ color: Colors.accentWarmText, fontWeight: "900", fontSize: 16 }}>›</Text>
+        </TouchableOpacity>
         {loading ? (
           <View style={s.loadingBlock}>
             <ActivityIndicator color={Colors.accent} size="large" />

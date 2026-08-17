@@ -9,6 +9,7 @@ import { Colors } from "../../constants/colors";
 import { useNow } from "../../hooks/useNow";
 import { PassengerBoardAPI, MyTrip, ratingLabel, vehicleLabel } from "../../services/passengerBoard";
 import { PickupAPI, MyPickup } from "../../services/pickup";
+import { ScheduledAPI, ScheduledRider } from "../../services/scheduled";
 import { PassengersAPI } from "../../services/passengers";
 import { getRegionName } from "../../constants/pricing";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -48,6 +49,7 @@ export default function MyTripScreen() {
   const { t, lang } = useStrings();
 
   const [pickup, setPickup]   = useState<MyPickup | null>(null);
+  const [scheduled, setScheduled] = useState<ScheduledRider[]>([]);
   const [trip, setTrip]       = useState<MyTrip | null>(PassengerBoardAPI.cachedMyTrip());
   const [me, setMe]           = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(!PassengerBoardAPI.cachedMyTrip());
@@ -55,9 +57,29 @@ export default function MyTripScreen() {
   const [seatBusy, setSeatBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [tr, pk] = await Promise.all([PassengerBoardAPI.myTrip(), PickupAPI.myActivePickup()]);
-    setTrip(tr); setPickup(pk);
+    const [tr, pk, sc] = await Promise.all([PassengerBoardAPI.myTrip(), PickupAPI.myActivePickup(), ScheduledAPI.rider()]);
+    setTrip(tr); setPickup(pk); setScheduled(sc);
   }, []);
+
+  function cancelScheduled(r: ScheduledRider) {
+    Alert.alert(
+      lang === "fr" ? "Annuler ce trajet ?" : "Cancel this trip?",
+      lang === "fr" ? "24 h+ avant : remboursement complet. Moins de 24 h : partiel (frais de 12,99 $ conservés + 50 %)." : "24h+ before: full refund. Under 24h: partial (keep the $12.99 fee + 50%).",
+      [
+        { text: lang === "fr" ? "Retour" : "Back", style: "cancel" },
+        {
+          text: lang === "fr" ? "Annuler le trajet" : "Cancel trip", style: "destructive", onPress: async () => {
+            const res = await ScheduledAPI.cancel(r.request_id);
+            if (res.error) { Alert.alert(lang === "fr" ? "Trajet" : "Trip", res.error); return; }
+            const rc = ((res.refund_cents ?? 0) / 100).toFixed(2);
+            Alert.alert(lang === "fr" ? "Trajet annulé" : "Trip cancelled",
+              (res.tier === "full" ? (lang === "fr" ? "Remboursement complet" : "Full refund") : res.tier === "partial" ? (lang === "fr" ? "Remboursement partiel" : "Partial refund") : (lang === "fr" ? "Aucun remboursement" : "No refund")) + `: $${rc}` + (lang === "fr" ? " (par Interac)." : " (via Interac)."));
+            await load();
+          },
+        },
+      ],
+    );
+  }
 
   async function adjustSeats(delta: number) {
     if (!trip || seatBusy) return;
@@ -130,6 +152,27 @@ export default function MyTripScreen() {
     </TouchableOpacity>
   ) : null;
 
+  // Upcoming scheduled door-to-door trips (with cancel + refund policy).
+  const scheduledCards = scheduled.length > 0 ? (
+    <View style={{ gap: 10, marginBottom: 12 }}>
+      {scheduled.map((r) => (
+        <View key={r.request_id} style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.accentWarm, borderLeftWidth: 4, borderRadius: 15, padding: 14 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ color: Colors.accentWarmText, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>{lang === "fr" ? "Porte-à-porte" : "Door-to-door"}</Text>
+            <Text style={{ color: Colors.t2, fontSize: 11, fontWeight: "800" }}>{new Date(r.scheduled_date + "T12:00:00").toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { weekday: "short", month: "short", day: "numeric" })}</Text>
+          </View>
+          <Text style={{ color: Colors.t1, fontSize: 14, fontWeight: "800", marginTop: 6 }} numberOfLines={1}>{r.origin} → {r.dropoff}</Text>
+          <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }}>
+            {(r.has_driver ? (lang === "fr" ? "Chauffeur confirmé" : "Driver confirmed") : r.paid ? (lang === "fr" ? "En attente d'un chauffeur" : "Awaiting a driver") : (lang === "fr" ? "En attente de paiement" : "Awaiting payment"))} · ${(r.fare_cents / 100).toFixed(2)}
+          </Text>
+          <TouchableOpacity onPress={() => cancelScheduled(r)} activeOpacity={0.8} style={{ alignSelf: "flex-start", marginTop: 10, borderWidth: 1.5, borderColor: Colors.red, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}>
+            <Text style={{ color: Colors.red, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Annuler" : "Cancel"}</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+    </View>
+  ) : null;
+
   if (!trip) {
     return (
       <SafeAreaView style={s.screen} edges={["top"]}>
@@ -137,7 +180,8 @@ export default function MyTripScreen() {
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
           {pickupCard}
-          {!pickup && (
+          {scheduledCards}
+          {!pickup && scheduled.length === 0 && (
             <View style={s.center}><Text style={s.empty}>{t("noActiveTrip")}</Text><Text style={s.sub}>{t("noActiveTripSub")}</Text>
               <TouchableOpacity style={s.goBoard} onPress={() => router.replace("/(passenger)/board" as any)}><Text style={s.goBoardTxt}>{t("navBoard")}</Text></TouchableOpacity>
             </View>
@@ -160,6 +204,7 @@ export default function MyTripScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
 
         {pickupCard}
+        {scheduledCards}
 
         {trip.status === "held" && trip.hold_expires_at && (
           <View style={s.holdCard}>
