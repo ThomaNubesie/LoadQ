@@ -14,9 +14,26 @@ const SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 const RESOLVED = ["assigned", "en_route", "picked_up", "completed", "cancelled", "expired"];
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
+// SMS the driver that a request is waiting (best-effort, in addition to push).
+const TW_SID = Deno.env.get("KOLIS_TWILIO_SID"), TW_TOKEN = Deno.env.get("KOLIS_TWILIO_TOKEN"), TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
+async function sms(driverId: string, body: string) {
+  try {
+    if (!TW_SID || !TW_TOKEN || !TW_FROM) return;
+    const { data: d } = await admin.from("drivers").select("phone").eq("id", driverId).maybeSingle();
+    let to = d?.phone ? String(d.phone).replace(/[^\d+]/g, "") : ""; if (!to) return;
+    if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
+    const f = new URLSearchParams({ To: to, Body: body }); TW_FROM.startsWith("MG") ? f.set("MessagingServiceSid", TW_FROM) : f.set("From", TW_FROM);
+    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, { method: "POST", headers: { Authorization: "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" }, body: f.toString() }).catch(() => {});
+  } catch { /* best-effort */ }
+}
+
 Deno.serve(async (req) => {
   if (req.headers.get("x-kolis-secret") !== SECRET) return json({ error: "forbidden" }, 403);
   try {
+    // Only offer to queue drivers at this position or further back (protect front loaders).
+    const { data: mp } = await admin.from("loadq_settings").select("value").eq("key", "dispatch_min_position").maybeSingle();
+    const MIN_POS = mp?.value ? parseInt(String(mp.value), 10) : 6;
+
     // 1. Expire stale offers.
     const { data: expired } = await admin.rpc("loadq_ride_offers_expire");
 
@@ -62,9 +79,10 @@ Deno.serve(async (req) => {
         .from("queue_entries").select("driver_id, position, status")
         .eq("zone_id", r.departure_zone_id).eq("destination_region", r.dest_region)
         .in("status", ["loading", "waiting", "standby"]).order("position");
-      const next = (q ?? []).find((e: any) => !tried.has(e.driver_id));
-      if (!next) { skipped++; continue; }                            // no eligible/untried driver
+      const next = (q ?? []).find((e: any) => e.position >= MIN_POS && !tried.has(e.driver_id));
+      if (!next) { skipped++; continue; }                            // no eligible/untried driver at/behind the floor
       await admin.rpc("loadq_ride_offer_next", { p_request_id: r.id, p_driver_id: next.driver_id, p_rank: next.position, p_window_seconds: 60 });
+      await sms(next.driver_id, "LoadQ: new on-route pickup request on your way. Open LoadQ to accept (60s).");
       offered++;
     }
 

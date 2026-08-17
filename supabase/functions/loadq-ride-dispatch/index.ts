@@ -8,6 +8,19 @@ const GKEY = Deno.env.get("GOOGLE_MAPS_KEY")!;
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
+// SMS the driver that a request is waiting (in addition to push).
+const TW_SID = Deno.env.get("KOLIS_TWILIO_SID"), TW_TOKEN = Deno.env.get("KOLIS_TWILIO_TOKEN"), TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
+async function sms(driverId: string, body: string) {
+  try {
+    if (!TW_SID || !TW_TOKEN || !TW_FROM) return;
+    const { data: d } = await admin.from("drivers").select("phone").eq("id", driverId).maybeSingle();
+    let to = d?.phone ? String(d.phone).replace(/[^\d+]/g, "") : ""; if (!to) return;
+    if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
+    const f = new URLSearchParams({ To: to, Body: body }); TW_FROM.startsWith("MG") ? f.set("MessagingServiceSid", TW_FROM) : f.set("From", TW_FROM);
+    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, { method: "POST", headers: { Authorization: "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" }, body: f.toString() }).catch(() => {});
+  } catch { /* SMS is best-effort */ }
+}
+
 async function geocode(a: string) {
   const d = await (await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(a)}&key=${GKEY}`)).json();
   if (d.status !== "OK" || !d.results?.length) return null;
@@ -36,8 +49,9 @@ Deno.serve(async (req) => {
 
     // settings / rate card
     const { data: st } = await admin.from("loadq_settings").select("key,value")
-      .in("key", ["ondemand_base_cents", "ondemand_per_km_cents", "ondemand_per_min_cents", "ondemand_min_cents", "ondemand_fee_cents", "dispatch_slack_per_car_mins", "dispatch_safety_mins"]);
+      .in("key", ["ondemand_base_cents", "ondemand_per_km_cents", "ondemand_per_min_cents", "ondemand_min_cents", "ondemand_fee_cents", "dispatch_slack_per_car_mins", "dispatch_safety_mins", "dispatch_min_position"]);
     const S: Record<string, number> = {}; (st ?? []).forEach((x: any) => S[x.key] = parseInt(x.value));
+    const MIN_POS = S.dispatch_min_position || 6; // only offer to position >= this (protect front loaders)
 
     // zone + coords
     const { data: zone } = await admin.from("zones").select("id,name,latitude,longitude").eq("id", r.departure_zone_id).maybeSingle();
@@ -70,7 +84,7 @@ Deno.serve(async (req) => {
       .eq("zone_id", zone.id).in("status", ["waiting", "standby"]).order("position");
     const eligible = (q ?? [])
       .map((e: any) => ({ ...e, slack_min: Math.max(0, (e.position - 1)) * S.dispatch_slack_per_car_mins }))
-      .filter((e: any) => e.slack_min >= round_trip_min && !alreadyTried.has(e.driver_id));
+      .filter((e: any) => e.position >= MIN_POS && e.slack_min >= round_trip_min && !alreadyTried.has(e.driver_id));
 
     if (!eligible.length)
       return json({ status: "no_driver", round_trip_min: Math.round(round_trip_min),
@@ -105,6 +119,7 @@ Deno.serve(async (req) => {
     const { data: offerId } = await admin.rpc("loadq_ride_offer_next", {
       p_request_id: r.id, p_driver_id: pick.driver_id, p_rank: pick.position, p_window_seconds: 60,
     });
+    await sms(pick.driver_id, `LoadQ: new ride request${zone?.name ? " at " + zone.name : ""} — $${((fare_cents || 0) / 100).toFixed(2)}. Open LoadQ to accept (60s).`);
     return json({ status: "offered", offer_id: offerId, driver_id: pick.driver_id, driver_position: pick.position,
       driver_slack_min: pick.slack_min, round_trip_min: Math.round(round_trip_min), fare_cents,
       zone: zone.name });
