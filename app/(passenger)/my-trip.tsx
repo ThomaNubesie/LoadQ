@@ -8,6 +8,7 @@ import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
 import { useNow } from "../../hooks/useNow";
 import { PassengerBoardAPI, MyTrip, ratingLabel, vehicleLabel } from "../../services/passengerBoard";
+import { PickupAPI, MyPickup } from "../../services/pickup";
 import { PassengersAPI } from "../../services/passengers";
 import { getRegionName } from "../../constants/pricing";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -44,15 +45,19 @@ function initials(name?: string): string {
 
 export default function MyTripScreen() {
   const router = useRouter();
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
 
+  const [pickup, setPickup]   = useState<MyPickup | null>(null);
   const [trip, setTrip]       = useState<MyTrip | null>(PassengerBoardAPI.cachedMyTrip());
   const [me, setMe]           = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(!PassengerBoardAPI.cachedMyTrip());
   const [refreshing, setRefreshing] = useState(false);
   const [seatBusy, setSeatBusy] = useState(false);
 
-  const load = useCallback(async () => { setTrip(await PassengerBoardAPI.myTrip()); }, []);
+  const load = useCallback(async () => {
+    const [tr, pk] = await Promise.all([PassengerBoardAPI.myTrip(), PickupAPI.myActivePickup()]);
+    setTrip(tr); setPickup(pk);
+  }, []);
 
   async function adjustSeats(delta: number) {
     if (!trip || seatBusy) return;
@@ -102,13 +107,42 @@ export default function MyTripScreen() {
     return <SafeAreaView style={s.screen} edges={["top"]}><Text style={s.title}>{t("myTripTitle")}</Text><View style={s.center}><ActivityIndicator color={Colors.accentP} /></View><PassengerBottomNav /></SafeAreaView>;
   }
 
+  // Active feeder pickup card (shown on My Trips + links to live tracking).
+  const pickupCard = pickup ? (
+    <TouchableOpacity
+      onPress={() => router.push({ pathname: "/(passenger)/pickup-status" as any, params: { request_id: pickup.request_id } })}
+      activeOpacity={0.85}
+      style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.accentP, borderRadius: 15, padding: 14, marginBottom: 12 }}
+    >
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ color: Colors.accentP, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>
+          {lang === "fr" ? "Ramassage" : "Pickup"}
+        </Text>
+        <Text style={{ color: Colors.t2, fontSize: 11, fontWeight: "800" }}>
+          {pickup.driver?.name ? (lang === "fr" ? "En route" : "On the way") : (lang === "fr" ? "Attribution…" : "Finding driver…")}
+        </Text>
+      </View>
+      <Text style={{ color: Colors.t1, fontSize: 15, fontWeight: "800", marginTop: 6 }}>
+        {pickup.driver?.name ?? (lang === "fr" ? "Chauffeur en cours d'attribution" : "Driver being assigned")}
+      </Text>
+      {!!pickup.driver?.car && <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }}>{pickup.driver.car}{pickup.driver.plate ? ` · ${pickup.driver.plate}` : ""}</Text>}
+      <Text style={{ color: Colors.accentP, fontSize: 13, fontWeight: "800", marginTop: 10 }}>{(lang === "fr" ? "Voir le suivi" : "View tracking")} ›</Text>
+    </TouchableOpacity>
+  ) : null;
+
   if (!trip) {
     return (
       <SafeAreaView style={s.screen} edges={["top"]}>
         <Text style={s.title}>{t("myTripTitle")}</Text>
-        <View style={s.center}><Text style={s.empty}>{t("noActiveTrip")}</Text><Text style={s.sub}>{t("noActiveTripSub")}</Text>
-          <TouchableOpacity style={s.goBoard} onPress={() => router.replace("/(passenger)/board" as any)}><Text style={s.goBoardTxt}>{t("navBoard")}</Text></TouchableOpacity>
-        </View>
+        <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
+          {pickupCard}
+          {!pickup && (
+            <View style={s.center}><Text style={s.empty}>{t("noActiveTrip")}</Text><Text style={s.sub}>{t("noActiveTripSub")}</Text>
+              <TouchableOpacity style={s.goBoard} onPress={() => router.replace("/(passenger)/board" as any)}><Text style={s.goBoardTxt}>{t("navBoard")}</Text></TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
         <PassengerBottomNav />
       </SafeAreaView>
     );
@@ -124,6 +158,8 @@ export default function MyTripScreen() {
       <Text style={s.title}>{t("myTripTitle")}</Text>
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
+
+        {pickupCard}
 
         {trip.status === "held" && trip.hold_expires_at && (
           <View style={s.holdCard}>

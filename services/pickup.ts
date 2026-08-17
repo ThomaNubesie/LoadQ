@@ -55,8 +55,9 @@ export interface FeederRun {
 export const PickupAPI = {
   // Rider: price a pickup + create a pending (unpaid) request. Returns the LQ ref.
   async quote(address: string, destinationRegion: string, name?: string | null, phone?: string | null): Promise<PickupQuote | { error: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("loadq-pickup", {
-      body: { action: "quote", address, destination_region: destinationRegion, name: name ?? null, phone: phone ?? null },
+      body: { action: "quote", address, destination_region: destinationRegion, name: name ?? null, phone: phone ?? null, passenger_id: user?.id ?? null },
     });
     if (error) return { error: error.message };
     if (data?.error) return { error: data.detail || data.error };
@@ -67,6 +68,12 @@ export const PickupAPI = {
   async myPickup(requestId: string): Promise<MyPickup | null> {
     const { data } = await supabase.rpc("loadq_my_pickup", { p_request: requestId });
     return (data as MyPickup) ?? null;
+  },
+
+  // Rider: my current active (paid, non-terminal) pickup — for My Trips / board.
+  async myActivePickup(): Promise<MyPickup | null> {
+    const { data } = await supabase.rpc("loadq_my_active_pickup");
+    return (data && (data as MyPickup).request_id) ? (data as MyPickup) : null;
   },
 
   // Feeder driver: go on / off duty with current vehicle + GPS.

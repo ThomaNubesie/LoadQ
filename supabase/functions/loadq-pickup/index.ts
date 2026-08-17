@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       const tax = Math.round(reserve * rc.hst), total = reserve + tax;
       const ref = payRef();
       const { data: ins, error } = await admin.from("loadq_pickup_requests").insert({
-        contact_name: b.name || null, contact_phone: b.phone || null, pickup_address: address,
+        contact_name: b.name || null, contact_phone: b.phone || null, passenger_id: b.passenger_id || null, pickup_address: address,
         pickup_lat: geo.lat, pickup_lng: geo.lng, destination_region: dest, seats: b.seats || 1,
         ride_cents: null, fee_cents: reserve, tax_cents: tax, total_cents: total, pay_ref: ref, status: "quoted",
       }).select("id").single();
