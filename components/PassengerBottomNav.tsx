@@ -44,7 +44,7 @@ export default function PassengerBottomNav() {
 }
 
 const s = StyleSheet.create({
-  bar:         { flexDirection: "row", backgroundColor: "#101217", borderTopWidth: 0.5, borderTopColor: Colors.border, paddingTop: 8, paddingBottom: 12 },
+  bar:         { flexDirection: "row", backgroundColor: Colors.card, borderTopWidth: 0.5, borderTopColor: Colors.border, paddingTop: 8, paddingBottom: 12 },
   item:        { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 4 },
   label:       { fontSize: 9.5, color: Colors.t3, fontWeight: "700" },
   labelActive: { color: Colors.accentP },

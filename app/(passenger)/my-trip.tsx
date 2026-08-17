@@ -112,10 +112,10 @@ export default function MyTripScreen() {
     <TouchableOpacity
       onPress={() => router.push({ pathname: "/(passenger)/pickup-status" as any, params: { request_id: pickup.request_id } })}
       activeOpacity={0.85}
-      style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.accentP, borderRadius: 15, padding: 14, marginBottom: 12 }}
+      style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.accentWarm, borderLeftWidth: 4, borderRadius: 15, padding: 14, marginBottom: 12 }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: Colors.accentP, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>
+        <Text style={{ color: Colors.accentWarmText, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" }}>
           {lang === "fr" ? "Ramassage" : "Pickup"}
         </Text>
         <Text style={{ color: Colors.t2, fontSize: 11, fontWeight: "800" }}>
