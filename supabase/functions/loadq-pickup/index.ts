@@ -21,6 +21,25 @@ async function smsDriver(driverId: string, body: string) {
   } catch { /* best-effort */ }
 }
 
+// Push a notification to a driver or passenger by user id (best-effort, Expo).
+// data.route deep-links the app to the right screen on tap (handled in _layout).
+async function push(recipientId: string, title: string, body: string, route?: string) {
+  try {
+    let token: string | null = null;
+    const { data: d } = await admin.from("drivers").select("push_token").eq("id", recipientId).maybeSingle();
+    token = (d?.push_token as string | null) ?? null;
+    if (!token) {
+      const { data: p } = await admin.from("passengers").select("push_token").eq("id", recipientId).maybeSingle();
+      token = (p?.push_token as string | null) ?? null;
+    }
+    if (!token) return;
+    await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ to: token, title, body, sound: "default", data: route ? { route } : {} }),
+    }).catch(() => {});
+  } catch { /* best-effort */ }
+}
+
 // Departure/loading zone per destination (fallback if no active queue driver is found for it).
 const LOADING_ZONE_FALLBACK: Record<string, string> = { montreal: "ottawa-universal-grocery" };
 
@@ -143,8 +162,13 @@ Deno.serve(async (req) => {
           cum += legMin[s] || 0;
           await admin.from("loadq_pickup_requests").update({ run_id: run.id, seq: s + 1, status: "batched", eta_min: cum }).eq("id", ordered[s].id);
         }
-        // Alert the feeder driver by SMS (in addition to the in-app run).
+        // Alert the feeder driver — push (deep-links to the run) + SMS fallback.
+        await push(driver.driver_id, "LoadQ", `New pickup run · ${ordered.length} rider${ordered.length > 1 ? "s" : ""} · Nouvelle course de ramassage`, "/(app)/feeder");
         await smsDriver(driver.driver_id, `LoadQ: new pickup run — ${ordered.length} rider${ordered.length > 1 ? "s" : ""} to collect, then drop at the loading point. Open LoadQ.`);
+        // Tell each rider their driver is on the way (deep-links to My Trips).
+        for (const st of ordered) {
+          if (st?.passenger_id) await push(st.passenger_id, "LoadQ", "Your driver is on the way · Votre chauffeur arrive", "/(passenger)/my-trip");
+        }
         results.push({ dest, pickup_driver: driver.driver_id, run_id: run.id, stops: ordered.length, run_min: total, dropoff: lz.id });
       }
       return json({ ok: true, batched: results.reduce((n, r) => n + (r.stops || 0), 0), runs: results });
