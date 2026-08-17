@@ -27,7 +27,7 @@ export default function DriverTrackMap({
       >
         <Polyline
           coordinates={[{ latitude: driver.lat, longitude: driver.lng }, { latitude: pickup.lat, longitude: pickup.lng }]}
-          strokeColor={Colors.accentP}
+          strokeColor={Colors.accent}
           strokeWidth={3}
           lineDashPattern={[2, 8]}
         />
@@ -35,7 +35,7 @@ export default function DriverTrackMap({
           <View style={s.pickupPin}><MapPin size={15} color="#fff" /></View>
         </Marker>
         <Marker coordinate={{ latitude: driver.lat, longitude: driver.lng }} anchor={{ x: 0.5, y: 0.5 }} flat>
-          <View style={s.carPin}><Navigation size={15} color={Colors.accentPText} /></View>
+          <View style={s.carPin}><Navigation size={15} color={Colors.accentText} /></View>
         </Marker>
       </MapView>
     </View>
@@ -44,6 +44,6 @@ export default function DriverTrackMap({
 
 const s = StyleSheet.create({
   wrap:      { width: "100%", overflow: "hidden", borderRadius: 14 },
-  pickupPin: { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.accentP, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#fff" },
-  carPin:    { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.accentP, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#fff" },
+  pickupPin: { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.accentWarm, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#fff" },
+  carPin:    { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#fff" },
 });

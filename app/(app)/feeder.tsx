@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Navigation, Check, Flag, Phone } from "lucide-react-native";
 import { Linking } from "react-native";
+import * as Location from "expo-location";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import BottomNav from "../../components/BottomNav";
+import FeederRunMap from "../../components/FeederRunMap";
 import { DriversAPI } from "../../services/drivers";
 import { PickupAPI, FeederRun } from "../../services/pickup";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
@@ -14,10 +16,11 @@ import { supabase } from "../../services/supabase";
 
 export default function FeederScreen() {
   const router = useRouter();
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
   const [vehicle, setVehicle] = useState<{ id: string; seats: number; label: string } | null>(null);
   const [onDuty, setOnDuty] = useState(false);
   const [run, setRun] = useState<FeederRun | null>(null);
+  const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -68,6 +71,42 @@ export default function FeederScreen() {
     await loadRun();
   }
 
+  // Share live GPS to the active run so riders can track (Highest accuracy).
+  useEffect(() => {
+    if (!onDuty || !run) return;
+    let alive = true;
+    let sub: Location.LocationSubscription | null = null;
+    (async () => {
+      try {
+        let { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") { status = (await Location.requestForegroundPermissionsAsync()).status; }
+        if (status !== "granted") return;
+        sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Highest, distanceInterval: 25, timeInterval: 12000 },
+          (loc) => {
+            if (!alive) return;
+            const p = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+            setMyLoc(p);
+            PickupAPI.pingRun(p.lat, p.lng);
+          },
+        );
+      } catch { /* GPS unavailable — map falls back to last server coords */ }
+    })();
+    return () => { alive = false; sub?.remove(); };
+  }, [onDuty, run?.run_id]);
+
+  const openDir = (st: { lat: number | null; lng: number | null }) => {
+    if (st.lat == null || st.lng == null) return;
+    const q = `${st.lat},${st.lng}`;
+    const url = Platform.select({
+      ios: `http://maps.apple.com/?daddr=${q}&dirflg=d`,
+      android: `google.navigation:q=${q}`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${q}`,
+    })!;
+    Linking.openURL(url).catch(() => {});
+  };
+  const nextStop = run?.stops?.find((st) => !st.picked_up && st.lat != null && st.lng != null) ?? null;
+
   return (
     <SafeAreaView style={s.screen} edges={["top"]}>
       <View style={s.header}>
@@ -109,6 +148,21 @@ export default function FeederScreen() {
           {run && (
             <>
               <Text style={s.runHd}>{t("feederRunHd", { n: run.stops.length })}</Text>
+              {run.stops.some((st) => st.lat != null && st.lng != null) && (
+                <View style={{ marginBottom: 12 }}>
+                  <FeederRunMap
+                    stops={run.stops}
+                    driver={myLoc ?? (run.driver_lat != null && run.driver_lng != null ? { lat: run.driver_lat, lng: run.driver_lng } : null)}
+                    height={200}
+                  />
+                  {nextStop && (
+                    <TouchableOpacity style={s.navBtn} onPress={() => openDir(nextStop)} activeOpacity={0.85}>
+                      <Navigation size={15} color={Colors.accentText} />
+                      <Text style={s.navBtnTxt}>{lang === "fr" ? `Naviguer vers ${nextStop.name}` : `Navigate to ${nextStop.name}`}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
               {run.stops.map((st, i) => (
                 <View key={st.request_id} style={[s.stopCard, st.picked_up && s.stopDone]}>
                   <View style={[s.stopNum, st.picked_up && s.stopNumDone]}>
@@ -175,4 +229,6 @@ const s = StyleSheet.create({
   markTxt: { color: Colors.accent, fontWeight: "800", fontSize: 11.5 },
   drop: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "rgba(76,130,240,0.10)", borderWidth: 1, borderColor: "rgba(76,130,240,0.5)", borderRadius: 12, padding: 12, marginTop: 4 },
   dropTxt: { color: Colors.accent, fontWeight: "700", fontSize: 12.5 },
+  navBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: Colors.accent, borderRadius: 11, paddingVertical: 11, marginTop: 9 },
+  navBtnTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 13 },
 });

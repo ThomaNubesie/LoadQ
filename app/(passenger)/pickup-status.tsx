@@ -6,6 +6,7 @@ import { ArrowLeft, Navigation, Check, Flag } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { PickupAPI, MyPickup } from "../../services/pickup";
+import DriverTrackMap from "../../components/DriverTrackMap";
 
 export default function PickupStatusScreen() {
   const router = useRouter();
@@ -45,6 +46,17 @@ export default function PickupStatusScreen() {
         <View style={s.center}><Text style={s.muted}>{t("pickupStatusNone")}</Text></View>
       ) : (
         <View style={{ padding: 16 }}>
+          {/* live driver map (once the driver is sharing GPS and before drop-off) */}
+          {mp.driver_lat != null && mp.driver_lng != null && mp.pickup_lat != null && mp.pickup_lng != null && mp.status !== "dropped" && (
+            <View style={{ marginBottom: 14 }}>
+              <DriverTrackMap
+                driver={{ lat: mp.driver_lat, lng: mp.driver_lng }}
+                pickup={{ lat: mp.pickup_lat, lng: mp.pickup_lng }}
+                height={200}
+              />
+            </View>
+          )}
+
           {/* progress dots */}
           <View style={s.prog}>
             {Array.from({ length: Math.min(total, 6) }).map((_, i) => {

@@ -27,6 +27,11 @@ export interface MyPickup {
   total_cents: number | null;
   paid: boolean;
   driver: { name: string | null; car: string | null; plate: string | null } | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  driver_lat: number | null;
+  driver_lng: number | null;
+  loc_at: string | null;
 }
 
 export interface FeederStop {
@@ -49,6 +54,8 @@ export interface FeederRun {
   seats_filled: number;
   status: string;
   run_min: number | null;
+  driver_lat: number | null;
+  driver_lng: number | null;
   stops: FeederStop[];
 }
 
@@ -100,6 +107,11 @@ export const PickupAPI = {
     const { data, error } = await supabase.rpc("loadq_pickup_mark", { p_request: requestId });
     if (error) return { error: error.message };
     return { ok: true, ...(data as any) };
+  },
+
+  // Feeder driver: push live GPS to the active run (so riders can track).
+  async pingRun(lat: number, lng: number): Promise<void> {
+    try { await supabase.rpc("loadq_pickup_ping", { p_lat: lat, p_lng: lng }); } catch { /* best-effort */ }
   },
 };
 
