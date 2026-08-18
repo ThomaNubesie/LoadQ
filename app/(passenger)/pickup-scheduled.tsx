@@ -23,6 +23,7 @@ export default function PickupScheduledScreen() {
   const [dropoff, setDropoff] = useState("");
   const [dest, setDest] = useState<string | null>(null);
   const [day, setDay] = useState<Date>(DAYS[1]); // default tomorrow
+  const [seats, setSeats] = useState(1);
   const [me, setMe] = useState<{ full_name?: string; phone?: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [quote, setQuote] = useState<ScheduledQuote | null>(null);
@@ -32,7 +33,7 @@ export default function PickupScheduledScreen() {
   async function getQuote() {
     if (!home.trim() || !dropoff.trim() || !dest) { Alert.alert(t("schedTitle"), fr ? "Renseignez le domicile, la destination et la ville." : "Enter your home, drop-off and city."); return; }
     setBusy(true);
-    const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), me?.full_name, me?.phone);
+    const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, me?.full_name, me?.phone);
     setBusy(false);
     if ("error" in res) { Alert.alert(t("schedTitle"), res.error); return; }
     setQuote(res);
@@ -82,6 +83,16 @@ export default function PickupScheduledScreen() {
               })}
             </ScrollView>
 
+            <Text style={s.label}>{fr ? "Combien de places ?" : "How many seats?"}</Text>
+            <View style={s.stepper}>
+              <Text style={s.stepName}>{fr ? "Places" : "Seats"}</Text>
+              <View style={s.stepCtrl}>
+                <TouchableOpacity style={s.rnd} onPress={() => setSeats((n) => Math.max(1, n - 1))} disabled={seats <= 1} activeOpacity={0.8}><Text style={[s.rndTxt, seats <= 1 && { color: Colors.t3 }]}>−</Text></TouchableOpacity>
+                <Text style={s.cnt}>{seats}</Text>
+                <TouchableOpacity style={s.rnd} onPress={() => setSeats((n) => Math.min(6, n + 1))} disabled={seats >= 6} activeOpacity={0.8}><Text style={[s.rndTxt, seats >= 6 && { color: Colors.t3 }]}>+</Text></TouchableOpacity>
+              </View>
+            </View>
+
             <TouchableOpacity style={[s.cta, busy && { opacity: 0.6 }]} onPress={getQuote} disabled={busy} activeOpacity={0.85}>
               {busy ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.ctaTxt}>{fr ? "Voir le prix" : "See price"}</Text>}
             </TouchableOpacity>
@@ -89,10 +100,10 @@ export default function PickupScheduledScreen() {
           </>
         ) : (
           <>
-            <Text style={s.schedFor}>{fr ? "Prévu le" : "Scheduled for"} {dayLabel(day)}</Text>
+            <Text style={s.schedFor}>{fr ? "Prévu le" : "Scheduled for"} {dayLabel(day)} · {quote.seats} {fr ? "place(s)" : "seat(s)"}</Text>
             <View style={s.price}>
               <Row k={fr ? "Frais de service" : "Service fee"} v={money(quote.service_cents)} />
-              <Row k={fr ? "Trajet vers la ville" : "Trip to city"} v={money(quote.fare_to_city_cents)} sub={quote.closest_zone.replace(/-/g, " ")} />
+              <Row k={fr ? "Trajet vers la ville" : "Trip to city"} v={money(quote.fare_to_city_cents)} sub={`${money(quote.fare_per_seat_cents)} × ${quote.seats} ${fr ? "place(s)" : "seat(s)"}`} />
               <Row k={fr ? "Distance domicile" : "Home distance"} v={money(quote.home_distance_cents)} sub={`${quote.home_distance_km} km`} />
               <View style={s.totRow}><Text style={s.totK}>{fr ? "Total" : "Total"}</Text><Text style={s.totV}>{money(quote.total_cents)}</Text></View>
             </View>
@@ -144,6 +155,12 @@ const s = StyleSheet.create({
   dowOn: { color: Colors.accentPText },
   dn: { color: Colors.t1, fontSize: 17, fontWeight: "900", marginTop: 2 },
   dnOn: { color: Colors.accentPText },
+  stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  stepName: { color: Colors.t1, fontWeight: "800", fontSize: 14 },
+  stepCtrl: { flexDirection: "row", alignItems: "center", gap: 18 },
+  rnd: { width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.surface, alignItems: "center", justifyContent: "center" },
+  rndTxt: { color: Colors.accentP, fontSize: 22, fontWeight: "800" },
+  cnt: { color: Colors.t1, fontSize: 17, fontWeight: "900", minWidth: 18, textAlign: "center" },
   cta: { flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: Colors.accentP, borderRadius: 13, paddingVertical: 15, marginTop: 22 },
   ctaTxt: { color: Colors.accentPText, fontWeight: "900", fontSize: 16 },
   fine: { color: Colors.t3, fontSize: 11, textAlign: "center", marginTop: 12, lineHeight: 16 },

@@ -11,7 +11,9 @@ import { ks } from "../constants/kolisI18n";
 import { KolisAPI, KolisParcel } from "../services/kolis";
 
 const MAG = "#E11D6B";
-const MAG_LT = "#ff6fa6";
+// Readable rose for secondary text/icons on the light (cream) theme — the old
+// light-pink (#ff6fa6) washed out on white; this reads on light and dark alike.
+const MAG_LT = "#C2185B";
 const ETA_CHIPS = [10, 15, 20, 30, 45, 60];
 
 export default function KolisParcels() {
@@ -84,7 +86,7 @@ export default function KolisParcels() {
         <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: MAG, alignItems: "center", justifyContent: "center", marginRight: 8 }}>
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 10 }}>Ko</Text>
         </View>
-        <Text style={{ color: "#ffd9e8", fontWeight: "800", fontSize: 14 }}>{k.parcels}</Text>
+        <Text style={{ color: MAG, fontWeight: "800", fontSize: 14 }}>{k.parcels}</Text>
         {carry.length > 0 && (
           <TouchableOpacity onPress={() => router.push("/(app)/kolis-carrying" as any)} style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={{ color: MAG_LT, fontWeight: "700", fontSize: 12 }}>{k.carrying} ({carry.length})</Text>

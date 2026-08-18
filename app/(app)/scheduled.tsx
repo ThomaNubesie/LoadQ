@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, RefreshControl, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, MapPin, Flag, Phone, CalendarClock } from "lucide-react-native";
+import { ArrowLeft, MapPin, Flag, Phone, CalendarClock, Users } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import BottomNav from "../../components/BottomNav";
@@ -78,7 +78,7 @@ export default function ScheduledScreen() {
             mine.map(r => (
               <View key={r.request_id} style={[s.card, { borderColor: Colors.accent }]}>
                 <View style={s.dayRow}><CalendarClock size={15} color={Colors.accent} /><Text style={s.day}>{dayLabel(r.scheduled_date)}</Text><Text style={s.fare}>{money(r.fare_cents)}</Text></View>
-                <Route origin={r.origin} dropoff={r.dropoff} />
+                <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} />
                 {!!r.rider && <Text style={s.rider}>{r.rider}{r.rider_phone ? ` · ${r.rider_phone}` : ""}</Text>}
                 <View style={s.actions}>
                   <TouchableOpacity style={s.ghost} onPress={() => nav(r.origin_lat, r.origin_lng)} activeOpacity={0.85}><MapPin size={14} color={Colors.accent} /><Text style={s.ghostTxt}>{fr ? "Vers le domicile" : "To home"}</Text></TouchableOpacity>
@@ -93,7 +93,7 @@ export default function ScheduledScreen() {
             open.map(r => (
               <View key={r.request_id} style={s.card}>
                 <View style={s.dayRow}><CalendarClock size={15} color={Colors.accentWarmText} /><Text style={s.day}>{dayLabel(r.scheduled_date)}</Text><Text style={s.fare}>{money(r.fare_cents)}</Text></View>
-                <Route origin={r.origin} dropoff={r.dropoff} />
+                <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} />
                 <TouchableOpacity style={[s.claimBtn, busy === r.request_id && { opacity: 0.6 }]} onPress={() => claim(r)} disabled={busy === r.request_id} activeOpacity={0.85}>
                   <Text style={s.claimTxt}>{busy === r.request_id ? "…" : (fr ? "Réserver cette course" : "Claim this trip")}</Text>
                 </TouchableOpacity>
@@ -106,12 +106,13 @@ export default function ScheduledScreen() {
   );
 }
 
-function Route({ origin, dropoff }: { origin: string; dropoff: string }) {
+function Route({ origin, dropoff, seats }: { origin: string; dropoff: string; seats: number }) {
   return (
     <View style={{ marginTop: 8 }}>
       <View style={s.legRow}><View style={[s.dot, { backgroundColor: Colors.accent }]} /><Text style={s.leg} numberOfLines={1}>{origin}</Text></View>
       <View style={s.legLine} />
       <View style={s.legRow}><Flag size={11} color={Colors.accentWarmText} /><Text style={s.leg} numberOfLines={1}>{dropoff}</Text></View>
+      {seats > 1 && <View style={[s.legRow, { marginTop: 6 }]}><Users size={12} color={Colors.t2} /><Text style={[s.leg, { color: Colors.t2, fontWeight: "800" }]}>{seats} seats</Text></View>}
     </View>
   );
 }

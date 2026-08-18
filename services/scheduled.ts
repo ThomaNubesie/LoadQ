@@ -10,9 +10,11 @@ export interface ScheduledQuote {
   pay_ref: string;
   interac_to: string;
   scheduled_date: string;
+  seats: number;
   closest_zone: string;
   home_distance_km: number;
   service_cents: number;
+  fare_per_seat_cents: number;
   fare_to_city_cents: number;
   home_distance_cents: number;
   total_cents: number;
@@ -22,6 +24,7 @@ export interface ScheduledQuote {
 export interface ScheduledOpen {
   request_id: string;
   scheduled_date: string;
+  seats: number;
   origin: string;
   origin_lat: number | null;
   origin_lng: number | null;
@@ -34,6 +37,7 @@ export interface ScheduledMine {
   request_id: string;
   scheduled_date: string;
   status: string;
+  seats: number;
   origin: string;
   origin_lat: number | null;
   origin_lng: number | null;
@@ -50,6 +54,7 @@ export interface ScheduledRider {
   request_id: string;
   scheduled_date: string;
   status: string;
+  seats: number;
   origin: string;
   dropoff: string;
   dest_region: string;
@@ -60,10 +65,10 @@ export interface ScheduledRider {
 
 export const ScheduledAPI = {
   // Rider: price + create a scheduled door-to-door request (pay Interac at booking).
-  async quote(originAddress: string, dropoffAddress: string, destinationRegion: string, scheduledDate: string, name?: string | null, phone?: string | null): Promise<ScheduledQuote | { error: string }> {
+  async quote(originAddress: string, dropoffAddress: string, destinationRegion: string, scheduledDate: string, seats: number = 1, name?: string | null, phone?: string | null): Promise<ScheduledQuote | { error: string }> {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("loadq-scheduled", {
-      body: { action: "quote", passenger_id: user?.id ?? null, origin_address: originAddress, dropoff_address: dropoffAddress, destination_region: destinationRegion, scheduled_date: scheduledDate, name: name ?? null, phone: phone ?? null },
+      body: { action: "quote", passenger_id: user?.id ?? null, origin_address: originAddress, dropoff_address: dropoffAddress, destination_region: destinationRegion, scheduled_date: scheduledDate, seats, name: name ?? null, phone: phone ?? null },
     });
     if (error) return { error: error.message };
     if (data?.error) return { error: data.detail || data.error };

@@ -68,8 +68,10 @@ Deno.serve(async (req) => {
       fare_to_city_cents = any?.fare_cents ?? await setting("scheduled_default_fare_cents", 4300);
     }
 
+    const seats = Math.max(1, Math.min(8, parseInt(String(b.seats ?? 1)) || 1));
     const service_cents = await setting("scheduled_service_cents", 1299);
-    const total = service_cents + fare_to_city_cents + home_distance_cents;
+    const fare_total_cents = fare_to_city_cents * seats; // only the intercity fare scales per seat
+    const total = service_cents + fare_total_cents + home_distance_cents;
     const ref = payRef();
 
     const { data: ins, error } = await admin.from("loadq_ride_requests").insert({
@@ -77,16 +79,17 @@ Deno.serve(async (req) => {
       origin_address: originAddr, origin_lat: o.lat, origin_lng: o.lng,
       pickup_lat: o.lat, pickup_lng: o.lng, pickup_label: originAddr,
       dest_region: dest, dest_address: dropoffAddr, dest_lat: dp.lat, dest_lng: dp.lng,
-      departure_zone_id: zone.zone_id, scheduled_date: schedDate,
+      departure_zone_id: zone.zone_id, scheduled_date: schedDate, seats,
       fare_cents: total, pay_ref: ref, payment_method: "interac", status: "awaiting_payment",
       notes: (b.name || b.phone) ? `${b.name ?? ""} ${b.phone ?? ""}`.trim() : null,
     }).select("id").single();
     if (error) return json({ error: "save_failed", detail: error.message }, 500);
 
     return json({
-      ok: true, request_id: ins.id, pay_ref: ref, interac_to: INTERAC_TO, scheduled_date: schedDate,
+      ok: true, request_id: ins.id, pay_ref: ref, interac_to: INTERAC_TO, scheduled_date: schedDate, seats,
       closest_zone: zone.zone_id, home_distance_km: Math.round(leg.km * 10) / 10,
-      service_cents, fare_to_city_cents, home_distance_cents, total_cents: total,
+      service_cents, fare_per_seat_cents: fare_to_city_cents, fare_to_city_cents: fare_total_cents,
+      home_distance_cents, total_cents: total,
     });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);

@@ -163,7 +163,7 @@ export default function MyTripScreen() {
           </View>
           <Text style={{ color: Colors.t1, fontSize: 14, fontWeight: "800", marginTop: 6 }} numberOfLines={1}>{r.origin} → {r.dropoff}</Text>
           <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }}>
-            {(r.has_driver ? (lang === "fr" ? "Chauffeur confirmé" : "Driver confirmed") : r.paid ? (lang === "fr" ? "En attente d'un chauffeur" : "Awaiting a driver") : (lang === "fr" ? "En attente de paiement" : "Awaiting payment"))} · ${(r.fare_cents / 100).toFixed(2)}
+            {(r.has_driver ? (lang === "fr" ? "Chauffeur confirmé" : "Driver confirmed") : r.paid ? (lang === "fr" ? "En attente d'un chauffeur" : "Awaiting a driver") : (lang === "fr" ? "En attente de paiement" : "Awaiting payment"))} · ${(r.fare_cents / 100).toFixed(2)}{r.seats > 1 ? ` · ${r.seats} ${lang === "fr" ? "places" : "seats"}` : ""}
           </Text>
           <TouchableOpacity onPress={() => cancelScheduled(r)} activeOpacity={0.8} style={{ alignSelf: "flex-start", marginTop: 10, borderWidth: 1.5, borderColor: Colors.red, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}>
             <Text style={{ color: Colors.red, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Annuler" : "Cancel"}</Text>
