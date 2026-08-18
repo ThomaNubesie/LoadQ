@@ -7,6 +7,7 @@ import { View, Text, AppState } from "react-native";
 import { SessionAPI } from "../services/session";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { initLang } from "../hooks/useStrings";
+import { loadTheme } from "../services/theme";
 import { BillingAPI } from "../services/billing";
 import { PushAPI } from "../services/push";
 import { LocationAPI } from "../services/location";
@@ -29,7 +30,7 @@ export default function RootLayout() {
     let settled = false;
     const finish = () => { if (!settled) { settled = true; setReady(true); } };
     const splashTimer = setTimeout(finish, 4000);
-    initLang().then(finish).catch(finish);
+    Promise.all([initLang(), loadTheme()]).then(finish).catch(finish);
     return () => clearTimeout(splashTimer);
   }, []);
 

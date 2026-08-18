@@ -16,6 +16,7 @@ import { clearMyAvatarCache } from "../../hooks/useMyAvatar";
 import { Colors } from "../../constants/colors";
 import { Lang } from "../../constants/i18n";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
+import ThemePicker from "../../components/ThemePicker";
 import { CircleUserRound, Pencil, BookOpen } from "lucide-react-native";
 
 export default function PassengerProfileScreen() {
@@ -151,6 +152,8 @@ export default function PassengerProfileScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <View style={{ marginTop: 18 }}><ThemePicker /></View>
 
         <Text style={s.sectionLabel}>{t.accountLabel}</Text>
         <TouchableOpacity style={s.rowBtn} onPress={() => router.push("/(passenger)/messages" as any)} activeOpacity={0.85}>

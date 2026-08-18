@@ -22,6 +22,7 @@ import { getVehicleImageUrl } from "../../utils/vehicleImage";
 import { VEHICLE_TYPES } from "../../constants/vehicles";
 import BottomNav from "../../components/BottomNav";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import ThemePicker from "../../components/ThemePicker";
 import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, Clock, Pencil, Gift, Map, Inbox, BookOpen, ArrowLeftRight, Wallet, FileCheck, Navigation } from "lucide-react-native";
 
 export default function ProfileScreen() {
@@ -288,6 +289,8 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <View style={{ marginTop: 18 }}><ThemePicker /></View>
 
         <TouchableOpacity style={s.historyBtn} onPress={() => router.push("/(app)/loading-history")} activeOpacity={0.85}>
           <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
