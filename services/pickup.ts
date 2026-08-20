@@ -113,6 +113,13 @@ export const PickupAPI = {
   async pingRun(lat: number, lng: number): Promise<void> {
     try { await supabase.rpc("loadq_pickup_ping", { p_lat: lat, p_lng: lng }); } catch { /* best-effort */ }
   },
+
+  // Feeder driver: complete the run at the loading zone (drops riders, frees driver).
+  async completeRun(runId?: string): Promise<{ ok?: boolean; error?: string; dropped?: number }> {
+    const { data, error } = await supabase.rpc("loadq_pickup_complete", { p_run: runId ?? null });
+    if (error) return { error: error.message };
+    return data as any;
+  },
 };
 
 export interface PickupReceipt {

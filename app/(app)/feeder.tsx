@@ -63,6 +63,25 @@ export default function FeederScreen() {
     if (next) await loadRun();
   }
 
+  function completeRun() {
+    Alert.alert(
+      lang === "fr" ? "Terminer la course ?" : "Complete this run?",
+      lang === "fr" ? "Confirmez une fois tous les passagers déposés au point de chargement." : "Confirm once everyone is dropped at the loading point.",
+      [
+        { text: lang === "fr" ? "Annuler" : "Cancel", style: "cancel" },
+        {
+          text: lang === "fr" ? "Terminer" : "Complete", onPress: async () => {
+            setBusy(true);
+            const res = await PickupAPI.completeRun(run?.run_id);
+            setBusy(false);
+            if (res.error || !res.ok) { Alert.alert(t("feederTitle"), res.error || "—"); return; }
+            await loadRun();
+          },
+        },
+      ],
+    );
+  }
+
   async function mark(reqId: string) {
     setBusy(true);
     const { error } = await PickupAPI.markStop(reqId);
@@ -188,6 +207,10 @@ export default function FeederScreen() {
                 <Flag size={16} color={Colors.accent} />
                 <Text style={s.dropTxt}>{t("feederDropoff", { zone: run.dropoff_zone })}{run.run_min != null ? ` · ${run.run_min} min` : ""}</Text>
               </View>
+              <TouchableOpacity style={[s.completeBtn, busy && { opacity: 0.6 }]} onPress={completeRun} disabled={busy} activeOpacity={0.85}>
+                <Check size={17} color={Colors.accentText} />
+                <Text style={s.completeTxt}>{lang === "fr" ? "Terminer la course (déposé)" : "Complete run (dropped off)"}</Text>
+              </TouchableOpacity>
             </>
           )}
         </ScrollView>
@@ -229,6 +252,8 @@ const s = StyleSheet.create({
   markTxt: { color: Colors.accent, fontWeight: "800", fontSize: 11.5 },
   drop: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "rgba(76,130,240,0.10)", borderWidth: 1, borderColor: "rgba(76,130,240,0.5)", borderRadius: 12, padding: 12, marginTop: 4 },
   dropTxt: { color: Colors.accent, fontWeight: "700", fontSize: 12.5 },
+  completeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Colors.green, borderRadius: 12, paddingVertical: 14, marginTop: 12 },
+  completeTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 14 },
   navBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: Colors.accent, borderRadius: 11, paddingVertical: 11, marginTop: 9 },
   navBtnTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 13 },
 });
