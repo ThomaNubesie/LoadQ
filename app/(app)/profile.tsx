@@ -23,6 +23,8 @@ import { VEHICLE_TYPES } from "../../constants/vehicles";
 import BottomNav from "../../components/BottomNav";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import ThemePicker from "../../components/ThemePicker";
+import { ReviewsAPI, Review } from "../../services/reviews";
+import { Star } from "lucide-react-native";
 import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, Clock, Pencil, Gift, Map, Inbox, BookOpen, ArrowLeftRight, Wallet, FileCheck, Navigation } from "lucide-react-native";
 
 export default function ProfileScreen() {
@@ -35,6 +37,7 @@ export default function ProfileScreen() {
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [unread,    setUnread]    = useState<number>(0);
+  const [reviews,   setReviews]   = useState<Review[]>([]);
   const [interacOpen, setInteracOpen] = useState(false);
   const [iEmail,    setIEmail]    = useState("");
   const [iPhone,    setIPhone]    = useState("");
@@ -51,7 +54,7 @@ export default function ProfileScreen() {
   };
 
   useEffect(() => {
-    DriversAPI.getMe().then(setDriver);
+    DriversAPI.getMe().then((d) => { setDriver(d); if (d?.id) ReviewsAPI.forUser(d.id, "driver").then(setReviews); });
     DriversAPI.getVehicles().then(setVehicles);
     supabase.auth.getUser().then(({ data }) => setAuthEmail(data.user?.email ?? null));
   }, []);
@@ -275,6 +278,22 @@ export default function ProfileScreen() {
             <TouchableOpacity style={s.addBtn} onPress={() => router.push("/(auth)/vehicle-setup")}>
               <Text style={s.addBtnText}>+ {t.addVehicle}</Text>
             </TouchableOpacity>
+          </>
+        )}
+
+        {reviews.length > 0 && (
+          <>
+            <Text style={s.sectionLabel}>{lang === "fr" ? "AVIS DES PASSAGERS" : "REVIEWS FROM RIDERS"}</Text>
+            {reviews.slice(0, 8).map((rv, i) => (
+              <View key={i} style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={{ color: Colors.t1, fontWeight: "800", fontSize: 12.5, flex: 1 }}>{rv.rater ?? "Rider"}</Text>
+                  <Star size={12} color={Colors.yellow} fill={Colors.yellow} /><Text style={{ color: Colors.yellow, fontWeight: "800", fontSize: 12 }}>{rv.stars}</Text>
+                </View>
+                {!!rv.text && <Text style={{ color: Colors.t2, fontSize: 12.5, marginTop: 5, lineHeight: 17 }}>"{rv.text}"</Text>}
+                {!!(rv.tags && rv.tags.length) && <Text style={{ color: Colors.t3, fontSize: 11, marginTop: 5 }}>{rv.tags.join(" · ")}</Text>}
+              </View>
+            ))}
           </>
         )}
 

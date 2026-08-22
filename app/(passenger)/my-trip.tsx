@@ -10,6 +10,8 @@ import { useNow } from "../../hooks/useNow";
 import { PassengerBoardAPI, MyTrip, ratingLabel, vehicleLabel } from "../../services/passengerBoard";
 import { PickupAPI, MyPickup } from "../../services/pickup";
 import { ScheduledAPI, ScheduledRider } from "../../services/scheduled";
+import { ReviewsAPI, UnratedTrip } from "../../services/reviews";
+import ReviewSheet from "../../components/ReviewSheet";
 import { PassengersAPI } from "../../services/passengers";
 import { getRegionName } from "../../constants/pricing";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
@@ -51,6 +53,8 @@ export default function MyTripScreen() {
 
   const [pickup, setPickup]   = useState<MyPickup | null>(null);
   const [scheduled, setScheduled] = useState<ScheduledRider[]>([]);
+  const [unrated, setUnrated] = useState<UnratedTrip[]>([]);
+  const [reviewing, setReviewing] = useState<UnratedTrip | null>(null);
   const [trip, setTrip]       = useState<MyTrip | null>(PassengerBoardAPI.cachedMyTrip());
   const [me, setMe]           = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(!PassengerBoardAPI.cachedMyTrip());
@@ -58,8 +62,8 @@ export default function MyTripScreen() {
   const [seatBusy, setSeatBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [tr, pk, sc] = await Promise.all([PassengerBoardAPI.myTrip(), PickupAPI.myActivePickup(), ScheduledAPI.rider()]);
-    setTrip(tr); setPickup(pk); setScheduled(sc);
+    const [tr, pk, sc, ur] = await Promise.all([PassengerBoardAPI.myTrip(), PickupAPI.myActivePickup(), ScheduledAPI.rider(), ReviewsAPI.unrated()]);
+    setTrip(tr); setPickup(pk); setScheduled(sc); setUnrated(ur);
   }, []);
 
   function cancelScheduled(r: ScheduledRider) {
@@ -217,20 +221,38 @@ export default function MyTripScreen() {
     </View>
   ) : null;
 
+  const reviewCards = unrated.length > 0 ? (
+    <View style={{ gap: 10, marginBottom: 12 }}>
+      {unrated.map((u) => (
+        <TouchableOpacity key={u.trip_ref} onPress={() => setReviewing(u)} activeOpacity={0.85}
+          style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.yellow, borderRadius: 15, padding: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Star size={22} color={Colors.yellow} fill={Colors.yellow} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: Colors.t1, fontSize: 14, fontWeight: "800" }}>{lang === "fr" ? "Évaluez votre trajet" : "Rate your trip"}</Text>
+            <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{u.counterparty ?? ""} · {u.origin} → {u.dropoff}</Text>
+          </View>
+          <Text style={{ color: Colors.accentP, fontWeight: "800", fontSize: 18 }}>›</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  ) : null;
+
   if (!trip) {
     return (
       <SafeAreaView style={s.screen} edges={["top"]}>
         <Text style={s.title}>{t("myTripTitle")}</Text>
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
+          {reviewCards}
           {pickupCard}
           {scheduledCards}
-          {!pickup && scheduled.length === 0 && (
+          {!pickup && scheduled.length === 0 && unrated.length === 0 && (
             <View style={s.center}><Text style={s.empty}>{t("noActiveTrip")}</Text><Text style={s.sub}>{t("noActiveTripSub")}</Text>
               <TouchableOpacity style={s.goBoard} onPress={() => router.replace("/(passenger)/board" as any)}><Text style={s.goBoardTxt}>{t("navBoard")}</Text></TouchableOpacity>
             </View>
           )}
         </ScrollView>
+        {reviewing && <ReviewSheet visible onClose={() => setReviewing(null)} onDone={load} tripRef={reviewing.trip_ref} tripKind={reviewing.trip_kind} rateRole={reviewing.rate_role} counterparty={reviewing.counterparty} />}
         <PassengerBottomNav />
       </SafeAreaView>
     );
@@ -247,6 +269,7 @@ export default function MyTripScreen() {
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
 
+        {reviewCards}
         {pickupCard}
         {scheduledCards}
 
@@ -378,6 +401,7 @@ export default function MyTripScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+      {reviewing && <ReviewSheet visible onClose={() => setReviewing(null)} onDone={load} tripRef={reviewing.trip_ref} tripKind={reviewing.trip_kind} rateRole={reviewing.rate_role} counterparty={reviewing.counterparty} />}
       <PassengerBottomNav />
     </SafeAreaView>
   );

@@ -9,6 +9,9 @@ import { useStrings } from "../../hooks/useStrings";
 import BottomNav from "../../components/BottomNav";
 import DriverTrackMap from "../../components/DriverTrackMap";
 import { ScheduledAPI, ScheduledOpen, ScheduledMine, timeBlockLabel } from "../../services/scheduled";
+import { ReviewsAPI, UnratedTrip } from "../../services/reviews";
+import ReviewSheet from "../../components/ReviewSheet";
+import { Star } from "lucide-react-native";
 
 const ACTIVE = ["en_route", "arrived", "picked_up"];
 
@@ -24,10 +27,12 @@ export default function ScheduledScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [unrated, setUnrated] = useState<UnratedTrip[]>([]);
+  const [reviewing, setReviewing] = useState<UnratedTrip | null>(null);
 
   const load = useCallback(async () => {
-    const [o, m] = await Promise.all([ScheduledAPI.open(), ScheduledAPI.mine()]);
-    setOpen(o); setMine(m); setLoading(false);
+    const [o, m, ur] = await Promise.all([ScheduledAPI.open(), ScheduledAPI.mine(), ReviewsAPI.unrated()]);
+    setOpen(o); setMine(m); setUnrated(ur); setLoading(false);
   }, []);
   useEffect(() => { load(); const iv = setInterval(load, 20000); return () => clearInterval(iv); }, [load]);
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
@@ -124,6 +129,18 @@ export default function ScheduledScreen() {
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 90 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}>
 
+          {unrated.length > 0 && unrated.map((u) => (
+            <TouchableOpacity key={u.trip_ref} onPress={() => setReviewing(u)} activeOpacity={0.85}
+              style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.yellow, borderRadius: 13, padding: 13, marginBottom: 10, flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Star size={20} color={Colors.yellow} fill={Colors.yellow} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.t1, fontWeight: "800", fontSize: 13.5 }}>{fr ? "Évaluez votre passager" : "Rate your rider"}</Text>
+                <Text style={{ color: Colors.t3, fontSize: 11.5, marginTop: 2 }} numberOfLines={1}>{u.counterparty ?? ""} · {u.origin} → {u.dropoff}</Text>
+              </View>
+              <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 18 }}>›</Text>
+            </TouchableOpacity>
+          ))}
+
           <Text style={s.hd}>{fr ? "Mes courses" : "My trips"}</Text>
           {mine.length === 0 ? <Text style={s.empty}>{fr ? "Aucune course réservée." : "None claimed yet."}</Text> :
             mine.map(r => (
@@ -152,6 +169,7 @@ export default function ScheduledScreen() {
             ))}
         </ScrollView>
       )}
+      {reviewing && <ReviewSheet visible onClose={() => setReviewing(null)} onDone={load} tripRef={reviewing.trip_ref} tripKind={reviewing.trip_kind} rateRole={reviewing.rate_role} counterparty={reviewing.counterparty} />}
       <BottomNav />
     </SafeAreaView>
   );

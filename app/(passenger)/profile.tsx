@@ -17,6 +17,8 @@ import { Colors } from "../../constants/colors";
 import { Lang } from "../../constants/i18n";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import ThemePicker from "../../components/ThemePicker";
+import { ReviewsAPI, Review } from "../../services/reviews";
+import { Star } from "lucide-react-native";
 import { CircleUserRound, Pencil, BookOpen } from "lucide-react-native";
 
 export default function PassengerProfileScreen() {
@@ -28,9 +30,10 @@ export default function PassengerProfileScreen() {
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [unread,    setUnread]    = useState<number>(0);
+  const [reviews,   setReviews]   = useState<Review[]>([]);
 
   useEffect(() => {
-    PassengersAPI.getMe().then(setPassenger);
+    PassengersAPI.getMe().then((p) => { setPassenger(p); if (p?.id) ReviewsAPI.forUser(p.id, "passenger").then(setReviews); });
     supabase.auth.getUser().then(({ data }) => setAuthEmail(data.user?.email ?? null));
   }, []);
 
@@ -175,6 +178,22 @@ export default function PassengerProfileScreen() {
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.deleteAccountAction}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
+
+        {reviews.length > 0 && (
+          <>
+            <Text style={[s.sectionLabel, { marginTop: 24 }]}>{lang === "fr" ? "Avis des chauffeurs" : "Reviews from drivers"}</Text>
+            {reviews.slice(0, 8).map((rv, i) => (
+              <View key={i} style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={{ color: Colors.t1, fontWeight: "800", fontSize: 12.5, flex: 1 }}>{rv.rater ?? (lang === "fr" ? "Chauffeur" : "Driver")}</Text>
+                  <Star size={12} color={Colors.yellow} fill={Colors.yellow} /><Text style={{ color: Colors.yellow, fontWeight: "800", fontSize: 12 }}>{rv.stars}</Text>
+                </View>
+                {!!rv.text && <Text style={{ color: Colors.t2, fontSize: 12.5, marginTop: 5, lineHeight: 17 }}>"{rv.text}"</Text>}
+                {!!(rv.tags && rv.tags.length) && <Text style={{ color: Colors.t3, fontSize: 11, marginTop: 5 }}>{rv.tags.join(" · ")}</Text>}
+              </View>
+            ))}
+          </>
+        )}
 
         <Text style={[s.sectionLabel, { marginTop: 24 }]}>{t.aboutLabel}</Text>
         <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("https://loadq.ca/privacy")} activeOpacity={0.85}>
