@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, Star } from "lucide-react-native";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
-import { PassengerBoardAPI } from "../../services/passengerBoard";
+import { ReviewsAPI } from "../../services/reviews";
 import { getRegionName } from "../../constants/pricing";
 
 // Raw tag keys sent to loadq_rate_driver; labels localized via t().
@@ -43,9 +43,9 @@ export default function RateScreen() {
     if (!tripId) return;
     if (stars < 1) { setErr(t("rateRide")); return; }
     setSubmitting(true); setErr(null);
-    const { error } = await PassengerBoardAPI.rateDriver(tripId, stars, [...tags], note.trim() || undefined);
+    const res = await ReviewsAPI.submit(tripId, "board", stars, [...tags], note.trim() || null);
     setSubmitting(false);
-    if (error) { setErr(error); return; }
+    if (res.error || !res.ok) { setErr(res.error || "—"); return; }
     Alert.alert(t("ratingThanks"), undefined, [{ text: "OK", onPress: () => router.replace("/(passenger)/board" as any) }]);
   }
 

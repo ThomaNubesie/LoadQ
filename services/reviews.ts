@@ -21,7 +21,7 @@ export interface Review {
 }
 
 export const ReviewsAPI = {
-  async submit(tripRef: string, tripKind: "scheduled" | "feeder", stars: number, tags: string[] = [], text?: string | null): Promise<{ ok?: boolean; error?: string }> {
+  async submit(tripRef: string, tripKind: "scheduled" | "feeder" | "board", stars: number, tags: string[] = [], text?: string | null): Promise<{ ok?: boolean; error?: string }> {
     const { data, error } = await supabase.rpc("loadq_submit_review", { p_trip_ref: tripRef, p_trip_kind: tripKind, p_stars: stars, p_tags: tags, p_text: text ?? null });
     if (error) return { error: error.message };
     return data as any;
