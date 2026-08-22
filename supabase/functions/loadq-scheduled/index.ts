@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       pickup_lat: o.lat, pickup_lng: o.lng, pickup_label: originAddr,
       dest_region: dest, dest_address: dropoffAddr, dest_lat: dp.lat, dest_lng: dp.lng,
       departure_zone_id: zone.zone_id, scheduled_date: schedDate, seats,
+      time_block: ["05-09","09-13","13-17","17-22"].includes(String(b.time_block)) ? String(b.time_block) : null,
       fare_cents: total, pay_ref: ref, payment_method: "interac", status: "awaiting_payment",
       notes: (b.name || b.phone) ? `${b.name ?? ""} ${b.phone ?? ""}`.trim() : null,
     }).select("id").single();

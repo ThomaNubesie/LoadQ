@@ -15,6 +15,7 @@ import { getRegionName } from "../../constants/pricing";
 import PassengerBottomNav from "../../components/PassengerBottomNav";
 import SeatSvg from "../../components/SeatSvg";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
+import DriverTrackMap from "../../components/DriverTrackMap";
 
 // Open turn-by-turn directions to the pickup zone (native maps → web fallback).
 async function openDirections(dst: string) {
@@ -152,6 +153,16 @@ export default function MyTripScreen() {
     </TouchableOpacity>
   ) : null;
 
+  const schedStatusText = (r: ScheduledRider) => {
+    const fr = lang === "fr";
+    switch (r.status) {
+      case "en_route":  return fr ? "Chauffeur en route" : "Driver on the way";
+      case "arrived":   return fr ? "Chauffeur arrivé" : "Driver arrived";
+      case "picked_up": return fr ? "En route vers l'arrivée" : "On the way to drop-off";
+      default:          return r.has_driver ? (fr ? "Chauffeur confirmé" : "Driver confirmed") : r.paid ? (fr ? "En attente d'un chauffeur" : "Awaiting a driver") : (fr ? "En attente de paiement" : "Awaiting payment");
+    }
+  };
+
   // Upcoming scheduled door-to-door trips (with cancel + refund policy).
   const scheduledCards = scheduled.length > 0 ? (
     <View style={{ gap: 10, marginBottom: 12 }}>
@@ -163,11 +174,39 @@ export default function MyTripScreen() {
           </View>
           <Text style={{ color: Colors.t1, fontSize: 14, fontWeight: "800", marginTop: 6 }} numberOfLines={1}>{r.origin} → {r.dropoff}</Text>
           <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }}>
-            {(r.has_driver ? (lang === "fr" ? "Chauffeur confirmé" : "Driver confirmed") : r.paid ? (lang === "fr" ? "En attente d'un chauffeur" : "Awaiting a driver") : (lang === "fr" ? "En attente de paiement" : "Awaiting payment"))} · ${(r.fare_cents / 100).toFixed(2)}{r.seats > 1 ? ` · ${r.seats} ${lang === "fr" ? "places" : "seats"}` : ""}
+            {schedStatusText(r)} · ${(r.fare_cents / 100).toFixed(2)}{r.seats > 1 ? ` · ${r.seats} ${lang === "fr" ? "places" : "seats"}` : ""}
           </Text>
-          <TouchableOpacity onPress={() => cancelScheduled(r)} activeOpacity={0.8} style={{ alignSelf: "flex-start", marginTop: 10, borderWidth: 1.5, borderColor: Colors.red, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}>
-            <Text style={{ color: Colors.red, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Annuler" : "Cancel"}</Text>
-          </TouchableOpacity>
+          {["en_route","arrived","picked_up"].includes(r.status) && r.driver_lat != null && r.pickup_lat != null && (
+            <View style={{ marginTop: 10 }}>
+              <DriverTrackMap
+                driver={{ lat: r.driver_lat, lng: r.driver_lng as number }}
+                pickup={r.status === "picked_up" && r.dropoff_lat != null ? { lat: r.dropoff_lat, lng: r.dropoff_lng as number } : { lat: r.pickup_lat, lng: r.pickup_lng as number }}
+                height={160}
+              />
+            </View>
+          )}
+          {!!r.driver_name && (
+            <Text style={{ color: Colors.t2, fontSize: 12, marginTop: 8 }}>{r.driver_name}</Text>
+          )}
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+            {!!r.driver_phone && ["en_route","arrived","picked_up"].includes(r.status) && (
+              <>
+                <TouchableOpacity onPress={() => Linking.openURL(`tel:${r.driver_phone}`)} activeOpacity={0.8} style={{ flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+                  <Phone size={14} color={Colors.accentP} /><Text style={{ color: Colors.accentP, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Appeler" : "Call"}</Text>
+                </TouchableOpacity>
+                {!!r.driver_id && (
+                  <TouchableOpacity onPress={() => router.push({ pathname: "/(passenger)/thread", params: { id: r.driver_id, name: r.driver_name ?? "", phone: r.driver_phone ?? "" } } as any)} activeOpacity={0.8} style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: Colors.accentP, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+                    <MessageCircle size={14} color={Colors.accentPText} /><Text style={{ color: Colors.accentPText, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Message" : "Message"}</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+            {!["en_route","arrived","picked_up"].includes(r.status) && (
+              <TouchableOpacity onPress={() => cancelScheduled(r)} activeOpacity={0.8} style={{ borderWidth: 1.5, borderColor: Colors.red, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}>
+                <Text style={{ color: Colors.red, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Annuler" : "Cancel"}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       ))}
     </View>

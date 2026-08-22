@@ -7,7 +7,7 @@ import { ArrowLeft, Navigation, Copy, Check } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { DESTINATION_CITIES } from "../../constants/pricing";
-import { ScheduledAPI, ScheduledQuote } from "../../services/scheduled";
+import { ScheduledAPI, ScheduledQuote, TIME_BLOCKS } from "../../services/scheduled";
 import { PassengersAPI } from "../../services/passengers";
 import AddressAutocomplete from "../../components/AddressAutocomplete";
 
@@ -23,6 +23,7 @@ export default function PickupScheduledScreen() {
   const [dropoff, setDropoff] = useState("");
   const [dest, setDest] = useState<string | null>(null);
   const [day, setDay] = useState<Date>(DAYS[1]); // default tomorrow
+  const [block, setBlock] = useState<string | null>(null);
   const [seats, setSeats] = useState(1);
   const [me, setMe] = useState<{ full_name?: string; phone?: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,8 +33,9 @@ export default function PickupScheduledScreen() {
 
   async function getQuote() {
     if (!home.trim() || !dropoff.trim() || !dest) { Alert.alert(t("schedTitle"), fr ? "Renseignez le domicile, la destination et la ville." : "Enter your home, drop-off and city."); return; }
+    if (!block) { Alert.alert(t("schedTitle"), fr ? "Choisissez une plage horaire." : "Choose a time block."); return; }
     setBusy(true);
-    const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, me?.full_name, me?.phone);
+    const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, block, me?.full_name, me?.phone);
     setBusy(false);
     if ("error" in res) { Alert.alert(t("schedTitle"), res.error); return; }
     setQuote(res);
@@ -83,6 +85,18 @@ export default function PickupScheduledScreen() {
               })}
             </ScrollView>
 
+            <Text style={s.label}>{fr ? "Plage horaire" : "Time block"}</Text>
+            <View style={s.blocks}>
+              {TIME_BLOCKS.map((b) => {
+                const on = block === b.value;
+                return (
+                  <TouchableOpacity key={b.value} style={[s.block, on && s.blockOn]} onPress={() => setBlock(b.value)} activeOpacity={0.85}>
+                    <Text style={[s.blockTxt, on && s.blockTxtOn]}>{fr ? b.fr : b.en}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             <Text style={s.label}>{fr ? "Combien de places ?" : "How many seats?"}</Text>
             <View style={s.stepper}>
               <Text style={s.stepName}>{fr ? "Places" : "Seats"}</Text>
@@ -100,7 +114,7 @@ export default function PickupScheduledScreen() {
           </>
         ) : (
           <>
-            <Text style={s.schedFor}>{fr ? "Prévu le" : "Scheduled for"} {dayLabel(day)} · {quote.seats} {fr ? "place(s)" : "seat(s)"}</Text>
+            <Text style={s.schedFor}>{fr ? "Prévu le" : "Scheduled for"} {dayLabel(day)}{quote.time_block ? ` · ${(TIME_BLOCKS.find(b => b.value === quote.time_block) || {} as any)[fr ? "fr" : "en"] ?? ""}` : ""} · {quote.seats} {fr ? "place(s)" : "seat(s)"}</Text>
             <View style={s.price}>
               <Row k={fr ? "Frais de service" : "Service fee"} v={money(quote.service_cents)} />
               <Row k={fr ? "Trajet vers la ville" : "Trip to city"} v={money(quote.fare_to_city_cents)} sub={`${money(quote.fare_per_seat_cents)} × ${quote.seats} ${fr ? "place(s)" : "seat(s)"}`} />
@@ -155,6 +169,11 @@ const s = StyleSheet.create({
   dowOn: { color: Colors.accentPText },
   dn: { color: Colors.t1, fontSize: 17, fontWeight: "900", marginTop: 2 },
   dnOn: { color: Colors.accentPText },
+  blocks: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  block: { flexGrow: 1, flexBasis: "45%", borderWidth: 1, borderColor: Colors.border, borderRadius: 11, paddingVertical: 12, alignItems: "center", backgroundColor: Colors.card },
+  blockOn: { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
+  blockTxt: { color: Colors.t1, fontWeight: "800", fontSize: 13 },
+  blockTxtOn: { color: Colors.accentPText },
   stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   stepName: { color: Colors.t1, fontWeight: "800", fontSize: 14 },
   stepCtrl: { flexDirection: "row", alignItems: "center", gap: 18 },

@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, RefreshControl, Linking } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, RefreshControl, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, MapPin, Flag, Phone, CalendarClock, Users } from "lucide-react-native";
+import * as Location from "expo-location";
+import { ArrowLeft, MapPin, Flag, Phone, CalendarClock, Users, Navigation, Play, Check } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import BottomNav from "../../components/BottomNav";
-import { ScheduledAPI, ScheduledOpen, ScheduledMine } from "../../services/scheduled";
+import DriverTrackMap from "../../components/DriverTrackMap";
+import { ScheduledAPI, ScheduledOpen, ScheduledMine, timeBlockLabel } from "../../services/scheduled";
+
+const ACTIVE = ["en_route", "arrived", "picked_up"];
 
 const money = (c: number) => `$${((c ?? 0) / 100).toFixed(2)}`;
 
@@ -19,13 +23,60 @@ export default function ScheduledScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
 
   const load = useCallback(async () => {
     const [o, m] = await Promise.all([ScheduledAPI.open(), ScheduledAPI.mine()]);
     setOpen(o); setMine(m); setLoading(false);
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); const iv = setInterval(load, 20000); return () => clearInterval(iv); }, [load]);
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
+
+  // Share GPS while any claimed trip is active (en_route/arrived/picked_up).
+  const activeTrip = mine.find((r) => ACTIVE.includes(r.status));
+  useEffect(() => {
+    if (!activeTrip) return;
+    let alive = true; let sub: Location.LocationSubscription | null = null;
+    (async () => {
+      try {
+        let { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") status = (await Location.requestForegroundPermissionsAsync()).status;
+        if (status !== "granted") return;
+        sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Highest, distanceInterval: 25, timeInterval: 12000 },
+          (loc) => { if (!alive) return; const p = { lat: loc.coords.latitude, lng: loc.coords.longitude }; setMyLoc(p); ScheduledAPI.ping(activeTrip.request_id, p.lat, p.lng); },
+        );
+      } catch { /* GPS unavailable */ }
+    })();
+    return () => { alive = false; sub?.remove(); };
+  }, [activeTrip?.request_id]);
+
+  // Evolving primary action: Start trip -> Arrived -> Picked up -> Complete.
+  const NEXT: Record<string, { to: "en_route" | "arrived" | "picked_up" | "completed"; en: string; fr: string; icon: any }> = {
+    assigned:  { to: "en_route",  en: "Start trip",       fr: "Démarrer",        icon: Play },
+    paid:      { to: "en_route",  en: "Start trip",       fr: "Démarrer",        icon: Play },
+    en_route:  { to: "arrived",   en: "Arrived at pickup", fr: "Arrivé au départ", icon: MapPin },
+    arrived:   { to: "picked_up", en: "Picked up",        fr: "Passager à bord",  icon: Check },
+    picked_up: { to: "completed", en: "Complete trip",    fr: "Terminer",         icon: Check },
+  };
+  async function advance(r: ScheduledMine) {
+    const step = NEXT[r.status]; if (!step) return;
+    if (step.to === "completed") {
+      Alert.alert(fr ? "Terminer la course ?" : "Complete trip?", fr ? "Confirmez le dépôt à l'adresse d'arrivée." : "Confirm drop-off at the destination address.", [
+        { text: fr ? "Annuler" : "Cancel", style: "cancel" },
+        { text: fr ? "Terminer" : "Complete", onPress: () => doAdvance(r, "completed") },
+      ]);
+      return;
+    }
+    doAdvance(r, step.to);
+  }
+  async function doAdvance(r: ScheduledMine, to: "en_route" | "arrived" | "picked_up" | "completed") {
+    setBusy(r.request_id);
+    const res = await ScheduledAPI.advance(r.request_id, to);
+    setBusy(null);
+    if (res.error || !res.ok) { Alert.alert(fr ? "Course" : "Trip", res.error || "—"); return; }
+    await load();
+  }
 
   const dayLabel = (iso: string) => new Date(iso + "T12:00:00").toLocaleDateString(fr ? "fr-CA" : "en-CA", { weekday: "long", month: "short", day: "numeric" });
 
@@ -75,24 +126,42 @@ export default function ScheduledScreen() {
 
           <Text style={s.hd}>{fr ? "Mes courses" : "My trips"}</Text>
           {mine.length === 0 ? <Text style={s.empty}>{fr ? "Aucune course réservée." : "None claimed yet."}</Text> :
-            mine.map(r => (
-              <View key={r.request_id} style={[s.card, { borderColor: Colors.accent }]}>
-                <View style={s.dayRow}><CalendarClock size={15} color={Colors.accent} /><Text style={s.day}>{dayLabel(r.scheduled_date)}</Text><Text style={s.fare}>{money(r.fare_cents)}</Text></View>
-                <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} />
-                {!!r.rider && <Text style={s.rider}>{r.rider}{r.rider_phone ? ` · ${r.rider_phone}` : ""}</Text>}
-                <View style={s.actions}>
-                  <TouchableOpacity style={s.ghost} onPress={() => nav(r.origin_lat, r.origin_lng)} activeOpacity={0.85}><MapPin size={14} color={Colors.accent} /><Text style={s.ghostTxt}>{fr ? "Vers le domicile" : "To home"}</Text></TouchableOpacity>
-                  {!!r.rider_phone && <TouchableOpacity style={s.ghost} onPress={() => Linking.openURL(`tel:${r.rider_phone}`)} activeOpacity={0.85}><Phone size={14} color={Colors.accent} /><Text style={s.ghostTxt}>{fr ? "Appeler" : "Call"}</Text></TouchableOpacity>}
-                  <TouchableOpacity style={s.declineBtn} onPress={() => confirmDecline(r)} disabled={busy === r.request_id} activeOpacity={0.85}><Text style={s.declineTxt}>{busy === r.request_id ? "…" : (fr ? "Refuser" : "Decline")}</Text></TouchableOpacity>
-                </View>
-              </View>
-            ))}
+            mine.map(r => {
+                const active = ACTIVE.includes(r.status);
+                const toDrop = r.status === "picked_up";
+                const target = toDrop ? { lat: r.dropoff_lat, lng: r.dropoff_lng } : { lat: r.origin_lat, lng: r.origin_lng };
+                const step = NEXT[r.status];
+                return (
+                  <View key={r.request_id} style={[s.card, { borderColor: Colors.accent }]}>
+                    <View style={s.dayRow}><CalendarClock size={15} color={Colors.accent} /><Text style={s.day}>{dayLabel(r.scheduled_date)}{r.time_block ? " · " + timeBlockLabel(r.time_block, fr) : ""}</Text><Text style={s.fare}>{money(r.fare_cents)}</Text></View>
+                    {active && (
+                      <View style={s.statusPill}><Text style={s.statusTxt}>{r.status === "en_route" ? (fr ? "En route vers le départ" : "On the way to pickup") : r.status === "arrived" ? (fr ? "Arrivé au départ" : "At pickup") : (fr ? "Passager à bord — vers l'arrivée" : "On board — to drop-off")}</Text></View>
+                    )}
+                    <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} />
+                    {!!r.rider && <Text style={s.rider}>{r.rider}{r.rider_phone ? ` · ${r.rider_phone}` : ""}</Text>}
+                    {active && myLoc && target.lat != null && target.lng != null && (
+                      <View style={{ marginTop: 10 }}><DriverTrackMap driver={myLoc} pickup={{ lat: target.lat, lng: target.lng }} height={150} /></View>
+                    )}
+                    <View style={s.actions}>
+                      <TouchableOpacity style={s.ghost} onPress={() => nav(target.lat, target.lng)} activeOpacity={0.85}><Navigation size={14} color={Colors.accent} /><Text style={s.ghostTxt}>{fr ? "Naviguer" : "Navigate"}</Text></TouchableOpacity>
+                      {!!r.rider_phone && <TouchableOpacity style={s.ghost} onPress={() => Linking.openURL(`tel:${r.rider_phone}`)} activeOpacity={0.85}><Phone size={14} color={Colors.accent} /><Text style={s.ghostTxt}>{fr ? "Appeler" : "Call"}</Text></TouchableOpacity>}
+                      {!active && <TouchableOpacity style={s.declineBtn} onPress={() => confirmDecline(r)} disabled={busy === r.request_id} activeOpacity={0.85}><Text style={s.declineTxt}>{busy === r.request_id ? "…" : (fr ? "Refuser" : "Decline")}</Text></TouchableOpacity>}
+                    </View>
+                    {!!step && (
+                      <TouchableOpacity style={[s.primaryBtn, busy === r.request_id && { opacity: 0.6 }]} onPress={() => advance(r)} disabled={busy === r.request_id} activeOpacity={0.85}>
+                        <step.icon size={17} color={Colors.accentText} />
+                        <Text style={s.primaryTxt}>{busy === r.request_id ? "…" : (fr ? step.fr : step.en)}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+            })}
 
           <Text style={[s.hd, { marginTop: 22 }]}>{fr ? "À réserver" : "Open to claim"}</Text>
           {open.length === 0 ? <Text style={s.empty}>{fr ? "Aucune course disponible." : "No open trips right now."}</Text> :
             open.map(r => (
               <View key={r.request_id} style={s.card}>
-                <View style={s.dayRow}><CalendarClock size={15} color={Colors.accentWarmText} /><Text style={s.day}>{dayLabel(r.scheduled_date)}</Text><Text style={s.fare}>{money(r.fare_cents)}</Text></View>
+                <View style={s.dayRow}><CalendarClock size={15} color={Colors.accentWarmText} /><Text style={s.day}>{dayLabel(r.scheduled_date)}{r.time_block ? " · " + timeBlockLabel(r.time_block, fr) : ""}</Text><Text style={s.fare}>{money(r.fare_cents)}</Text></View>
                 <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} />
                 <TouchableOpacity style={[s.claimBtn, busy === r.request_id && { opacity: 0.6 }]} onPress={() => claim(r)} disabled={busy === r.request_id} activeOpacity={0.85}>
                   <Text style={s.claimTxt}>{busy === r.request_id ? "…" : (fr ? "Réserver cette course" : "Claim this trip")}</Text>
@@ -140,4 +209,8 @@ const s = StyleSheet.create({
   declineTxt: { color: Colors.red, fontWeight: "800", fontSize: 11.5 },
   claimBtn: { backgroundColor: Colors.accent, borderRadius: 11, alignItems: "center", paddingVertical: 12, marginTop: 12 },
   claimTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 13.5 },
+  statusPill: { alignSelf: "flex-start", backgroundColor: "rgba(47,111,224,0.12)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8 },
+  statusTxt: { color: Colors.accent, fontWeight: "800", fontSize: 11 },
+  primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Colors.accent, borderRadius: 11, paddingVertical: 13, marginTop: 10 },
+  primaryTxt: { color: Colors.accentText, fontWeight: "800", fontSize: 14 },
 });
