@@ -12,10 +12,10 @@ import { ScheduledAPI, ScheduledMine, timeBlockLabel } from "../../services/sche
 const money = (c: number) => `$${((c ?? 0) / 100).toFixed(2)}`;
 const ACTIVE = ["en_route", "arrived", "picked_up"];
 
-// A few arrival-time chips derived from the trip's block (30-min slots).
+// Arrival-time chips (30-min slots). Within the trip's block if it has one;
+// otherwise a full-day range (6 AM–10 PM) so the driver can always send a time.
 function etaSlots(block: string | null): string[] {
-  if (!block) return [];
-  const [a, b] = block.split("-").map((n) => parseInt(n, 10));
+  const [a, b] = (block && /^\d\d-\d\d$/.test(block)) ? block.split("-").map((n) => parseInt(n, 10)) : [6, 22];
   const out: string[] = [];
   for (let h = a; h < b; h++) for (const m of [0, 30]) {
     const hr = h % 12 === 0 ? 12 : h % 12; const ap = h < 12 ? "AM" : "PM";
