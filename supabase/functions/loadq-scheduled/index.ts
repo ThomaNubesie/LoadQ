@@ -60,18 +60,29 @@ Deno.serve(async (req) => {
     const perMin = await setting("ondemand_per_min_cents", 30);
     const home_distance_cents = Math.round(leg.km * perKm + leg.min * perMin);
 
-    // Intercity fare from the closest zone to the destination region.
-    const { data: rf } = await admin.from("loadq_route_fares").select("fare_cents").eq("zone_id", zone.zone_id).eq("destination_region", dest).maybeSingle();
-    let fare_to_city_cents = rf?.fare_cents ?? null;
-    if (fare_to_city_cents == null) {
-      const { data: any } = await admin.from("loadq_route_fares").select("fare_cents").eq("destination_region", dest).order("fare_cents", { ascending: false }).limit(1).maybeSingle();
-      fare_to_city_cents = any?.fare_cents ?? await setting("scheduled_default_fare_cents", 4300);
-    }
+    // Per-seat intercity fare = driving distance (closest zone -> drop-off) x per-km,
+    // rounded to the nearest $5. Auto-extrapolates to every city (from the $50/~200km basis).
+    const inter = await driveKmMin({ lat: zone.lat, lng: zone.lng }, dp);
+    if (!inter) return json({ error: "could not route zone -> drop-off" }, 422);
+    const perKmScheduled = await setting("scheduled_per_km_cents", 25);
+    const per_seat_cents = Math.max(500, Math.round((inter.km * perKmScheduled) / 500) * 500); // nearest $5, min $5
 
-    const seats = Math.max(1, Math.min(8, parseInt(String(b.seats ?? 1)) || 1));
+    // Ride type: 'whole' buys out the car (per_seat x capacity); 'share' = per_seat x seats.
+    const rideType = String(b.ride_type) === "whole" ? "whole" : "share";
+    const wholeSeats = await setting("scheduled_whole_car_seats", 6);
+    const seats = rideType === "whole" ? wholeSeats : Math.max(1, Math.min(8, parseInt(String(b.seats ?? 1)) || 1));
+
     const service_cents = await setting("scheduled_service_cents", 1299);
-    const fare_total_cents = fare_to_city_cents * seats; // only the intercity fare scales per seat
-    const total = service_cents + fare_total_cents + home_distance_cents;
+    const fare_total_cents = per_seat_cents * seats;
+    const subtotal = service_cents + fare_total_cents + home_distance_cents;
+
+    // Tax by origin province (region of the closest zone).
+    const ON = ["ottawa", "toronto", "kingston"];
+    const NB = ["moncton"];
+    const region = String(zone.region || "").toLowerCase();
+    const taxRate = NB.includes(region) ? 0.15 : ON.includes(region) ? 0.13 : 0.14975; // QC default
+    const tax_cents = Math.round(subtotal * taxRate);
+    const total = subtotal + tax_cents;
     const ref = payRef();
 
     const { data: ins, error } = await admin.from("loadq_ride_requests").insert({
@@ -80,6 +91,8 @@ Deno.serve(async (req) => {
       pickup_lat: o.lat, pickup_lng: o.lng, pickup_label: originAddr,
       dest_region: dest, dest_address: dropoffAddr, dest_lat: dp.lat, dest_lng: dp.lng,
       departure_zone_id: zone.zone_id, scheduled_date: schedDate, seats,
+      ride_type: rideType, tax_cents,
+      pickup_time: /^\d{1,2}:\d{2}$/.test(String(b.pickup_time || "")) ? String(b.pickup_time) : null,
       time_block: ["05-09","09-13","13-17","17-22"].includes(String(b.time_block)) ? String(b.time_block) : null,
       fare_cents: total, pay_ref: ref, payment_method: "interac", status: "awaiting_payment",
       notes: (b.name || b.phone) ? `${b.name ?? ""} ${b.phone ?? ""}`.trim() : null,
@@ -88,9 +101,10 @@ Deno.serve(async (req) => {
 
     return json({
       ok: true, request_id: ins.id, pay_ref: ref, interac_to: INTERAC_TO, scheduled_date: schedDate, seats,
+      ride_type: rideType, time_block: b.time_block ?? null, pickup_time: b.pickup_time ?? null,
       closest_zone: zone.zone_id, home_distance_km: Math.round(leg.km * 10) / 10,
-      service_cents, fare_per_seat_cents: fare_to_city_cents, fare_to_city_cents: fare_total_cents,
-      home_distance_cents, total_cents: total,
+      service_cents, fare_per_seat_cents: per_seat_cents, fare_to_city_cents: fare_total_cents,
+      home_distance_cents, subtotal_cents: subtotal, tax_cents, tax_rate: taxRate, total_cents: total,
     });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);

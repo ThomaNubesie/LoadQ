@@ -24,12 +24,17 @@ export interface ScheduledQuote {
   scheduled_date: string;
   seats: number;
   time_block: string | null;
+  pickup_time: string | null;
+  ride_type: string;
   closest_zone: string;
   home_distance_km: number;
   service_cents: number;
   fare_per_seat_cents: number;
   fare_to_city_cents: number;
   home_distance_cents: number;
+  subtotal_cents: number;
+  tax_cents: number;
+  tax_rate: number;
   total_cents: number;
   error?: string;
 }
@@ -39,6 +44,8 @@ export interface ScheduledOpen {
   scheduled_date: string;
   seats: number;
   time_block: string | null;
+  pickup_time: string | null;
+  ride_type: string | null;
   origin: string;
   origin_lat: number | null;
   origin_lng: number | null;
@@ -53,6 +60,8 @@ export interface ScheduledMine {
   status: string;
   seats: number;
   time_block: string | null;
+  pickup_time: string | null;
+  ride_type: string | null;
   origin: string;
   origin_lat: number | null;
   origin_lng: number | null;
@@ -71,6 +80,8 @@ export interface ScheduledRider {
   status: string;
   seats: number;
   time_block: string | null;
+  pickup_time: string | null;
+  ride_type: string | null;
   origin: string;
   dropoff: string;
   dest_region: string;
@@ -91,10 +102,10 @@ export interface ScheduledRider {
 
 export const ScheduledAPI = {
   // Rider: price + create a scheduled door-to-door request (pay Interac at booking).
-  async quote(originAddress: string, dropoffAddress: string, destinationRegion: string, scheduledDate: string, seats: number = 1, timeBlock?: string | null, name?: string | null, phone?: string | null): Promise<ScheduledQuote | { error: string }> {
+  async quote(originAddress: string, dropoffAddress: string, destinationRegion: string, scheduledDate: string, seats: number = 1, timeBlock?: string | null, opts?: { rideType?: "share" | "whole"; pickupTime?: string | null; name?: string | null; phone?: string | null }): Promise<ScheduledQuote | { error: string }> {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("loadq-scheduled", {
-      body: { action: "quote", passenger_id: user?.id ?? null, origin_address: originAddress, dropoff_address: dropoffAddress, destination_region: destinationRegion, scheduled_date: scheduledDate, seats, time_block: timeBlock ?? null, name: name ?? null, phone: phone ?? null },
+      body: { action: "quote", passenger_id: user?.id ?? null, origin_address: originAddress, dropoff_address: dropoffAddress, destination_region: destinationRegion, scheduled_date: scheduledDate, seats, time_block: timeBlock ?? null, ride_type: opts?.rideType ?? "share", pickup_time: opts?.pickupTime ?? null, name: opts?.name ?? null, phone: opts?.phone ?? null },
     });
     if (error) return { error: error.message };
     if (data?.error) return { error: data.detail || data.error };

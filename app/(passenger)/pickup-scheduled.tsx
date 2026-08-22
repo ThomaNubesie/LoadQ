@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
@@ -24,6 +24,8 @@ export default function PickupScheduledScreen() {
   const [dest, setDest] = useState<string | null>(null);
   const [day, setDay] = useState<Date>(DAYS[1]); // default tomorrow
   const [block, setBlock] = useState<string | null>(null);
+  const [pickupTime, setPickupTime] = useState("");
+  const [rideType, setRideType] = useState<"share" | "whole">("share");
   const [seats, setSeats] = useState(1);
   const [me, setMe] = useState<{ full_name?: string; phone?: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,7 +37,7 @@ export default function PickupScheduledScreen() {
     if (!home.trim() || !dropoff.trim() || !dest) { Alert.alert(t("schedTitle"), fr ? "Renseignez le domicile, la destination et la ville." : "Enter your home, drop-off and city."); return; }
     if (!block) { Alert.alert(t("schedTitle"), fr ? "Choisissez une plage horaire." : "Choose a time block."); return; }
     setBusy(true);
-    const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, block, me?.full_name, me?.phone);
+    const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, block, { rideType, pickupTime: pickupTime.trim() || null, name: me?.full_name, phone: me?.phone });
     setBusy(false);
     if ("error" in res) { Alert.alert(t("schedTitle"), res.error); return; }
     setQuote(res);
@@ -97,15 +99,37 @@ export default function PickupScheduledScreen() {
               })}
             </View>
 
-            <Text style={s.label}>{fr ? "Combien de places ?" : "How many seats?"}</Text>
-            <View style={s.stepper}>
-              <Text style={s.stepName}>{fr ? "Places" : "Seats"}</Text>
-              <View style={s.stepCtrl}>
-                <TouchableOpacity style={s.rnd} onPress={() => setSeats((n) => Math.max(1, n - 1))} disabled={seats <= 1} activeOpacity={0.8}><Text style={[s.rndTxt, seats <= 1 && { color: Colors.t3 }]}>−</Text></TouchableOpacity>
-                <Text style={s.cnt}>{seats}</Text>
-                <TouchableOpacity style={s.rnd} onPress={() => setSeats((n) => Math.min(6, n + 1))} disabled={seats >= 6} activeOpacity={0.8}><Text style={[s.rndTxt, seats >= 6 && { color: Colors.t3 }]}>+</Text></TouchableOpacity>
-              </View>
+            <Text style={s.label}>{fr ? "Heure préférée (dans la plage)" : "Preferred time (within block)"}</Text>
+            <View style={s.field}>
+              <TextInput value={pickupTime} onChangeText={setPickupTime} placeholder={fr ? "ex. 9:30" : "e.g. 9:30"} placeholderTextColor={Colors.t3} style={{ flex: 1, color: Colors.t1, fontSize: 15, fontWeight: "700" }} />
+              <Text style={{ color: Colors.t3, fontSize: 11 }}>{fr ? "indicatif" : "preferred"}</Text>
             </View>
+
+            <Text style={s.label}>{fr ? "Type de course" : "Ride type"}</Text>
+            <View style={s.rideRow}>
+              <TouchableOpacity style={[s.ride, rideType === "share" && s.rideOn]} onPress={() => setRideType("share")} activeOpacity={0.85}>
+                <Text style={[s.rideT, rideType === "share" && s.rideTOn]}>{fr ? "Partagée" : "Share"}</Text>
+                <Text style={s.rideD}>{fr ? "Par place ; d'autres peuvent se joindre" : "Per seat; others may join"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.ride, rideType === "whole" && s.rideOn]} onPress={() => setRideType("whole")} activeOpacity={0.85}>
+                <Text style={[s.rideT, rideType === "whole" && s.rideTOn]}>{fr ? "Voiture entière" : "Whole car"}</Text>
+                <Text style={s.rideD}>{fr ? "Privée — toute la voiture" : "Private — the whole car"}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {rideType === "share" && (
+              <>
+                <Text style={s.label}>{fr ? "Combien de places ?" : "How many seats?"}</Text>
+                <View style={s.stepper}>
+                  <Text style={s.stepName}>{fr ? "Places" : "Seats"}</Text>
+                  <View style={s.stepCtrl}>
+                    <TouchableOpacity style={s.rnd} onPress={() => setSeats((n) => Math.max(1, n - 1))} disabled={seats <= 1} activeOpacity={0.8}><Text style={[s.rndTxt, seats <= 1 && { color: Colors.t3 }]}>−</Text></TouchableOpacity>
+                    <Text style={s.cnt}>{seats}</Text>
+                    <TouchableOpacity style={s.rnd} onPress={() => setSeats((n) => Math.min(6, n + 1))} disabled={seats >= 6} activeOpacity={0.8}><Text style={[s.rndTxt, seats >= 6 && { color: Colors.t3 }]}>+</Text></TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            )}
 
             <TouchableOpacity style={[s.cta, busy && { opacity: 0.6 }]} onPress={getQuote} disabled={busy} activeOpacity={0.85}>
               {busy ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.ctaTxt}>{fr ? "Voir le prix" : "See price"}</Text>}
@@ -117,8 +141,10 @@ export default function PickupScheduledScreen() {
             <Text style={s.schedFor}>{fr ? "Prévu le" : "Scheduled for"} {dayLabel(day)}{quote.time_block ? ` · ${(TIME_BLOCKS.find(b => b.value === quote.time_block) || {} as any)[fr ? "fr" : "en"] ?? ""}` : ""} · {quote.seats} {fr ? "place(s)" : "seat(s)"}</Text>
             <View style={s.price}>
               <Row k={fr ? "Frais de service" : "Service fee"} v={money(quote.service_cents)} />
-              <Row k={fr ? "Trajet vers la ville" : "Trip to city"} v={money(quote.fare_to_city_cents)} sub={`${money(quote.fare_per_seat_cents)} × ${quote.seats} ${fr ? "place(s)" : "seat(s)"}`} />
+              <Row k={quote.ride_type === "whole" ? (fr ? "Voiture entière" : "Whole car") : (fr ? "Trajet vers la ville" : "Trip to city")} v={money(quote.fare_to_city_cents)} sub={`${money(quote.fare_per_seat_cents)} × ${quote.seats} ${fr ? "place(s)" : "seat(s)"}${quote.ride_type === "whole" ? (fr ? " · privée" : " · private") : ""}`} />
               <Row k={fr ? "Distance domicile" : "Home distance"} v={money(quote.home_distance_cents)} sub={`${quote.home_distance_km} km`} />
+              <Row k={fr ? "Sous-total" : "Subtotal"} v={money(quote.subtotal_cents)} />
+              <Row k={`${fr ? "Taxe" : "Tax"} (${Math.round(quote.tax_rate * 10000) / 100}%)`} v={money(quote.tax_cents)} />
               <View style={s.totRow}><Text style={s.totK}>{fr ? "Total" : "Total"}</Text><Text style={s.totV}>{money(quote.total_cents)}</Text></View>
             </View>
 
@@ -169,6 +195,13 @@ const s = StyleSheet.create({
   dowOn: { color: Colors.accentPText },
   dn: { color: Colors.t1, fontSize: 17, fontWeight: "900", marginTop: 2 },
   dnOn: { color: Colors.accentPText },
+  field: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 4 },
+  rideRow: { flexDirection: "row", gap: 8 },
+  ride: { flex: 1, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, padding: 11, backgroundColor: Colors.card },
+  rideOn: { borderColor: Colors.accentP, backgroundColor: "rgba(47,111,224,0.06)" },
+  rideT: { color: Colors.t1, fontWeight: "800", fontSize: 13 },
+  rideTOn: { color: Colors.accentP },
+  rideD: { color: Colors.t3, fontSize: 10.5, marginTop: 3, lineHeight: 14 },
   blocks: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   block: { flexGrow: 1, flexBasis: "45%", borderWidth: 1, borderColor: Colors.border, borderRadius: 11, paddingVertical: 12, alignItems: "center", backgroundColor: Colors.card },
   blockOn: { backgroundColor: Colors.accentP, borderColor: Colors.accentP },

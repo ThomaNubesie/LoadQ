@@ -137,7 +137,7 @@ export default function ScheduledScreen() {
                     {active && (
                       <View style={s.statusPill}><Text style={s.statusTxt}>{r.status === "en_route" ? (fr ? "En route vers le départ" : "On the way to pickup") : r.status === "arrived" ? (fr ? "Arrivé au départ" : "At pickup") : (fr ? "Passager à bord — vers l'arrivée" : "On board — to drop-off")}</Text></View>
                     )}
-                    <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} />
+                    <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} whole={r.ride_type === "whole"} />
                     {!!r.rider && <Text style={s.rider}>{r.rider}{r.rider_phone ? ` · ${r.rider_phone}` : ""}</Text>}
                     {active && myLoc && target.lat != null && target.lng != null && (
                       <View style={{ marginTop: 10 }}><DriverTrackMap driver={myLoc} pickup={{ lat: target.lat, lng: target.lng }} height={150} /></View>
@@ -162,7 +162,7 @@ export default function ScheduledScreen() {
             open.map(r => (
               <View key={r.request_id} style={s.card}>
                 <View style={s.dayRow}><CalendarClock size={15} color={Colors.accentWarmText} /><Text style={s.day}>{dayLabel(r.scheduled_date)}{r.time_block ? " · " + timeBlockLabel(r.time_block, fr) : ""}</Text><Text style={s.fare}>{money(r.fare_cents)}</Text></View>
-                <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} />
+                <Route origin={r.origin} dropoff={r.dropoff} seats={r.seats} whole={r.ride_type === "whole"} />
                 <TouchableOpacity style={[s.claimBtn, busy === r.request_id && { opacity: 0.6 }]} onPress={() => claim(r)} disabled={busy === r.request_id} activeOpacity={0.85}>
                   <Text style={s.claimTxt}>{busy === r.request_id ? "…" : (fr ? "Réserver cette course" : "Claim this trip")}</Text>
                 </TouchableOpacity>
@@ -175,13 +175,13 @@ export default function ScheduledScreen() {
   );
 }
 
-function Route({ origin, dropoff, seats }: { origin: string; dropoff: string; seats: number }) {
+function Route({ origin, dropoff, seats, whole }: { origin: string; dropoff: string; seats: number; whole?: boolean }) {
   return (
     <View style={{ marginTop: 8 }}>
       <View style={s.legRow}><View style={[s.dot, { backgroundColor: Colors.accent }]} /><Text style={s.leg} numberOfLines={1}>{origin}</Text></View>
       <View style={s.legLine} />
       <View style={s.legRow}><Flag size={11} color={Colors.accentWarmText} /><Text style={s.leg} numberOfLines={1}>{dropoff}</Text></View>
-      {seats > 1 && <View style={[s.legRow, { marginTop: 6 }]}><Users size={12} color={Colors.t2} /><Text style={[s.leg, { color: Colors.t2, fontWeight: "800" }]}>{seats} seats</Text></View>}
+      <View style={[s.legRow, { marginTop: 6 }]}><Users size={12} color={Colors.t2} /><Text style={[s.leg, { color: Colors.t2, fontWeight: "800" }]}>{whole ? "Whole car (private)" : `${seats} seat${seats > 1 ? "s" : ""}`}</Text></View>
     </View>
   );
 }
