@@ -149,22 +149,12 @@ export const ScheduledAPI = {
     try { await supabase.rpc("loadq_scheduled_ping", { p_request: requestId, p_lat: lat, p_lng: lng }); } catch { /* best-effort */ }
   },
 
-  // Driver: advance the trip (en_route | arrived | picked_up | completed) + notify rider.
+  // Driver: advance the trip (en_route | arrived | picked_up | completed). The RPC
+  // fires the rider comms engine (SMS + push + branded email) server-side.
   async advance(requestId: string, to: "en_route" | "arrived" | "picked_up" | "completed"): Promise<{ ok?: boolean; error?: string }> {
     const { data, error } = await supabase.rpc("loadq_scheduled_advance", { p_request: requestId, p_to: to });
     if (error) return { error: error.message };
-    const res = data as any;
-    if (res?.ok && res.passenger_id) {
-      const msg: Record<string, { t: string; b: string }> = {
-        en_route:  { t: "Your driver is on the way", b: "Your LoadQ driver is heading to your pickup." },
-        arrived:   { t: "Your driver has arrived", b: "Your driver is at the pickup point." },
-        picked_up: { t: "You're on board", b: "En route to your drop-off address." },
-        completed: { t: "Trip complete", b: "You've arrived. Thanks for riding with LoadQ!" },
-      };
-      const m = msg[to];
-      if (m) { try { await supabase.functions.invoke("send-push", { body: { recipient_id: res.passenger_id, title: m.t, body: m.b, data: { route: "/(passenger)/my-trip" } } }); } catch { /* best-effort */ } }
-    }
-    return res;
+    return data as any;
   },
 
   // Rider: cancel — returns the refund tier + amount per policy.

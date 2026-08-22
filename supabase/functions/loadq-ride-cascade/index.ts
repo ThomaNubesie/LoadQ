@@ -27,6 +27,19 @@ async function sms(driverId: string, body: string) {
   } catch { /* best-effort */ }
 }
 
+// Push to an Expo token (best-effort). data.route deep-links on tap.
+async function pushTok(token: string, title: string, body: string, route: string) {
+  try {
+    await fetch("https://exp.host/--/api/v2/push/send", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ to: token, title, body, sound: "default", data: { route } }) }).catch(() => {});
+  } catch { /* best-effort */ }
+}
+function distM(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const R = 6371000, dLat = (bLat - aLat) * Math.PI / 180, dLng = (bLng - aLng) * Math.PI / 180;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * Math.PI / 180) * Math.cos(bLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 Deno.serve(async (req) => {
   if (req.headers.get("x-kolis-secret") !== SECRET) return json({ error: "forbidden" }, 403);
   try {
@@ -113,6 +126,34 @@ Deno.serve(async (req) => {
       offeredScheduled++;
     }
 
+    // 3c. Scheduled door-to-door: broadcast a newly-paid, unassigned trip to all
+    //     ON-DUTY feeder drivers (origin-region first by distance, else all) — Uber-style,
+    //     first-accept wins. Also send the rider a "paid, finding a driver" notice.
+    let broadcasts = 0;
+    const { data: fresh } = await admin
+      .from("loadq_ride_requests")
+      .select("id, departure_zone_id")
+      .eq("kind", "scheduled").eq("payment_status", "paid").is("driver_id", null).is("broadcast_at", null)
+      .not("status", "in", "(cancelled,expired,completed)");
+    if ((fresh ?? []).length) {
+      const { data: duty } = await admin.from("loadq_pickup_drivers").select("driver_id, lat, lng").eq("on_duty", true);
+      const ids = (duty ?? []).map((d: any) => d.driver_id);
+      const { data: drv } = ids.length ? await admin.from("drivers").select("id, push_token").in("id", ids) : { data: [] as any[] };
+      const tokById: Record<string, string> = {}; (drv ?? []).forEach((d: any) => { if (d.push_token) tokById[d.id] = d.push_token; });
+      for (const r of fresh ?? []) {
+        const { data: z } = await admin.from("zones").select("latitude,longitude").eq("id", r.departure_zone_id).maybeSingle();
+        let targets = (duty ?? []);
+        if (z?.latitude != null) {
+          const near = targets.filter((d: any) => d.lat != null && distM(z.latitude, z.longitude, d.lat, d.lng) <= 60000);
+          if (near.length) targets = near; // origin-region first (≤60km), else all on-duty
+        }
+        for (const d of targets) { const tok = tokById[d.driver_id]; if (tok) await pushTok(tok, "LoadQ — new trip", "A door-to-door trip is available. Tap to accept.", "/(app)/scheduled"); }
+        await admin.from("loadq_ride_requests").update({ broadcast_at: new Date().toISOString() }).eq("id", r.id);
+        await fetch(`${URL}/functions/v1/loadq-scheduled-notify`, { method: "POST", headers: { "Content-Type": "application/json", "x-kolis-secret": SECRET }, body: JSON.stringify({ request_id: r.id, event: "paid" }) }).catch(() => {});
+        broadcasts++;
+      }
+    }
+
     // 4. Card holds: capture the fare on completed rides, release it on
     //    cancelled/expired ones. Idempotent — 'paid' means held-not-resolved;
     //    the card fn flips it to 'captured'/'released' so this won't re-run.
@@ -133,7 +174,7 @@ Deno.serve(async (req) => {
       if (act === "capture") captured++; else released++;
     }
 
-    return json({ ok: true, expired: expired ?? 0, dispatched, offered, offeredScheduled, captured, released, skipped });
+    return json({ ok: true, expired: expired ?? 0, dispatched, offered, offeredScheduled, broadcasts, captured, released, skipped });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
