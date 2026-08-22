@@ -45,8 +45,9 @@ export default function AddressAutocomplete({
     }
   }
 
+  const elevated = open && preds.length > 0;
   return (
-    <View style={{ position: "relative", zIndex: 20 }}>
+    <View style={{ position: "relative", zIndex: elevated ? 9999 : 1, elevation: elevated ? 24 : 0 }}>
       <View style={[s.field, open && preds.length > 0 && s.fieldOpen]}>
         {leftIcon && <MapPin size={16} color={Colors.t3} />}
         <TextInput
@@ -78,7 +79,7 @@ const s = StyleSheet.create({
   field: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 13 },
   fieldOpen: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   input: { flex: 1, color: Colors.t1, fontSize: 15, paddingVertical: 13 },
-  drop: { position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: Colors.card, borderWidth: 1, borderTopWidth: 0, borderColor: Colors.border, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, overflow: "hidden" },
+  drop: { position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: Colors.card, borderWidth: 1, borderTopWidth: 0, borderColor: Colors.border, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, overflow: "hidden", zIndex: 9999, elevation: 24, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 8 } },
   row: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 13, paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border },
   rowTxt: { flex: 1, color: Colors.t1, fontSize: 13.5 },
 });

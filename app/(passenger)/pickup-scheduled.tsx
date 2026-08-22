@@ -14,6 +14,16 @@ import AddressAutocomplete from "../../components/AddressAutocomplete";
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const DAYS = Array.from({ length: 30 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
+// 30-min preferred-time slots within a block, e.g. "05-09" -> 5:00 … 8:30 (12h labels).
+function blockSlots(block: string): string[] {
+  const [a, b] = block.split("-").map((n) => parseInt(n, 10));
+  const out: string[] = [];
+  for (let h = a; h < b; h++) for (const m of [0, 30]) {
+    const hr = h % 12 === 0 ? 12 : h % 12; const ap = h < 12 ? "AM" : "PM";
+    out.push(`${hr}:${String(m).padStart(2, "0")} ${ap}`);
+  }
+  return out;
+}
 
 export default function PickupScheduledScreen() {
   const router = useRouter();
@@ -41,6 +51,7 @@ export default function PickupScheduledScreen() {
     if (!home.trim() || !dropoff.trim() || !dest) { Alert.alert(t("schedTitle"), fr ? "Renseignez le domicile, la destination et la ville." : "Enter your home, drop-off and city."); return; }
     if (!homePostal || !dropPostal) { Alert.alert(t("schedTitle"), fr ? "Sélectionnez des adresses complètes (avec code postal) dans les suggestions." : "Pick full addresses (with postal code) from the suggestions."); return; }
     if (!block) { Alert.alert(t("schedTitle"), fr ? "Choisissez une plage horaire." : "Choose a time block."); return; }
+    if (!pickupTime) { Alert.alert(t("schedTitle"), fr ? "Choisissez une heure préférée." : "Choose a preferred time."); return; }
     setBusy(true);
     const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, block, { rideType, pickupTime: pickupTime.trim() || null, name: me?.full_name, phone: me?.phone });
     setBusy(false);
@@ -59,7 +70,7 @@ export default function PickupScheduledScreen() {
         <View style={{ width: 22 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {!quote ? (
           <>
             <Text style={s.lead}>{fr ? "Réservez jusqu'à 30 jours à l'avance. Un seul chauffeur vous conduit du domicile jusqu'à votre adresse en ville." : "Book up to 30 days ahead. One driver takes you from home to your city drop-off address."}</Text>
@@ -98,18 +109,28 @@ export default function PickupScheduledScreen() {
               {TIME_BLOCKS.map((b) => {
                 const on = block === b.value;
                 return (
-                  <TouchableOpacity key={b.value} style={[s.block, on && s.blockOn]} onPress={() => setBlock(b.value)} activeOpacity={0.85}>
+                  <TouchableOpacity key={b.value} style={[s.block, on && s.blockOn]} onPress={() => { setBlock(b.value); setPickupTime(""); }} activeOpacity={0.85}>
                     <Text style={[s.blockTxt, on && s.blockTxtOn]}>{fr ? b.fr : b.en}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            <Text style={s.label}>{fr ? "Heure préférée (dans la plage)" : "Preferred time (within block)"}</Text>
-            <View style={s.field}>
-              <TextInput value={pickupTime} onChangeText={setPickupTime} placeholder={fr ? "ex. 9:30" : "e.g. 9:30"} placeholderTextColor={Colors.t3} style={{ flex: 1, color: Colors.t1, fontSize: 15, fontWeight: "700" }} />
-              <Text style={{ color: Colors.t3, fontSize: 11 }}>{fr ? "indicatif" : "preferred"}</Text>
-            </View>
+            {block && (
+              <>
+                <Text style={s.label}>{fr ? "Heure préférée (vue par le chauffeur)" : "Preferred time (shown to driver)"}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7, paddingVertical: 2 }}>
+                  {blockSlots(block).map((slot) => {
+                    const on = pickupTime === slot;
+                    return (
+                      <TouchableOpacity key={slot} style={[s.tchip, on && s.tchipOn]} onPress={() => setPickupTime(slot)} activeOpacity={0.85}>
+                        <Text style={[s.tchipTxt, on && s.tchipTxtOn]}>{slot}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            )}
 
             <Text style={s.label}>{fr ? "Type de course" : "Ride type"}</Text>
             <View style={s.rideRow}>
@@ -232,6 +253,10 @@ const s = StyleSheet.create({
   cityRowTxt: { color: Colors.t1, fontSize: 15, fontWeight: "600" },
   postalOk: { color: Colors.green, fontSize: 11, fontWeight: "800", marginTop: 5, marginLeft: 2 },
   postalWarn: { color: Colors.accentWarmText, fontSize: 11, fontWeight: "700", marginTop: 5, marginLeft: 2 },
+  tchip: { borderWidth: 1, borderColor: Colors.border, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: Colors.card },
+  tchipOn: { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
+  tchipTxt: { color: Colors.t1, fontWeight: "800", fontSize: 12.5 },
+  tchipTxtOn: { color: Colors.accentPText },
   rideRow: { flexDirection: "row", gap: 8 },
   ride: { flex: 1, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, padding: 11, backgroundColor: Colors.card },
   rideOn: { borderColor: Colors.accentP, backgroundColor: "rgba(47,111,224,0.06)" },
