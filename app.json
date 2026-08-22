@@ -24,7 +24,7 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "buildNumber": "34"
+      "buildNumber": "35"
     },
     "android": {
       "adaptiveIcon": {
@@ -48,7 +48,7 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 65,
+      "versionCode": 66,
       "googleServicesFile": "./google-services.json"
     },
     "plugins": [
