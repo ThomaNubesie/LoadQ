@@ -376,6 +376,12 @@ export default function ProfileScreen() {
                 <Text style={s.adminBtnText}>{t.adminDocs}</Text>
               </View>
             </TouchableOpacity>
+            <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-payments" as any)} activeOpacity={0.85}>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Wallet size={16} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.adminBtnText}>{lang === "fr" ? "Paiements" : "Payments"}</Text>
+              </View>
+            </TouchableOpacity>
           </>
         )}
 
