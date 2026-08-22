@@ -62,6 +62,7 @@ export interface ScheduledMine {
   time_block: string | null;
   pickup_time: string | null;
   ride_type: string | null;
+  driver_eta: string | null;
   origin: string;
   origin_lat: number | null;
   origin_lng: number | null;
@@ -82,6 +83,7 @@ export interface ScheduledRider {
   time_block: string | null;
   pickup_time: string | null;
   ride_type: string | null;
+  driver_eta: string | null;
   origin: string;
   dropoff: string;
   dest_region: string;
@@ -153,6 +155,13 @@ export const ScheduledAPI = {
   // fires the rider comms engine (SMS + push + branded email) server-side.
   async advance(requestId: string, to: "en_route" | "arrived" | "picked_up" | "completed"): Promise<{ ok?: boolean; error?: string }> {
     const { data, error } = await supabase.rpc("loadq_scheduled_advance", { p_request: requestId, p_to: to });
+    if (error) return { error: error.message };
+    return data as any;
+  },
+
+  // Driver: propose an arrival time to the rider (notifies them).
+  async setEta(requestId: string, eta: string): Promise<{ ok?: boolean; error?: string }> {
+    const { data, error } = await supabase.rpc("loadq_scheduled_set_eta", { p_request: requestId, p_eta: eta });
     if (error) return { error: error.message };
     return data as any;
   },

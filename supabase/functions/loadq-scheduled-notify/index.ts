@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
     const when = `${r.scheduled_date}${r.time_block ? " · " + r.time_block.replace("-", "–") + "h" : ""}`;
 
     const S: Record<string, string> = {
+      eta:       `LoadQ: ${drvName || "your driver"} expects to arrive around ${r.driver_eta ?? ""} on ${r.scheduled_date}.`,
       paid:      `LoadQ: booking confirmed for ${when}. Ref ${r.pay_ref}. We'll text you when a driver is assigned.`,
       assigned:  `LoadQ: driver assigned — ${drvName}${car ? " (" + car + (plate ? " · " + plate : "") + ")" : ""}. Open LoadQ to track.`,
       en_route:  `LoadQ: ${drvName || "your driver"} is on the way to ${r.origin_address}. Open LoadQ to track live.`,
@@ -82,6 +83,7 @@ Deno.serve(async (req) => {
       completed: `LoadQ: trip complete. Thanks for riding! Total ${money(r.fare_cents)} paid by Interac.`,
     };
     const P: Record<string, [string, string]> = {
+      eta:       ["Arrival time set", `${drvName || "Your driver"} expects to arrive around ${r.driver_eta ?? ""}.`],
       paid:      ["Booking confirmed", "We'll notify you when a driver is assigned."],
       assigned:  ["Driver assigned", `${drvName}${car ? " · " + car : ""}`],
       en_route:  ["Your driver is on the way", "Tap to track live."],

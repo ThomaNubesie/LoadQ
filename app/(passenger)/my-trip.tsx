@@ -201,6 +201,11 @@ export default function MyTripScreen() {
                 )}
               </>
             )}
+            {!r.paid && (
+              <TouchableOpacity onPress={() => router.push({ pathname: "/(passenger)/pickup-scheduled" as any, params: { edit_of: r.request_id, home: r.origin, dropoff: r.dropoff, dest: r.dest_region, date: r.scheduled_date, block: r.time_block ?? "", ptime: r.pickup_time ?? "", ride: r.ride_type ?? "share", seats: String(r.seats) } })} activeOpacity={0.8} style={{ backgroundColor: Colors.accentP, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+                <Text style={{ color: Colors.accentPText, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Modifier / payer" : "Edit / pay"}</Text>
+              </TouchableOpacity>
+            )}
             {!["en_route","arrived","picked_up"].includes(r.status) && (
               <TouchableOpacity onPress={() => cancelScheduled(r)} activeOpacity={0.8} style={{ borderWidth: 1.5, borderColor: Colors.red, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 }}>
                 <Text style={{ color: Colors.red, fontWeight: "800", fontSize: 12 }}>{lang === "fr" ? "Annuler" : "Cancel"}</Text>

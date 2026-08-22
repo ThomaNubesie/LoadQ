@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { ArrowLeft, Navigation, Copy, Check } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
@@ -27,6 +27,8 @@ function blockSlots(block: string): string[] {
 
 export default function PickupScheduledScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ edit_of?: string; home?: string; dropoff?: string; dest?: string; date?: string; block?: string; ptime?: string; ride?: string; seats?: string }>();
+  const editOf = params.edit_of ? String(params.edit_of) : null;
   const { t, lang } = useStrings();
   const fr = lang === "fr";
   const [home, setHome] = useState("");
@@ -47,6 +49,20 @@ export default function PickupScheduledScreen() {
 
   useEffect(() => { PassengersAPI.getMe().then(p => setMe(p ? { full_name: p.full_name, phone: p.phone } : null)); }, []);
 
+  // Edit mode: prefill from the unpaid trip. Stored addresses already include the
+  // postal code (from Place Details), so mark them valid unless the user edits them.
+  useEffect(() => {
+    if (!editOf) return;
+    if (params.home) { setHome(String(params.home)); setHomePostal("prefilled"); }
+    if (params.dropoff) { setDropoff(String(params.dropoff)); setDropPostal("prefilled"); }
+    if (params.dest) setDest(String(params.dest));
+    if (params.block) setBlock(String(params.block));
+    if (params.ptime) setPickupTime(String(params.ptime));
+    if (params.ride === "whole" || params.ride === "share") setRideType(params.ride);
+    if (params.seats) setSeats(Math.max(1, parseInt(String(params.seats), 10) || 1));
+    if (params.date && /^\d{4}-\d{2}-\d{2}$/.test(String(params.date))) { const d = new Date(String(params.date) + "T12:00:00"); if (!isNaN(d.getTime())) setDay(d); }
+  }, [editOf]);
+
   async function getQuote() {
     if (!home.trim() || !dropoff.trim() || !dest) { Alert.alert(t("schedTitle"), fr ? "Renseignez le domicile, la destination et la ville." : "Enter your home, drop-off and city."); return; }
     if (!homePostal || !dropPostal) { Alert.alert(t("schedTitle"), fr ? "Sélectionnez des adresses complètes (avec code postal) dans les suggestions." : "Pick full addresses (with postal code) from the suggestions."); return; }
@@ -56,6 +72,8 @@ export default function PickupScheduledScreen() {
     const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, block, { rideType, pickupTime: pickupTime.trim() || null, name: me?.full_name, phone: me?.phone });
     setBusy(false);
     if ("error" in res) { Alert.alert(t("schedTitle"), res.error); return; }
+    // Editing an unpaid trip: the new quote supersedes it — cancel the old one.
+    if (editOf) { try { await ScheduledAPI.cancel(editOf); } catch { /* ignore */ } }
     setQuote(res);
   }
 
