@@ -22,6 +22,7 @@ import { getPricePerSeat, getDestinationsFrom, getRegionName } from "../../const
 import { useDestinations } from "../../hooks/useDestinations";
 import { PassengerBoardAPI, CarPassenger } from "../../services/passengerBoard";
 import { PickupAPI, type FeederRun } from "../../services/pickup";
+import { ScheduledAPI, type ScheduledMine } from "../../services/scheduled";
 import { ArrowLeft, MessageSquare, CarFront, CircleUserRound, MapPin, Clock, Timer, X, Lock, Hand, BellRing, Calendar, AlertTriangle, Hourglass, Bus } from "lucide-react-native";
 
 // seat_states can come back from the DB as a JSON string, null, an array of
@@ -50,6 +51,7 @@ export default function MyLoadingScreen() {
   const router     = useRouter();
   const { t, lang }  = useStrings();
   const [feederRun, setFeederRun] = useState<FeederRun|null>(null);
+  const [schedTrips, setSchedTrips] = useState<ScheduledMine[]>([]);
   const [entry,         setEntry]         = useState<QueueEntry|null>(null);
   const [loading,       setLoading]       = useState(true);
   const [pendingClaims, setPendingClaims] = useState<SeatClaim[]>([]);
@@ -63,10 +65,13 @@ export default function MyLoadingScreen() {
   // Set by tapping a locked seat's avatar.
   const [openPassengerId, setOpenPassengerId] = useState<string | null>(null);
 
-  // Feeder pickup: show an assigned pooled-pickup run at the top of My Trip.
+  // Feeder pickup + accepted scheduled door-to-door trips at the top of My Loading.
   useFocusEffect(useCallback(() => {
     let alive = true;
-    const load = () => PickupAPI.myRun().then(r => { if (alive) setFeederRun(r); }).catch(() => {});
+    const load = () => {
+      PickupAPI.myRun().then(r => { if (alive) setFeederRun(r); }).catch(() => {});
+      ScheduledAPI.mine().then(r => { if (alive) setSchedTrips(r); }).catch(() => {});
+    };
     load();
     const iv = setInterval(load, 30_000);
     return () => { alive = false; clearInterval(iv); };
@@ -357,6 +362,19 @@ export default function MyLoadingScreen() {
             <Text style={{ color:Colors.accentText, fontWeight:"900", fontSize:22 }}>›</Text>
           </TouchableOpacity>
         )}
+        {schedTrips.map((tr) => (
+          <TouchableOpacity key={tr.request_id} activeOpacity={0.85}
+            onPress={() => router.push({ pathname: "/(app)/scheduled-trip" as any, params: { request_id: tr.request_id } })}
+            style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.accent, borderLeftWidth: 4, borderRadius: 14, padding: 13, marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: Colors.accent, fontSize: 9.5, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>{lang === "fr" ? "Porte-à-porte" : "Door-to-door"}</Text>
+              <Text style={{ color: Colors.t2, fontSize: 11, fontWeight: "800" }}>{new Date(tr.scheduled_date + "T12:00:00").toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { weekday: "short", month: "short", day: "numeric" })}</Text>
+            </View>
+            <Text style={{ color: Colors.t1, fontSize: 14, fontWeight: "800", marginTop: 6 }} numberOfLines={1}>{tr.origin} → {tr.dropoff}</Text>
+            <Text style={{ color: Colors.t3, fontSize: 12, marginTop: 2 }}>{!!tr.pickup_time && `${lang === "fr" ? "Heure" : "Time"}: ${tr.pickup_time} · `}{tr.ride_type === "whole" ? (lang === "fr" ? "Voiture entière" : "Whole car") : `${tr.seats} ${lang === "fr" ? "places" : "seats"}`}</Text>
+            <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12.5, marginTop: 8 }}>{lang === "fr" ? "Ouvrir la course" : "Open trip"} ›</Text>
+          </TouchableOpacity>
+        ))}
         {loading ? (
           <View style={s.loadingBlock}>
             <ActivityIndicator color={Colors.accent} size="large" />
