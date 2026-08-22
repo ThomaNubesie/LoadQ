@@ -6,14 +6,15 @@ import { View, TextInput, TouchableOpacity, Text, StyleSheet, ActivityIndicator 
 import { MapPin } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
-import { addressAutocomplete } from "../services/pickup";
+import { addressAutocomplete, addressDetails, type AddressDetails } from "../services/pickup";
 
 export default function AddressAutocomplete({
-  value, onChangeText, onPick, placeholder, accent = Colors.accent, leftIcon = true, rightSlot,
+  value, onChangeText, onPick, onResolved, placeholder, accent = Colors.accent, leftIcon = true, rightSlot,
 }: {
   value: string;
   onChangeText: (t: string) => void;
   onPick?: (desc: string) => void;
+  onResolved?: (d: AddressDetails) => void;   // fires with full address + postal + lat/lng
   placeholder?: string;
   accent?: string;
   leftIcon?: boolean;
@@ -36,7 +37,13 @@ export default function AddressAutocomplete({
     return () => { clearTimeout(id); setLoading(false); };
   }, [value, lang]);
 
-  function pick(desc: string) { skip.current = true; onChangeText(desc); onPick?.(desc); setPreds([]); setOpen(false); }
+  async function pick(desc: string, placeId: string) {
+    skip.current = true; onChangeText(desc); onPick?.(desc); setPreds([]); setOpen(false);
+    if (placeId && onResolved) {
+      const d = await addressDetails(placeId);
+      if (d) { if (d.formatted_address) { skip.current = true; onChangeText(d.formatted_address); } onResolved(d); }
+    }
+  }
 
   return (
     <View style={{ position: "relative", zIndex: 20 }}>
@@ -56,7 +63,7 @@ export default function AddressAutocomplete({
       {open && preds.length > 0 && (
         <View style={s.drop}>
           {preds.map((p) => (
-            <TouchableOpacity key={p.place_id || p.description} style={s.row} onPress={() => pick(p.description)} activeOpacity={0.7}>
+            <TouchableOpacity key={p.place_id || p.description} style={s.row} onPress={() => pick(p.description, p.place_id)} activeOpacity={0.7}>
               <MapPin size={14} color={Colors.t3} />
               <Text style={s.rowTxt} numberOfLines={1}>{p.description}</Text>
             </TouchableOpacity>

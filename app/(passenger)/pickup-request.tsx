@@ -17,6 +17,7 @@ export default function PickupRequestScreen() {
   const router = useRouter();
   const { t, lang } = useStrings();
   const [address, setAddress] = useState("");
+  const [addrPostal, setAddrPostal] = useState<string | null>(null);
   const [dest, setDest] = useState<string | null>(null);
   const [me, setMe] = useState<{ full_name?: string; phone?: string | null } | null>(null);
   const [locating, setLocating] = useState(false);
@@ -33,7 +34,10 @@ export default function PickupRequestScreen() {
       const loc = await tryGetUserLocation(6000);
       if (loc) {
         const [a] = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-        if (a) setAddress([a.name || a.street, a.city].filter(Boolean).join(", "));
+        if (a) {
+          setAddress([a.name || a.street, a.city, a.region, a.postalCode].filter(Boolean).join(", "));
+          setAddrPostal(a.postalCode ?? null);
+        }
       }
     } catch { /* ignore */ }
     setLocating(false);
@@ -41,6 +45,7 @@ export default function PickupRequestScreen() {
 
   async function getQuote() {
     if (!address.trim() || !dest) { Alert.alert(t("reqPickupTitle"), t("pickupNeedFields")); return; }
+    if (!addrPostal) { Alert.alert(t("reqPickupTitle"), lang === "fr" ? "Sélectionnez une adresse complète (avec code postal) dans les suggestions ou via « Ma position »." : "Pick a full address (with postal code) from the suggestions or via 'Use my location'."); return; }
     setBusy(true);
     const res = await PickupAPI.quote(address.trim(), dest, me?.full_name, me?.phone, zoneId);
     setBusy(false);
@@ -66,7 +71,8 @@ export default function PickupRequestScreen() {
         <Text style={s.lead}>{t("pickupLead")}</Text>
 
         <Text style={s.label}>{t("pickupAddrLabel")}</Text>
-        <AddressAutocomplete value={address} onChangeText={setAddress} placeholder={t("pickupAddrPh")} accent={Colors.accentP} />
+        <AddressAutocomplete value={address} onChangeText={(v) => { setAddress(v); setAddrPostal(null); }} onResolved={(d) => setAddrPostal(d.postal_code)} placeholder={t("pickupAddrPh")} accent={Colors.accentP} />
+        {!!address.trim() && (addrPostal ? <Text style={s.postalOk}>✓ {lang === "fr" ? "Code postal" : "Postal code"} {addrPostal}</Text> : <Text style={s.postalWarn}>⚠ {lang === "fr" ? "Choisissez une adresse dans les suggestions" : "Pick an address from the suggestions"}</Text>)}
         <TouchableOpacity style={s.locBtn} onPress={useMyLocation} activeOpacity={0.8} disabled={locating}>
           <Navigation size={14} color={Colors.accentP} />
           <Text style={s.locBtnTxt}>{locating ? t("loading") : t("pickupUseLocation")}</Text>
@@ -123,6 +129,8 @@ const s = StyleSheet.create({
   noteTxt: { color: Colors.t2, fontSize: 12, lineHeight: 18 },
   cta: { backgroundColor: Colors.accentP, borderRadius: 13, alignItems: "center", paddingVertical: 15, marginTop: 20 },
   ctaTxt: { color: Colors.accentPText, fontWeight: "900", fontSize: 16 },
+  postalOk: { color: Colors.green, fontSize: 11, fontWeight: "800", marginTop: 5, marginLeft: 2 },
+  postalWarn: { color: Colors.accentWarmText, fontSize: 11, fontWeight: "700", marginTop: 5, marginLeft: 2 },
   zoneRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 12 },
   zoneRowOn: { borderColor: Colors.accentP, borderWidth: 2 },
   zoneName: { color: Colors.t1, fontWeight: "800", fontSize: 13.5 },

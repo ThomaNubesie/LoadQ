@@ -20,7 +20,9 @@ export default function PickupScheduledScreen() {
   const { t, lang } = useStrings();
   const fr = lang === "fr";
   const [home, setHome] = useState("");
+  const [homePostal, setHomePostal] = useState<string | null>(null);
   const [dropoff, setDropoff] = useState("");
+  const [dropPostal, setDropPostal] = useState<string | null>(null);
   const [dest, setDest] = useState<string | null>(null);
   const [cityOpen, setCityOpen] = useState(false);
   const [citySearch, setCitySearch] = useState("");
@@ -37,6 +39,7 @@ export default function PickupScheduledScreen() {
 
   async function getQuote() {
     if (!home.trim() || !dropoff.trim() || !dest) { Alert.alert(t("schedTitle"), fr ? "Renseignez le domicile, la destination et la ville." : "Enter your home, drop-off and city."); return; }
+    if (!homePostal || !dropPostal) { Alert.alert(t("schedTitle"), fr ? "Sélectionnez des adresses complètes (avec code postal) dans les suggestions." : "Pick full addresses (with postal code) from the suggestions."); return; }
     if (!block) { Alert.alert(t("schedTitle"), fr ? "Choisissez une plage horaire." : "Choose a time block."); return; }
     setBusy(true);
     const res = await ScheduledAPI.quote(home.trim(), dropoff.trim(), dest, isoDate(day), seats, block, { rideType, pickupTime: pickupTime.trim() || null, name: me?.full_name, phone: me?.phone });
@@ -62,10 +65,12 @@ export default function PickupScheduledScreen() {
             <Text style={s.lead}>{fr ? "Réservez jusqu'à 30 jours à l'avance. Un seul chauffeur vous conduit du domicile jusqu'à votre adresse en ville." : "Book up to 30 days ahead. One driver takes you from home to your city drop-off address."}</Text>
 
             <Text style={s.label}>{fr ? "Départ (domicile)" : "Pick-up (your home)"}</Text>
-            <AddressAutocomplete value={home} onChangeText={setHome} placeholder={fr ? "Adresse du domicile" : "Home address"} accent={Colors.accentP} />
+            <AddressAutocomplete value={home} onChangeText={(v) => { setHome(v); setHomePostal(null); }} onResolved={(d) => setHomePostal(d.postal_code)} placeholder={fr ? "Adresse du domicile" : "Home address"} accent={Colors.accentP} />
+            {!!home.trim() && (homePostal ? <Text style={s.postalOk}>✓ {fr ? "Code postal" : "Postal code"} {homePostal}</Text> : <Text style={s.postalWarn}>⚠ {fr ? "Choisissez une adresse dans les suggestions" : "Pick an address from the suggestions"}</Text>)}
 
             <Text style={s.label}>{fr ? "Arrivée (adresse en ville)" : "Drop-off (city address)"}</Text>
-            <AddressAutocomplete value={dropoff} onChangeText={setDropoff} placeholder={fr ? "Adresse de destination" : "Destination address"} accent={Colors.accentP} />
+            <AddressAutocomplete value={dropoff} onChangeText={(v) => { setDropoff(v); setDropPostal(null); }} onResolved={(d) => setDropPostal(d.postal_code)} placeholder={fr ? "Adresse de destination" : "Destination address"} accent={Colors.accentP} />
+            {!!dropoff.trim() && (dropPostal ? <Text style={s.postalOk}>✓ {fr ? "Code postal" : "Postal code"} {dropPostal}</Text> : <Text style={s.postalWarn}>⚠ {fr ? "Choisissez une adresse dans les suggestions" : "Pick an address from the suggestions"}</Text>)}
 
             <Text style={s.label}>{fr ? "Ville de destination" : "Destination city"}</Text>
             <TouchableOpacity style={s.field} onPress={() => setCityOpen(true)} activeOpacity={0.8}>
@@ -225,6 +230,8 @@ const s = StyleSheet.create({
   cityTitle: { color: Colors.t1, fontSize: 17, fontWeight: "800" },
   cityRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: Colors.border },
   cityRowTxt: { color: Colors.t1, fontSize: 15, fontWeight: "600" },
+  postalOk: { color: Colors.green, fontSize: 11, fontWeight: "800", marginTop: 5, marginLeft: 2 },
+  postalWarn: { color: Colors.accentWarmText, fontSize: 11, fontWeight: "700", marginTop: 5, marginLeft: 2 },
   rideRow: { flexDirection: "row", gap: 8 },
   ride: { flex: 1, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, padding: 11, backgroundColor: Colors.card },
   rideOn: { borderColor: Colors.accentP, backgroundColor: "rgba(47,111,224,0.06)" },

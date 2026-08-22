@@ -9,6 +9,24 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const b = await req.json().catch(() => ({} as any));
+
+    // action=details: resolve a place_id to full address + postal code + lat/lng.
+    if (b.action === "details" && b.place_id) {
+      const r = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(String(b.place_id))}`, {
+        headers: { "X-Goog-Api-Key": GKEY, "X-Goog-FieldMask": "formattedAddress,addressComponents,location" },
+      });
+      const j = await r.json();
+      if (j.error) return json({ error: j.error?.message }, 200);
+      const comps = j.addressComponents ?? [];
+      const postal = comps.find((c: any) => (c.types ?? []).includes("postal_code"))?.longText ?? null;
+      return json({
+        formatted_address: j.formattedAddress ?? "",
+        postal_code: postal,
+        lat: j.location?.latitude ?? null,
+        lng: j.location?.longitude ?? null,
+      });
+    }
+
     const input = String(b.input || "").trim();
     if (input.length < 3) return json({ predictions: [] });
     const body: Record<string, unknown> = { input, regionCode: "CA", languageCode: b.lang === "fr" ? "fr" : "en" };

@@ -152,3 +152,10 @@ export async function addressAutocomplete(input: string, lang?: string): Promise
   const { data } = await supabase.functions.invoke("loadq-address-autocomplete", { body: { input, lang } });
   return (data?.predictions ?? []) as { description: string; place_id: string }[];
 }
+
+export interface AddressDetails { formatted_address: string; postal_code: string | null; lat: number | null; lng: number | null; }
+export async function addressDetails(placeId: string): Promise<AddressDetails | null> {
+  const { data } = await supabase.functions.invoke("loadq-address-autocomplete", { body: { action: "details", place_id: placeId } });
+  if (!data || data.error) return null;
+  return data as AddressDetails;
+}
