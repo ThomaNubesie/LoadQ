@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { ArrowLeft, Navigation, Copy, Check } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { DESTINATION_CITIES } from "../../constants/pricing";
+import { NETWORK_CITIES, networkCityLabel } from "../../constants/cities";
 import { ScheduledAPI, ScheduledQuote, TIME_BLOCKS } from "../../services/scheduled";
 import { PassengersAPI } from "../../services/passengers";
 import AddressAutocomplete from "../../components/AddressAutocomplete";
@@ -22,6 +22,8 @@ export default function PickupScheduledScreen() {
   const [home, setHome] = useState("");
   const [dropoff, setDropoff] = useState("");
   const [dest, setDest] = useState<string | null>(null);
+  const [cityOpen, setCityOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState("");
   const [day, setDay] = useState<Date>(DAYS[1]); // default tomorrow
   const [block, setBlock] = useState<string | null>(null);
   const [pickupTime, setPickupTime] = useState("");
@@ -65,14 +67,13 @@ export default function PickupScheduledScreen() {
             <Text style={s.label}>{fr ? "Arrivée (adresse en ville)" : "Drop-off (city address)"}</Text>
             <AddressAutocomplete value={dropoff} onChangeText={setDropoff} placeholder={fr ? "Adresse de destination" : "Destination address"} accent={Colors.accentP} />
 
-            <Text style={s.label}>{fr ? "Ville" : "City"}</Text>
-            <View style={s.pills}>
-              {DESTINATION_CITIES.map(c => (
-                <TouchableOpacity key={c.code} style={[s.pill, dest === c.code && s.pillOn]} onPress={() => setDest(c.code)} activeOpacity={0.8}>
-                  <Text style={[s.pillTxt, dest === c.code && s.pillTxtOn]}>{c.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={s.label}>{fr ? "Ville de destination" : "Destination city"}</Text>
+            <TouchableOpacity style={s.field} onPress={() => setCityOpen(true)} activeOpacity={0.8}>
+              <Text style={[{ flex: 1, fontSize: 15, fontWeight: "700" }, dest ? { color: Colors.t1 } : { color: Colors.t3 }]}>
+                {dest ? networkCityLabel(dest) : (fr ? "Choisir une ville" : "Choose a city")}
+              </Text>
+              <Text style={{ color: Colors.accentP, fontWeight: "800" }}>▾</Text>
+            </TouchableOpacity>
 
             <Text style={s.label}>{fr ? "Quel jour ?" : "Which day?"}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
@@ -165,6 +166,28 @@ export default function PickupScheduledScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={cityOpen} animationType="slide" transparent onRequestClose={() => setCityOpen(false)}>
+        <View style={s.cityBackdrop}>
+          <SafeAreaView style={s.citySheet} edges={["bottom"]}>
+            <View style={s.cityHead}>
+              <Text style={s.cityTitle}>{fr ? "Ville de destination" : "Destination city"}</Text>
+              <TouchableOpacity onPress={() => setCityOpen(false)} hitSlop={10}><Text style={{ color: Colors.t2, fontSize: 20 }}>✕</Text></TouchableOpacity>
+            </View>
+            <View style={s.field}>
+              <TextInput value={citySearch} onChangeText={setCitySearch} placeholder={fr ? "Rechercher…" : "Search…"} placeholderTextColor={Colors.t3} autoFocus style={{ flex: 1, color: Colors.t1, fontSize: 15, paddingVertical: 10 }} />
+            </View>
+            <ScrollView style={{ maxHeight: 380, marginTop: 8 }} keyboardShouldPersistTaps="handled">
+              {NETWORK_CITIES.filter(c => c.label.toLowerCase().includes(citySearch.trim().toLowerCase())).map(c => (
+                <TouchableOpacity key={c.code} style={s.cityRow} onPress={() => { setDest(c.code); setCityOpen(false); setCitySearch(""); }} activeOpacity={0.8}>
+                  <Text style={[s.cityRowTxt, dest === c.code && { color: Colors.accentP, fontWeight: "800" }]}>{c.label}</Text>
+                  {dest === c.code && <Text style={{ color: Colors.accentP, fontWeight: "800" }}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -195,7 +218,13 @@ const s = StyleSheet.create({
   dowOn: { color: Colors.accentPText },
   dn: { color: Colors.t1, fontSize: 17, fontWeight: "900", marginTop: 2 },
   dnOn: { color: Colors.accentPText },
-  field: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 4 },
+  field: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 12 },
+  cityBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  citySheet: { backgroundColor: Colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 14 },
+  cityHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  cityTitle: { color: Colors.t1, fontSize: 17, fontWeight: "800" },
+  cityRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  cityRowTxt: { color: Colors.t1, fontSize: 15, fontWeight: "600" },
   rideRow: { flexDirection: "row", gap: 8 },
   ride: { flex: 1, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, padding: 11, backgroundColor: Colors.card },
   rideOn: { borderColor: Colors.accentP, backgroundColor: "rgba(47,111,224,0.06)" },
