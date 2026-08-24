@@ -58,6 +58,7 @@ export default function AdminUserScreen() {
   const [vehicle, setVehicle]   = useState<{ id: string; plate: string; make: string; model: string; year: number; color: string | null; seats: number } | null>(null);
   const [queueEntryId, setQueueEntryId] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [rating, setRating]     = useState<{ avg: number; count: number } | null>(null);
   const [loading, setLoading]   = useState(true);
   const [busy, setBusy]         = useState(false);
   const [editing, setEditing]   = useState(false);
@@ -102,16 +103,26 @@ export default function AdminUserScreen() {
         subscription_status: null, trial_ends_at: null, trust_score: null,
       });
 
-      const { data: trips } = await supabase.from("trips")
-        .select("id, zone_id, destination_region, price_paid, created_at, driver:drivers(full_name)")
+      // Real door-to-door / on-demand trips live in loadq_ride_requests (not the
+      // legacy `trips` table). Show completed + in-flight ones; skip the
+      // requested/quoted/cancelled/expired noise.
+      const { data: trips } = await supabase.from("loadq_ride_requests")
+        .select("id, status, origin_address, dest_address, fare_cents, scheduled_date, created_at")
         .eq("passenger_id", id)
+        .in("status", ["completed", "picked_up", "arrived", "en_route", "assigned", "paid"])
         .order("created_at", { ascending: false })
         .limit(20);
       setActivity((trips ?? []).map((t: any) => ({
         key: t.id, when: t.created_at,
-        title: `${t.zone_id} → ${t.destination_region}`,
-        detail: `with ${t.driver?.full_name ?? "driver"} · C$${t.price_paid}`,
+        title: `${t.origin_address ?? "—"} → ${t.dest_address ?? "—"}`,
+        detail: `${String(t.status).replace(/_/g, " ")} · ${t.scheduled_date ?? fmtDate(t.created_at)} · C$${(((t.fare_cents ?? 0)) / 100).toFixed(2)}`,
       })));
+
+      // Star rating the passenger has received (SECURITY DEFINER RPC — RLS-safe).
+      const { data: revs } = await supabase.rpc("loadq_reviews_for", { p_user: id, p_role: "passenger" });
+      const list = (revs as { stars: number }[] | null) ?? [];
+      if (list.length) setRating({ avg: list.reduce((sum, rv) => sum + (rv.stars ?? 0), 0) / list.length, count: list.length });
+      else setRating(null);
     }
     setLoading(false);
   }, [id, isDriver]);
@@ -377,6 +388,7 @@ export default function AdminUserScreen() {
               {isDriver && <Row k="Subscription" v={user.subscription_status || "—"} />}
               {isDriver && user.trial_ends_at && <Row k="Trial ends" v={fmtDate(user.trial_ends_at)} />}
               {isDriver && <Row k="Trust score" v={String(Math.round(user.trust_score ?? 0))} last />}
+              {!isDriver && rating && <Row k="Rating" v={`${rating.avg.toFixed(1)} ★  (${rating.count} review${rating.count > 1 ? "s" : ""})`} last />}
             </>
           )}
         </View>
