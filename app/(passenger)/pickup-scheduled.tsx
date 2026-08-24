@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput, Modal } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { ArrowLeft, Navigation, Copy, Check } from "lucide-react-native";
@@ -27,6 +27,7 @@ function blockSlots(block: string): string[] {
 
 export default function PickupScheduledScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ edit_of?: string; home?: string; dropoff?: string; dest?: string; date?: string; block?: string; ptime?: string; ride?: string; seats?: string }>();
   const editOf = params.edit_of ? String(params.edit_of) : null;
   const { t, lang } = useStrings();
@@ -88,7 +89,12 @@ export default function PickupScheduledScreen() {
         <View style={{ width: 22 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {!quote ? (
           <>
             <Text style={s.lead}>{fr ? "Réservez jusqu'à 30 jours à l'avance. Un seul chauffeur vous conduit du domicile jusqu'à votre adresse en ville." : "Book up to 30 days ahead. One driver takes you from home to your city drop-off address."}</Text>
@@ -210,6 +216,7 @@ export default function PickupScheduledScreen() {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={cityOpen} animationType="slide" transparent onRequestClose={() => setCityOpen(false)}>
         <View style={s.cityBackdrop}>

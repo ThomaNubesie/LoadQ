@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { DriversAPI } from "../../services/drivers";
 import { Vehicle } from "../../constants/types";
@@ -11,6 +11,7 @@ import { ArrowLeft } from "lucide-react-native";
 
 export default function EditVehicleScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t }  = useStrings();
   const { vehicleId } = useLocalSearchParams<{ vehicleId: string }>();
 
@@ -72,6 +73,11 @@ export default function EditVehicleScreen() {
         <View style={{ width: 24 }} />
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
         <View style={s.summaryCard}>
           <Text style={s.summaryTitle}>{vehicle.year} {vehicle.make} {vehicle.model}</Text>
@@ -115,6 +121,7 @@ export default function EditVehicleScreen() {
           <Text style={s.btnText}>{saving ? t.loading : t.save}</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

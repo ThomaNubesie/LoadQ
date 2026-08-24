@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, TextInput } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { QueueAPI, type AdminQueueRow, type AdminPaxReservation } from "../../services/queue";
 import { ZonesAPI, type ZoneRow } from "../../services/zones";
@@ -77,6 +77,7 @@ function ZonePicker({ zones, value, onChange }: { zones: ZoneRow[]; value: strin
 
 function DriverMode({ zones, onDone }: { zones: ZoneRow[]; onDone: (m: string) => void }) {
   const { t } = useStrings();
+  const insets = useSafeAreaInsets();
   const [srcZone, setSrcZone] = useState("");
   const [rows, setRows] = useState<AdminQueueRow[]>([]);
   const [entryId, setEntryId] = useState("");
@@ -105,7 +106,12 @@ function DriverMode({ zones, onDone }: { zones: ZoneRow[]; onDone: (m: string) =
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+    >
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
       <Text style={s.lbl}>{t.arFromZone}</Text>
       <ZonePicker zones={zones} value={srcZone} onChange={loadSrc} />
 
@@ -155,11 +161,13 @@ function DriverMode({ zones, onDone }: { zones: ZoneRow[]; onDone: (m: string) =
         </View>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 function PassengerMode({ zones, onDone }: { zones: ZoneRow[]; onDone: (m: string) => void }) {
   const { t } = useStrings();
+  const insets = useSafeAreaInsets();
   const [q, setQ] = useState("");
   const [results, setResults] = useState<{ id: string; full_name: string | null; phone: string | null }[]>([]);
   const [pax, setPax] = useState<{ id: string; full_name: string | null } | null>(null);
@@ -187,7 +195,12 @@ function PassengerMode({ zones, onDone }: { zones: ZoneRow[]; onDone: (m: string
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+    >
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
       <Text style={s.lbl}>{t.arFindPassenger}</Text>
       <View style={{ flexDirection: "row", gap: 8 }}>
         <TextInput style={[s.input, { flex: 1 }]} value={q} onChangeText={setQ} onSubmitEditing={search} placeholder={t.arSearch} placeholderTextColor={Colors.t3} returnKeyType="search" />
@@ -235,6 +248,7 @@ function PassengerMode({ zones, onDone }: { zones: ZoneRow[]; onDone: (m: string
         </View>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -1,7 +1,7 @@
 // Driver's carried Kolis parcels + deliver (4-digit code -> captures escrow).
 import { useCallback, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Platform } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Platform, KeyboardAvoidingView } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, ScanLine, Building2, DoorOpen, Navigation, Lock, MessageSquare, Package, CircleCheckBig, MapPin, Phone } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
@@ -16,6 +16,7 @@ export default function KolisCarrying() {
   const { lang } = useStrings();
   const k = ks(lang);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [list, setList] = useState<KolisParcel[]>([]);
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [pcodes, setPcodes] = useState<Record<string, string>>({});
@@ -71,7 +72,12 @@ export default function KolisCarrying() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 8 }}><ArrowLeft size={18} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.t1, marginBottom: 6 }}>{k.carrying}</Text>
         <TouchableOpacity onPress={() => router.push("/(app)/kolis-scan" as any)}
@@ -183,6 +189,7 @@ export default function KolisCarrying() {
           );
         })}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

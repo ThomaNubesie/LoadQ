@@ -1,7 +1,7 @@
 // Reusable two-way review modal: stars + quick tags + written review.
 // Used by both the passenger (rating the driver) and the driver (rating the rider).
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { Star, X } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
@@ -42,7 +42,7 @@ export default function ReviewSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={s.backdrop}>
+      <KeyboardAvoidingView style={s.backdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={s.sheet}>
           <View style={s.head}>
             <Text style={s.title}>{rateRole === "driver" ? (fr ? "Évaluez le chauffeur" : "Rate your driver") : (fr ? "Évaluez le passager" : "Rate your rider")}</Text>
@@ -72,7 +72,7 @@ export default function ReviewSheet({
             {busy ? <ActivityIndicator color={Colors.accentText} /> : <Text style={s.btnTxt}>{fr ? "Envoyer" : "Submit review"}</Text>}
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

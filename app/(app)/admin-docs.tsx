@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, Modal, Pressable, Alert, TextInput, RefreshControl } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, Modal, Pressable, Alert, TextInput, RefreshControl, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, X, Check, Ban, ExternalLink } from "lucide-react-native";
@@ -154,6 +154,7 @@ export default function AdminDocsScreen() {
 
       {/* Reject note */}
       <Modal visible={!!rejectRow} transparent animationType="slide" onRequestClose={() => setRejectRow(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Pressable style={s.sheetDim} onPress={() => setRejectRow(null)}>
           <Pressable style={s.sheet} onPress={() => {}}>
             <View style={s.grip} />
@@ -171,6 +172,7 @@ export default function AdminDocsScreen() {
             </TouchableOpacity>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -219,8 +221,8 @@ const s = StyleSheet.create({
   viewerTitle: { color: "#fff", fontWeight: "700", fontSize: 13, marginBottom: 10, textAlign: "center" },
   viewerImg: { width: "100%", height: "78%" },
   viewerClose: { position: "absolute", top: 40, right: 20 },
-  sheetDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
-  sheet:    { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 16, paddingBottom: 28 },
+  sheetDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  sheet:    { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 16, paddingBottom: 28 },
   grip:     { width: 36, height: 4, borderRadius: 3, backgroundColor: Colors.border, alignSelf: "center", marginBottom: 12 },
   sheetTitle: { color: Colors.t1, fontSize: 16, fontWeight: "800", marginBottom: 12 },
   input:    { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 11, padding: 12, color: Colors.t1, fontSize: 14, minHeight: 76, textAlignVertical: "top" },

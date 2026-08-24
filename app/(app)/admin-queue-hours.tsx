@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { QueueAPI } from "../../services/queue";
@@ -10,6 +10,7 @@ import { ArrowLeft } from "lucide-react-native";
 
 export default function AdminQueueHoursScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t } = useStrings();
 
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -99,7 +100,12 @@ export default function AdminQueueHoursScreen() {
 
       <Text style={s.note}>{t.queueHoursNote}</Text>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         {field(t.registrationOpens, reg, setReg)}
         {field(t.loadingStarts, load, setLoad)}
         {field(t.closesAt, close, setClose)}
@@ -108,6 +114,7 @@ export default function AdminQueueHoursScreen() {
           <Text style={s.saveBtnText}>{saving ? "…" : t.saveLabel}</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

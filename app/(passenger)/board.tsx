@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Modal, Pressable, Image, TextInput, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Modal, Pressable, Image, TextInput, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Star, MessageSquare, ChevronDown, X, Phone, Clock, Bell, Car, MapPin } from "lucide-react-native";
@@ -520,6 +520,7 @@ export default function BoardScreen() {
 
       {/* Notify me when a seat opens — pick SMS or Email, capture + save if missing */}
       <Modal visible={!!notifyCar} transparent animationType="slide" onRequestClose={() => setNotifyCar(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Pressable style={s.sheetDim} onPress={() => setNotifyCar(null)}>
           <Pressable style={s.sheet} onPress={() => {}}>
             <View style={s.grip} />
@@ -565,6 +566,7 @@ export default function BoardScreen() {
             </TouchableOpacity>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* See other cars — the next queued cars after the one loading */}

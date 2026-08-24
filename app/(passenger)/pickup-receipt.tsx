@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, TextInput, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, TextInput, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Save, Mail, MessageSquare, Send } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
@@ -13,6 +13,7 @@ type Tab = "inapp" | "email" | "sms";
 
 export default function PickupReceiptScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t } = useStrings();
   const { request_id } = useLocalSearchParams<{ request_id: string }>();
   const [rc, setRc] = useState<PickupReceipt | null>(null);
@@ -55,7 +56,12 @@ export default function PickupReceiptScreen() {
       ) : !rc ? (
         <View style={s.center}><Text style={s.muted}>{t("receiptNone")}</Text></View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+        >
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           {/* Branded receipt (LoadQ wordmark, not Concord letterhead) */}
           <View style={s.rcpt}>
             <View style={s.rcptHd}>
@@ -110,6 +116,7 @@ export default function PickupReceiptScreen() {
             </>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
