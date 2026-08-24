@@ -42,7 +42,7 @@ export default function ReviewSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={s.backdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={s.backdrop} behavior="padding">
         <View style={s.sheet}>
           <View style={s.head}>
             <Text style={s.title}>{rateRole === "driver" ? (fr ? "Évaluez le chauffeur" : "Rate your driver") : (fr ? "Évaluez le passager" : "Rate your rider")}</Text>
