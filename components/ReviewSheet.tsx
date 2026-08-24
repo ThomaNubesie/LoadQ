@@ -1,7 +1,7 @@
 // Reusable two-way review modal: stars + quick tags + written review.
 // Used by both the passenger (rating the driver) and the driver (rating the rider).
-import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ActivityIndicator, Alert, Keyboard, Platform } from "react-native";
 import { Star, X } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
@@ -27,6 +27,16 @@ export default function ReviewSheet({
   const [tags, setTags] = useState<string[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  // KeyboardAvoidingView is unreliable inside a native Modal on iOS (the modal is
+  // its own window), so lift the sheet by the measured keyboard height instead.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const showEv = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEv = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const s1 = Keyboard.addListener(showEv, (e) => setKb(e.endCoordinates?.height ?? 0));
+    const s2 = Keyboard.addListener(hideEv, () => setKb(0));
+    return () => { s1.remove(); s2.remove(); };
+  }, []);
   const TAGS = rateRole === "driver" ? DRIVER_TAGS : RIDER_TAGS;
 
   const toggle = (t: string) => setTags((cur) => cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]);
@@ -42,7 +52,7 @@ export default function ReviewSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={s.backdrop} behavior="padding">
+      <View style={[s.backdrop, { paddingBottom: kb }]}>
         <View style={s.sheet}>
           <View style={s.head}>
             <Text style={s.title}>{rateRole === "driver" ? (fr ? "Évaluez le chauffeur" : "Rate your driver") : (fr ? "Évaluez le passager" : "Rate your rider")}</Text>
@@ -72,7 +82,7 @@ export default function ReviewSheet({
             {busy ? <ActivityIndicator color={Colors.accentText} /> : <Text style={s.btnTxt}>{fr ? "Envoyer" : "Submit review"}</Text>}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
