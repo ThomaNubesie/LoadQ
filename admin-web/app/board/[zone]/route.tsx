@@ -141,7 +141,7 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
 
         {/* cars */}
         <div style={{ display: "flex", flexDirection: "column", padding: "14px 30px", gap: 11 }}>
-          {b.list.slice(0, 6).map((c, i) => {
+          {b.list.slice(0, 8).map((c, i) => {
             const loading = c.status === "loading";
             const seats = c.seats ?? 0;
             return (
@@ -170,7 +170,7 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
                   </div>
                 </div>
                 {(() => { const sl = carSlug(c.make, c.model, c.color);
-                  return sl ? <img src={origin + "/cars/" + sl + ".jpg"} width={186} height={116} style={{ borderRadius: 8 }} /> : null; })()}
+                  return sl ? <img src={origin + "/cars/" + sl + ".png"} width={186} height={116} style={{ borderRadius: 8 }} /> : null; })()}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                   <div style={{ display: "flex", fontSize: 25, fontWeight: 800 }}>30 $</div>
                   <div style={{ display: "flex", marginTop: 6, fontSize: 14, fontWeight: 700,
@@ -185,6 +185,15 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
           })}
         </div>
 
+
+        {/* Seat key. Without it the outlines are just shapes — a viewer has no way to know
+            that yellow means held and filled means boarded. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "2px 30px 0",
+                      color: C.t2, fontSize: 17 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Seat state="free" />libre / free</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Seat state="held" />réservée / held</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Seat state="boarded" />occupée / boarded</div>
+        </div>
         {/* footer */}
         <div style={{ display: "flex", alignItems: "center", marginTop: "auto",
                       background: C.surface, borderTop: `3px solid ${C.orange}`, padding: "16px 30px" }}>

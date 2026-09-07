@@ -45,7 +45,7 @@ def url(make: str, model: str, color: str) -> str:
 def grab(row):
     make, model, color = row["make"], row["model"], row["color"]
     name = slug(make, model, color)
-    path = f"{OUT}/{name}.jpg"
+    path = f"{OUT}/{name}.png"
     try:
         with open(path, "rb"):
             return (name, "exists")
@@ -53,9 +53,19 @@ def grab(row):
         pass
     try:
         raw = urllib.request.urlopen(url(make, model, color), timeout=45).read()
-        im = Image.open(io.BytesIO(raw)).convert("RGB")
+        src = Image.open(io.BytesIO(raw))
+        # The source PNGs are transparent. convert("RGB") flattens onto BLACK, which put
+        # every car in a dark box with its paint washed out — visible only once the board
+        # was rendered for real. Composite onto white explicitly.
+        if src.mode in ("RGBA", "LA", "P"):
+            src = src.convert("RGBA")
+            bg = Image.new("RGB", src.size, (255, 255, 255))
+            bg.paste(src, mask=src.split()[-1])
+            im = bg
+        else:
+            im = src.convert("RGB")
         im = im.resize((WIDTH, round(im.height * WIDTH / im.width)), Image.LANCZOS)
-        im.save(path, "JPEG", quality=82, optimize=True)
+        im.quantize(colors=128, method=Image.MEDIANCUT).save(path, "PNG", optimize=True)
         return (name, f"{im.size[0]}x{im.size[1]}")
     except Exception as e:
         return (name, f"FAIL {type(e).__name__}")
