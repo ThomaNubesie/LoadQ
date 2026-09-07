@@ -4,17 +4,23 @@
    ================================================================= */
 
 :root{
-  --bg:#0F0A00;
-  --bg-2:#171005;
-  --bg-3:#1f1607;
-  --paper:#F5F5F5;
-  --paper-dim:#B8B8B8;
-  --paper-mid:#888;
-  --orange:#F7931A;
-  --orange-soft:rgba(247,147,26,.12);
-  --orange-deep:#d97a05;
-  --line:#2A1F0A;
-  --line-2:rgba(247,147,26,.18);
+  --bg:#15171C;
+  --bg-2:#1B1E25;
+  --bg-3:#232733;
+  --paper:#FFFFFF;
+  --paper-dim:#AEB6C4;
+  --paper-mid:#7C8697;
+  --orange:#FF8A1A;
+  --orange-soft:rgba(255,138,26,.12);
+  --orange-deep:#E07A0A;
+  --line:#3E4453;
+  --line-2:rgba(76,130,240,.20);
+  /* Actions. Orange keeps the logo and every live-data accent; azure takes anything
+     the visitor can press or follow. This is the split the mobile app already uses:
+     "azure — charcoal background, azure actions, orange logo". */
+  --azure:#4C82F0;
+  --azure-deep:#3B6FD4;
+  --azure-soft:rgba(76,130,240,.13);
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -715,3 +721,31 @@ footer.site{background:var(--bg);padding:56px 0 28px;border-top:1px solid var(--
   .dl-cards{grid-template-columns:1fr}
   .stats-row{grid-template-columns:1fr 1fr}
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   AZURE ACTIONS
+   Appended rather than edited inline: the 60 var(--orange) uses above are
+   mostly brand and live-data accents that should STAY orange. Only the things
+   a visitor can press or follow move to azure, and keeping them in one block
+   makes the split reviewable — and reversible — in a single place.
+   ───────────────────────────────────────────────────────────────────────── */
+.nav-cta{background:var(--azure);color:#fff!important;border-color:var(--azure)}
+.nav-cta:hover{background:var(--azure-deep);border-color:var(--azure-deep)}
+.btn-primary{
+  background:var(--azure);color:#fff;border-color:var(--azure);
+  /* The lift and glow were keyed to orange; on an azure fill that halo reads as a
+     rendering fault rather than a shadow. Every OTHER orange glow in this file is on
+     live-data furniture (the pulse dot, the board, phone cards) and stays orange. */
+  box-shadow:0 4px 0 var(--azure-deep), 0 8px 24px rgba(76,130,240,.30);
+}
+.btn-primary:hover{
+  background:var(--azure-deep);border-color:var(--azure-deep);
+  box-shadow:0 6px 0 #2F5CB8, 0 12px 32px rgba(76,130,240,.40);
+}
+.btn-ghost:hover{background:var(--azure-soft);border-color:var(--azure)}
+.lang-switch a.active{background:var(--azure);color:#fff}
+nav.site ul a:hover,nav.site ul a.current{color:var(--azure)}
+.dl-card:hover{border-color:var(--azure)}
+.dl-card:hover .dl-link{color:var(--azure)}
+article.prose a,details.qa .a a{color:var(--azure)}
