@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { CAR_SLUGS } from "../../../lib/carSlugs";
 
 // GET /board?zone=<zone_id>  → a 1080×1350 PNG of that zone's live queue.
 //
@@ -13,7 +14,9 @@ import { ImageResponse } from "next/og";
 //
 // Driver names come back as INITIALS from the RPC — this route is public and must not
 // expose the roster. See loadq_board_public().
-export const runtime = "edge";
+// Node, not edge: the render decodes several 1200x750 vehicle PNGs, which exceeded the
+// edge function's memory and returned a 500 with an empty body.
+export const runtime = "nodejs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -35,25 +38,25 @@ type Board = {
   loading: number; list: Car[];
 };
 
-// Mirrors utils/vehicleImage.ts in the mobile app so the board shows the same car the
-// driver sees on their own screen.
+// Resolves a vehicle to a pre-sized local image. Fetching cdn.imagin.studio during the
+// render killed it outright -- five foreign round trips plus decoding 1200x750 PNGs
+// returned a 500 with an empty body on both edge and node runtimes. These are fetched
+// once by scripts/fetch_cars.py, resized to 380px, and served from this origin.
 const MODEL_FAMILY: Record<string, string> = {
-  "hiace": "hiace", "urvan": "urvan", "sprinter": "sprinter", "coaster": "coaster",
-  "land cruiser": "land-cruiser", "prado": "land-cruiser-prado", "fortuner": "fortuner",
-  "corolla": "corolla", "accord": "accord", "logan": "logan",
+  "hiace": "hiace", "hiace long": "hiace", "urvan": "urvan", "sprinter": "sprinter",
+  "coaster": "coaster", "land cruiser": "land-cruiser", "prado": "land-cruiser-prado",
+  "fortuner": "fortuner", "corolla": "corolla", "accord": "accord", "logan": "logan",
+  "oddessey": "odyssey", "grand  caravan": "grand-caravan", "grand caravan": "grand-caravan",
+  "town & country": "town-country", "rav4 prime (phev)": "rav4", "santa fe xl": "santa-fe",
+  "santa fe": "santa-fe", "outlander sport": "outlander", "mazda5": "mazda5",
 };
-function vehicleImage(make?: string | null, model?: string | null, year?: number | null, color?: string | null) {
+function carSlug(make?: string | null, model?: string | null, color?: string | null) {
   if (!make || !model) return null;
-  const key = model.toLowerCase().trim();
-  const family = MODEL_FAMILY[key] || key.split(" ")[0];
-  const p = new URLSearchParams({
-    customer: process.env.NEXT_PUBLIC_IMAGIN_KEY || "img",
-    make: make.toLowerCase().trim(), modelFamily: family,
-    zoomType: "fullscreen", angle: "01",
-  });
-  if (year) p.set("modelYear", String(year));
-  if (color) p.set("paintId", color.toLowerCase().replace(/\s+/g, "-"));
-  return `https://cdn.imagin.studio/getImage?${p}`;
+  const m = model.toLowerCase().trim().replace(/[ ]+/g, " ");
+  const family = MODEL_FAMILY[m] || m.split(" ")[0];
+  const raw = make.toLowerCase().trim() + "-" + family + "-" + (color || "default").toLowerCase().trim();
+  const slug = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return CAR_SLUGS.has(slug) ? slug : null;
 }
 
 // The seat glyph from components/SeatSvg.tsx, same five rectangles. Free seats use a
@@ -74,8 +77,9 @@ function Seat({ state }: { state: "boarded" | "held" | "free" }) {
   );
 }
 
-export async function GET(req: Request) {
-  const zoneId = new URL(req.url).searchParams.get("zone") || "";
+export async function GET(req: Request, { params }: { params: { zone: string } }) {
+  const origin = new URL(req.url).origin;   // Satori needs absolute image URLs
+  const zoneId = decodeURIComponent(params.zone || "");
 
   const res = await fetch(`${SB}/rest/v1/rpc/loadq_board_public`, {
     method: "POST",
@@ -85,6 +89,7 @@ export async function GET(req: Request) {
   });
   const boards: Board[] = res.ok ? await res.json() : [];
   const b = boards.find((x) => x.zone_id === zoneId) ?? boards[0];
+
 
   const stamp = new Intl.DateTimeFormat("fr-CA", {
     hour: "2-digit", minute: "2-digit", timeZone: "America/Toronto",
@@ -120,7 +125,8 @@ export async function GET(req: Request) {
             <div style={{ display: "flex", alignItems: "center", background: "rgba(63,208,138,.12)",
                           border: `1px solid #2F8F6B`, borderRadius: 20, padding: "5px 13px",
                           fontSize: 20, fontWeight: 700, color: C.green }}>
-              ● à jour à {stamp}
+              <svg width="9" height="9" viewBox="0 0 9 9" style={{ marginRight: 7 }}><circle cx="4.5" cy="4.5" r="4.5" fill={C.green} /></svg>
+              à jour à {stamp}
             </div>
           </div>
           <div style={{ display: "flex", fontSize: 40, fontWeight: 800, marginTop: 11 }}>
@@ -138,7 +144,6 @@ export async function GET(req: Request) {
           {b.list.slice(0, 6).map((c, i) => {
             const loading = c.status === "loading";
             const seats = c.seats ?? 0;
-            const src = vehicleImage(c.make, c.model, c.year, c.color);
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 13,
                     background: loading ? "rgba(76,130,240,.09)" : C.card,
@@ -164,14 +169,15 @@ export async function GET(req: Request) {
                     </span>
                   </div>
                 </div>
-                {src ? <img src={src} width={190} height={119} style={{ borderRadius: 8, background: "#fff" }} /> : null}
+                {(() => { const sl = carSlug(c.make, c.model, c.color);
+                  return sl ? <img src={origin + "/cars/" + sl + ".jpg"} width={186} height={116} style={{ borderRadius: 8 }} /> : null; })()}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                   <div style={{ display: "flex", fontSize: 25, fontWeight: 800 }}>30 $</div>
                   <div style={{ display: "flex", marginTop: 6, fontSize: 14, fontWeight: 700,
                         padding: "5px 11px", borderRadius: 20,
                         background: loading ? "rgba(76,130,240,.2)" : C.cardAlt,
                         color: loading ? C.azure : C.t2 }}>
-                    {loading ? "● EN CHARGEMENT" : `N° ${c.position}`}
+                    {loading ? "EN CHARGEMENT" : `N° ${c.position}`}
                   </div>
                 </div>
               </div>
