@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoadQ — Show up when you want.</title>
+  <meta name="description" content="Inter-city carpool board for Canada. See cars loading in real time." />
+  <link rel="alternate" hreflang="en" href="/" />
+  <link rel="alternate" hreflang="fr" href="/fr/" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site.css" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#0F0A00" />
+</head>
+<body>
+<nav class="site">
+  <div class="row">
+    <a href="/" class="logo">LoadQ</a>
+    <button class="menu-toggle" aria-label="Menu">☰</button>
+    <ul>
+      <li><a href="/" class="current">Passengers</a></li>
+      <li><a href="/drivers" class="">Drivers</a></li>
+      <li><a href="/how-it-works" class="">How it works</a></li>
+      <li><a href="/cities" class="">Cities</a></li>
+      <li><a href="/about" class="">About</a></li>
+      <li><a href="/safety" class="">Safety</a></li>
+      <li><a href="/help" class="">Help</a></li>
+      <li>
+        <div class="lang-switch">
+          <a href="/" hreflang="en" class="active">EN</a>
+          <a href="/fr/" hreflang="fr" class="">FR</a>
+        </div>
+      </li>
+      <li><a href="/#download" class="nav-cta">Get the App</a></li>
+    </ul>
+  </div>
+</nav>
+
+
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow">Inter-city carpool · live board</div>
+    <h1 class="hero-h">
+      <span class="row">SHOW UP</span>
+      <span class="row"><span class="strike">when</span> <span class="accent">WHEN</span> YOU</span>
+      <span class="row">WANT.</span>
+    </h1>
+    <p class="hero-sub">See exactly <em>how many cars are loading</em> in your zone — Ottawa, Montréal, Toronto, Québec — in real time, from anywhere. No fees during soft launch. Reserve a seat, or just show up.</p>
+    <div class="hero-ctas">
+      <a href="#download" class="btn btn-primary">Get the App <span class="arr">→</span></a>
+      <a href="/how-it-works" class="btn btn-ghost">See how it works</a>
+    </div>
+    <div class="badges">
+      <span class="pill"><span class="dot"></span><span class="ok">SOFT LAUNCH · ON & QC</span></span>
+      <span class="pill">·</span>
+      <span class="pill">FREE DURING BETA</span>
+      <span class="pill">·</span>
+      <span class="pill">EN / FR</span>
+    </div>
+  </div>
+</section>
+
+<section class="std alt">
+  <div class="container">
+    <div class="section-head">
+      <div class="left">
+        <div class="section-tag">// LIVE · UPDATED EVERY 5s</div>
+        <h2>The board is <span class="accent">always on.</span></h2>
+      </div>
+      <div class="right">Watch cars fill in real time, from any device. When you see one nearly full — that's your cue to walk over.</div>
+    </div>
+    <div class="board">
+      <div class="board-head">
+        <div>Zone</div><div>Departing</div><div>Cars Loading</div><div>Status</div>
+      </div>
+      <div class="board-row">
+        <div class="zone">Ottawa → Montréal<small>2h00 soft launch · free</small></div>
+        <div class="time">14:20 — 14:50</div>
+        <div class="cars blink">07</div>
+        <div><span class="status loading">Loading</span></div>
+      </div>
+      <div class="board-row">
+        <div class="zone">Montréal → Québec<small>2h45 · soft launch · free </small></div>
+        <div class="time">15:00 — 15:30</div>
+        <div class="cars ">12</div>
+        <div><span class="status filling">Filling</span></div>
+      </div>
+      <div class="board-row">
+        <div class="zone">Toronto → London<small>2h00 · soft launch · free </small></div>
+        <div class="time">15:10 — 15:40</div>
+        <div class="cars ">04</div>
+        <div><span class="status filling">Filling</span></div>
+      </div>
+      <div class="board-row">
+        <div class="zone">Ottawa → Toronto<small>4h30 · soft launch · free </small></div>
+        <div class="time">16:00 — 16:30</div>
+        <div class="cars ">09</div>
+        <div><span class="status soon">Soon</span></div>
+      </div>
+      <div class="board-row">
+        <div class="zone">Montréal → Ottawa<small>2h00 · soft launch · free </small></div>
+        <div class="time">16:30 — 17:00</div>
+        <div class="cars ">06</div>
+        <div><span class="status filling">Filling</span></div>
+      </div>
+      <div class="board-foot">
+        <span class="live-pulse">Live · syncing</span>
+        <span data-clock>— : —</span>
+        <span>10 active zones</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="std">
+  <div class="container">
+    <div class="section-head">
+      <div class="left">
+        <div class="section-tag">// THE LOADQ PROMISE</div>
+        <h2>Three things we'll <span class="accent">never do.</span></h2>
+      </div>
+    </div>
+    <div class="promise-grid">
+      <div class="promise">
+        <div class="p-num">01 · COST</div>
+        <h3>NO <span class="x">FEES.</span></h3>
+        <p>Pay only the driver, only the ride. No platform cut, no service charge, no surprises at the door. Currently free during our soft launch.</p>
+      </div>
+      <div class="promise">
+        <div class="p-num">02 · FREEDOM</div>
+        <h3>NO <span class="x">ENGAGEMENT.</span></h3>
+        <p>No accounts to chase, no penalties, no commitments. Reserve a seat with a tap — or just walk up to a loading car and go.</p>
+      </div>
+      <div class="promise">
+        <div class="p-num">03 · VISIBILITY</div>
+        <h3>NO <span class="x">GUESSING.</span></h3>
+        <p>Open LoadQ from anywhere and watch the queue fill in real time. Leave home when the car is almost full. Save the bus-station wait.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="std alt" id="download">
+  <div class="container">
+    <div class="section-head">
+      <div class="left">
+        <div class="section-tag">// JOIN THE BETA</div>
+        <h2>Available now on <span class="accent">iOS & Android.</span></h2>
+      </div>
+      <div class="right">We're in soft launch. Scan the QR for your platform — TestFlight for iOS, Play Internal Test for Android.</div>
+    </div>
+    <div class="dl-grid">
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top">
+              <span class="logo">LoadQ</span>
+              <span class="live-tag"><span class="d"></span>LIVE</span>
+            </div>
+            <div class="phone-body">
+              <div class="phone-h">Ottawa zone · 3 active</div>
+              <div class="phone-card hot">
+                <div>
+                  <div class="route">Ottawa → Montréal</div>
+                  <div class="meta">14:20 · LOADING · 7/8</div>
+                </div>
+                <div class="count">07</div>
+              </div>
+              <div class="phone-card">
+                <div>
+                  <div class="route">Ottawa → Toronto</div>
+                  <div class="meta">15:30 · FILLING · 4/8</div>
+                </div>
+                <div class="count">04</div>
+              </div>
+              <div class="phone-card">
+                <div>
+                  <div class="route">Ottawa → Kingston</div>
+                  <div class="meta">16:00 · SOON · 2/8</div>
+                </div>
+                <div class="count">02</div>
+              </div>
+              <div class="phone-h" style="margin-top:18px">Pinned</div>
+              <div class="phone-card">
+                <div>
+                  <div class="route">Montréal → Québec</div>
+                  <div class="meta">16:30 · FILLING · 6/8</div>
+                </div>
+                <div class="count">06</div>
+              </div>
+            </div>
+            <div class="phone-bottom">
+              <div class="phone-bar">
+                <span class="active">BOARD</span>
+                <span>ZONES</span>
+                <span>ALERTS</span>
+                <span>ME</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dl-cards">
+        <a class="dl-card" href="https://apps.apple.com/ca/app/id6770652996" target="_blank" rel="noopener">
+          <div class="qr" id="qr-ios" data-qr="https://apps.apple.com/ca/app/id6770652996"></div>
+          <div class="platform">iOS · App Store</div>
+          <div class="title">Scan to install</div>
+          <div class="desc">Free download</div>
+          <div class="dl-link">apps.apple.com →</div>
+        </a>
+        <a class="dl-card" href="https://play.google.com/apps/internaltest/4701707282664092289" target="_blank" rel="noopener">
+          <div class="qr" id="qr-android" data-qr="https://play.google.com/apps/internaltest/4701707282664092289"></div>
+          <div class="platform">Android · Play Internal</div>
+          <div class="title">Scan to install</div>
+          <div class="desc">Beta build</div>
+          <div class="dl-link">play.google.com →</div>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="container">
+    <div class="section-tag" style="display:block;margin-bottom:10px">// SHOW UP. THAT'S IT.</div>
+    <h2>STOP GUESSING.<br>START SEEING.</h2>
+    <p>Now you can watch the car load — from your couch.</p>
+    <div class="store-btns">
+      <a href="https://apps.apple.com/ca/app/id6770652996" target="_blank" rel="noopener" class="store">
+        <span class="icon"></span>
+        <span class="label"><span class="small">Download on the</span><span class="big">App Store</span></span>
+      </a>
+      <a href="https://play.google.com/apps/internaltest/4701707282664092289" target="_blank" rel="noopener" class="store">
+        <span class="icon">▶</span>
+        <span class="label"><span class="small">Get it on</span><span class="big">Google Play</span></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+
+<footer class="site">
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <a href="/" class="logo">LoadQ</a>
+        <p class="foot-tag">Show up when you want. Inter-city shared rides for Canada — bilingual EN / FR.</p>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <ul>
+        <li><a href="/">Passengers</a></li>
+        <li><a href="/how-it-works">How it works</a></li>
+        <li><a href="/cities">Cities</a></li>
+        <li><a href="/help">Help</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>For Drivers</h5>
+        <ul>
+        <li><a href="/drivers">Become a driver</a></li>
+        <li><a href="/safety">Safety</a></li>
+        <li><a href="#">Concord Express</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <ul>
+        <li><a href="/about">About</a></li>
+        <li><a href="/privacy">Privacy</a></li>
+        <li><a href="mailto:support@loadq.ca">Support</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div class="by">© 2026 Concord Express Inc.</div>
+      <div>QC · MTL · OTT · TOR · LDN · KGN</div>
+      <div>Ottawa, Ontario · Canada</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="/assets/site.js"></script>
+
+</body>
+</html>

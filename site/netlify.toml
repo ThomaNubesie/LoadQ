@@ -1,0 +1,30 @@
+[build]
+  publish = "."
+
+# Keep privacy redirect: privacy.html -> /privacy
+[[redirects]]
+  from = "/privacy.html"
+  to = "/privacy"
+  status = 301
+  force = true
+
+# Trailing-slash normalization for /fr.
+# IMPORTANT: no `force = true` — Netlify's redirect matcher treats /fr and /fr/
+# as the same path here, and force would 301 /fr/ back to /fr/ forever.
+# Without force, Netlify only fires this when /fr/index.html is NOT served,
+# i.e. when the user actually requested /fr (no slash).
+[[redirects]]
+  from = "/fr"
+  to = "/fr/"
+  status = 301
+
+# Driver referral landing - decode driver ID via JS in /ref/index.html (and /fr/ref/index.html)
+[[redirects]]
+  from = "/ref/*"
+  to = "/ref/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/fr/ref/*"
+  to = "/fr/ref/index.html"
+  status = 200

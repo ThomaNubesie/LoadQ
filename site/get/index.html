@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get LoadQ — Download the App</title>
+  <meta name="description" content="Download LoadQ — verified inter-city shared rides across Canada." />
+  <link rel="alternate" hreflang="en" href="/get" />
+  <link rel="alternate" hreflang="fr" href="/fr/get" />
+  <link rel="stylesheet" href="/assets/site.css" />
+  <style>
+    .get-wrap { max-width: 560px; margin: 0 auto; padding: 64px 24px; text-align: center; }
+    .get-wrap h1 { font-size: 36px; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
+    .get-wrap p.lead { font-size: 18px; color: #B8B8B8; margin-bottom: 36px; }
+    .store-row { display: flex; flex-direction: column; gap: 14px; align-items: stretch; }
+    .store-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 18px 24px; border-radius: 14px; border: 1px solid #2A1F0A;
+      background: #1A130A; color: #F5F5F5; font-size: 17px; font-weight: 700;
+      text-decoration: none; transition: background 0.15s;
+    }
+    .store-btn:hover { background: #251A0E; }
+    .store-btn.primary { background: #F7931A; color: #0F0A00; border-color: #F7931A; }
+    .store-btn.primary:hover { background: #FFA836; }
+    .store-btn .sub { font-size: 13px; font-weight: 500; opacity: 0.7; margin-left: 6px; }
+    .platform-detected { font-size: 13px; color: #888; margin-top: 28px; }
+    .lang-switch { position: absolute; top: 20px; right: 20px; }
+    .lang-switch a { color: #F7931A; text-decoration: none; font-size: 14px; font-weight: 600; margin-left: 8px; }
+  </style>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#0F0A00" />
+</head>
+<body>
+  <div class="lang-switch">
+    <a href="/get" class="active">EN</a> · <a href="/fr/get">FR</a>
+  </div>
+  <main class="get-wrap">
+    <h1 style="color:#F7931A;">LoadQ</h1>
+    <p class="lead">Inter-city shared rides for Canada.</p>
+
+    <div id="primary-cta" class="store-row" style="margin-bottom: 24px;"></div>
+
+    <details style="text-align:left; margin-top: 28px;">
+      <summary style="cursor:pointer; color:#888; font-size:14px;">Other download options</summary>
+      <div class="store-row" style="margin-top: 16px;">
+        <a class="store-btn" href="https://apps.apple.com/ca/app/id6770652996">
+          iOS — App Store <span class="sub">(public)</span>
+        </a>
+        <a class="store-btn" href="https://testflight.apple.com/join/dvFFngSP">
+          iOS — TestFlight <span class="sub">(beta testers)</span>
+        </a>
+        <a class="store-btn" href="https://play.google.com/apps/internaltest/4701707282664092289">
+          Android — Internal Test <span class="sub">(invited testers)</span>
+        </a>
+      </div>
+    </details>
+
+    <p class="platform-detected" id="detected"></p>
+  </main>
+
+  <script>
+    (function () {
+      var ua = navigator.userAgent || "";
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      var isAndroid = /Android/i.test(ua);
+      var cta = document.getElementById("primary-cta");
+      var detected = document.getElementById("detected");
+
+      function btn(href, label, sub, primary) {
+        return '<a class="store-btn' + (primary ? ' primary' : '') + '" href="' + href + '">' +
+               label + (sub ? ' <span class="sub">' + sub + '</span>' : '') + '</a>';
+      }
+
+      if (isIOS) {
+        cta.innerHTML = btn("https://apps.apple.com/ca/app/id6770652996", "Download for iPhone", "App Store", true);
+        detected.textContent = "Detected: iPhone / iPad";
+      } else if (isAndroid) {
+        cta.innerHTML =
+          btn("https://play.google.com/apps/internaltest/4701707282664092289", "Join Android Beta", "Play Internal Test", true) +
+          '<div style="font-size:13px;color:#888;margin-top:4px;">Public Play Store release coming soon.</div>';
+        detected.textContent = "Detected: Android";
+      } else {
+        cta.innerHTML =
+          btn("https://apps.apple.com/ca/app/id6770652996", "iOS App Store", "iPhone / iPad", true) +
+          btn("https://play.google.com/apps/internaltest/4701707282664092289", "Android Beta", "Play Internal Test", false);
+        detected.textContent = "Open this page on your phone for one-tap install.";
+      }
+    })();
+  </script>
+</body>
+</html>
