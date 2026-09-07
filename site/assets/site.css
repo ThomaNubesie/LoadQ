@@ -749,3 +749,49 @@ nav.site ul a:hover,nav.site ul a.current{color:var(--azure)}
 .dl-card:hover{border-color:var(--azure)}
 .dl-card:hover .dl-link{color:var(--azure)}
 article.prose a,details.qa .a a{color:var(--azure)}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   AZURE IN THE FOOTER AND ON THE DOWNLOAD CARDS
+   The page opens orange (logo, eyebrows, live board) and should close azure,
+   so the two colours bracket the page instead of orange carrying it alone.
+   Confined to the download block and the footer — the live-board furniture
+   above stays orange.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Download cards: a resting azure identity, not just a hover state. The rule
+   above still tints the hover shadow orange, so it is re-keyed here too. */
+.dl-card{border-color:rgba(76,130,240,.32);position:relative;overflow:hidden}
+.dl-card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--azure),#7BA5F5);
+}
+.dl-card:hover{
+  border-color:var(--azure);
+  box-shadow:0 12px 32px rgba(76,130,240,.20);
+}
+.dl-card .platform{color:var(--azure)}
+.dl-card .dl-link{border-top-color:rgba(76,130,240,.28)}
+.dl-card:hover .dl-link{color:var(--azure)}
+
+/* Footer: azure rule across the top, azure column headings, azure link hover. */
+footer.site{
+  border-top:2px solid transparent;
+  border-image:linear-gradient(90deg,var(--azure),var(--orange)) 1;
+}
+.foot-grid h5{color:var(--azure)}
+.foot-grid ul a:hover{color:var(--azure)}
+.foot-bottom a:hover{color:var(--azure)}
+
+/* The closing CTA band is solid orange, and its two store buttons were near-black —
+   the one place on the page where iOS and Android appear at full size and carried no
+   brand colour at all. Azure on orange is the strongest contrast the palette allows,
+   and it makes the page's last instruction unmistakably a button. */
+.store{
+  background:var(--azure);color:#fff!important;
+  box-shadow:0 4px 0 var(--azure-deep), 0 8px 24px rgba(15,20,40,.28);
+}
+.store:hover{
+  background:var(--azure-deep);
+  box-shadow:0 6px 0 #2F5CB8, 0 12px 30px rgba(15,20,40,.34);
+}
+.store .small{color:#DDE7FB}
