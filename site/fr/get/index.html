@@ -53,7 +53,7 @@
         <a class="store-btn" href="https://testflight.apple.com/join/dvFFngSP">
           iOS — TestFlight <span class="sub">(testeurs bêta)</span>
         </a>
-        <a class="store-btn" href="https://play.google.com/apps/internaltest/4701707282664092289">
+        <a class="store-btn" href="https://play.google.com/store/apps/details?id=ca.loadq.app">
           Android — Test interne <span class="sub">(testeurs invités)</span>
         </a>
       </div>
@@ -80,13 +80,13 @@
         detected.textContent = "Appareil détecté : iPhone / iPad";
       } else if (isAndroid) {
         cta.innerHTML =
-          btn("https://play.google.com/apps/internaltest/4701707282664092289", "Rejoindre la bêta Android", "Test interne Play", true) +
+          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Rejoindre la bêta Android", "Test interne Play", true) +
           '<div style="font-size:13px;color:#888;margin-top:4px;">Sortie publique sur Google Play bientôt.</div>';
         detected.textContent = "Appareil détecté : Android";
       } else {
         cta.innerHTML =
           btn("https://apps.apple.com/ca/app/id6770652996", "App Store iOS", "iPhone / iPad", true) +
-          btn("https://play.google.com/apps/internaltest/4701707282664092289", "Bêta Android", "Test interne Play", false);
+          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Bêta Android", "Test interne Play", false);
         detected.textContent = "Ouvrez cette page sur votre téléphone pour une installation en un clic.";
       }
     })();

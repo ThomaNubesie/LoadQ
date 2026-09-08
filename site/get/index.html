@@ -53,7 +53,7 @@
         <a class="store-btn" href="https://testflight.apple.com/join/dvFFngSP">
           iOS — TestFlight <span class="sub">(beta testers)</span>
         </a>
-        <a class="store-btn" href="https://play.google.com/apps/internaltest/4701707282664092289">
+        <a class="store-btn" href="https://play.google.com/store/apps/details?id=ca.loadq.app">
           Android — Internal Test <span class="sub">(invited testers)</span>
         </a>
       </div>
@@ -80,13 +80,13 @@
         detected.textContent = "Detected: iPhone / iPad";
       } else if (isAndroid) {
         cta.innerHTML =
-          btn("https://play.google.com/apps/internaltest/4701707282664092289", "Join Android Beta", "Play Internal Test", true) +
+          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Join Android Beta", "Play Internal Test", true) +
           '<div style="font-size:13px;color:#888;margin-top:4px;">Public Play Store release coming soon.</div>';
         detected.textContent = "Detected: Android";
       } else {
         cta.innerHTML =
           btn("https://apps.apple.com/ca/app/id6770652996", "iOS App Store", "iPhone / iPad", true) +
-          btn("https://play.google.com/apps/internaltest/4701707282664092289", "Android Beta", "Play Internal Test", false);
+          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Android Beta", "Play Internal Test", false);
         detected.textContent = "Open this page on your phone for one-tap install.";
       }
     })();
