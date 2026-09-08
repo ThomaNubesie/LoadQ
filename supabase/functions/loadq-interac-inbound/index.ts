@@ -16,7 +16,25 @@ Deno.serve(async (req) => {
     const b = await req.json().catch(() => ({}));
     let reference: string | null = b.reference ?? null;
     if (!reference && typeof b.text === "string") { const m = b.text.match(/\bLQ-[A-Z0-9]{4,6}\b/i); if (m) reference = m[0]; }
-    if (!reference) return json({ matched: false, reason: "no_reference" });
+    // Log FIRST, decide second. Chris Therrier's $44.50 was lost because this function
+    // returned early on a missing reference and wrote nothing at all — the deposit existed
+    // only in the bank. Every inbound attempt is now recorded before any matching is tried.
+    const sender_name  = b.sender_name ?? b.from_name ?? null;
+    const sender_email = b.sender_email ?? b.from_email ?? null;
+    const raw_text     = typeof b.text === "string" ? b.text.slice(0, 4000) : null;
+    const amt0 = b.amount_cents != null ? Math.round(Number(b.amount_cents))
+      : (b.amount != null ? Math.round(Number(b.amount) * 100) : null);
+
+    const { data: logged } = await admin.from("loadq_interac_inbound")
+      .insert({ amount_cents: amt0, reference, sender_name, sender_email, raw_text })
+      .select("id").maybeSingle();
+    const logId = logged?.id ?? null;
+
+    if (!reference) {
+      // Unmatched, but no longer invisible: it sits in loadq_interac_unresolved with any
+      // near-amount candidates alongside it.
+      return json({ matched: false, reason: "no_reference", logged: logId });
+    }
     reference = reference.toUpperCase();
     const amount_cents = b.amount_cents != null ? Math.round(Number(b.amount_cents))
       : (b.amount != null ? Math.round(Number(b.amount) * 100) : null);
@@ -24,16 +42,24 @@ Deno.serve(async (req) => {
     // 1) Try a RIDE request first.
     const { data: ride } = await admin.rpc("loadq_ride_match_interac", { p_reference: reference, p_amount_cents: amount_cents });
     if (ride && (ride.matched === true || ride.ok === true || ride.paid === true)) {
-      return json({ matched: true, kind: "ride", ...ride });
+      if (logId) await admin.from("loadq_interac_inbound")
+        .update({ matched: true, match_kind: "ride", resolved_at: new Date().toISOString() })
+        .eq("id", logId);
+      return json({ matched: true, kind: "ride", logged: logId, ...ride });
     }
 
     // 2) Fall back to a PICKUP request (feeder pooled pickup uses the same LQ- refs).
     try {
       const { data: pickup } = await admin.rpc("loadq_pickup_mark_paid", { p_ref: reference });
-      if (pickup && pickup.ok === true) return json({ matched: true, kind: "pickup", ...pickup });
+      if (pickup && pickup.ok === true) {
+        if (logId) await admin.from("loadq_interac_inbound")
+          .update({ matched: true, match_kind: "pickup", resolved_at: new Date().toISOString() })
+          .eq("id", logId);
+        return json({ matched: true, kind: "pickup", logged: logId, ...pickup });
+      }
     } catch { /* no pickup match */ }
 
-    return json({ matched: false, reference, ride });
+    return json({ matched: false, reference, logged: logId, ride });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
