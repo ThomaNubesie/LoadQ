@@ -1,4 +1,7 @@
 import { Stack } from "expo-router";
+import { View } from "react-native";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
+import BrandHeader from "../../components/BrandHeader";
 import { Colors } from "../../constants/colors";
 import { useDeliveryTracking } from "../../hooks/useDeliveryTracking";
 
@@ -7,6 +10,11 @@ export default function AppLayout() {
   // a parcel; stops when fully idle. Single source of truth for the bg task.
   useDeliveryTracking();
   return (
+    <View style={{ flex: 1 }}>
+      <BrandHeader />
+      <SafeAreaInsetsContext.Consumer>
+        {(insets) => (
+          <SafeAreaInsetsContext.Provider value={{ ...(insets ?? { top: 0, bottom: 0, left: 0, right: 0 }), top: 0 }}>
     <Stack screenOptions={{ headerShown:false, contentStyle:{ backgroundColor:Colors.bg } }}>
       <Stack.Screen name="zone-select" />
       <Stack.Screen name="queue" />
@@ -33,5 +41,9 @@ export default function AppLayout() {
       <Stack.Screen name="scheduled-trip" />
       <Stack.Screen name="admin-payments" />
     </Stack>
+            </SafeAreaInsetsContext.Provider>
+          )}
+        </SafeAreaInsetsContext.Consumer>
+      </View>
   );
 }
