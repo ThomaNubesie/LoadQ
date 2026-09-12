@@ -7,6 +7,7 @@ import { ReferralAPI, DriverCard } from "../../services/referral";
 import { PassengersAPI } from "../../services/passengers";
 import { Colors } from "../../constants/colors";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import Wordmark from "../../components/Wordmark";
 
 export default function ReferralCardScreen() {
   const router = useRouter();
@@ -73,7 +74,7 @@ export default function ReferralCardScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.center}>
-        <Text style={s.brand}>LOADQ</Text>
+        <Wordmark style={s.brand} />
 
         <View style={s.cardBox}>
           <View style={s.row}>

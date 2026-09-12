@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 export default function SignInScreen() {
@@ -61,7 +62,7 @@ export default function SignInScreen() {
             <Text style={s.backText}>{t.back}</Text>
           </View>
         </TouchableOpacity>
-        <Text style={s.logo}>LOADQ</Text>
+        <Wordmark style={s.logo} />
         <Text style={s.title}>
           {isSignIn ? t.welcomeBack : intendedRole === "passenger" ? t.passengerSignup : t.driverSignup}
         </Text>

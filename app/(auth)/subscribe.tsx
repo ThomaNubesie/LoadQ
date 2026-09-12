@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIn
 import { useRouter } from "expo-router";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { DriversAPI } from "../../services/drivers";
 import { StripeWebCheckoutAPI } from "../../services/billing";
 import { Driver } from "../../constants/types";
@@ -99,7 +100,7 @@ export default function SubscribeScreen() {
         </TouchableOpacity>
 
         <View style={s.logoBox}>
-          <Text style={s.logo}>LOADQ</Text>
+          <Wordmark style={s.logo} />
           <Text style={s.logoSub}>{t.driverSubscription}</Text>
         </View>
 

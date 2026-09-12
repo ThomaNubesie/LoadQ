@@ -6,6 +6,7 @@ import { supabase } from "../../services/supabase";
 import { DriversAPI } from "../../services/drivers";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 export default function ProfileSetupScreen() {
@@ -95,7 +96,7 @@ export default function ProfileSetupScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={s.logo}>LOADQ</Text>
+        <Wordmark style={s.logo} />
         <View style={s.stepRow}>
           <Text style={s.stepText}>1 {t.stepOf} 3</Text>
           <View style={s.stepBar}><View style={[s.stepFill, { width:"33%" }]} /></View>

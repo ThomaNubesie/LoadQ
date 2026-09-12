@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { ArrowLeft, Bus, User } from "lucide-react-native";
 
 export default function WelcomeScreen() {
@@ -36,7 +37,7 @@ export default function WelcomeScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={s.logo}>LOADQ</Text>
+        <Wordmark style={s.logo} />
         <Text style={s.title}>{t.iAm}</Text>
         <Text style={s.sub}>{t.pickRoleSub}</Text>
 

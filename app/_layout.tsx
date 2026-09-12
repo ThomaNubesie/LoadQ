@@ -18,6 +18,7 @@ import { MessageEvents } from "../services/messageEvents";
 import { supabase } from "../services/supabase";
 import { Colors } from "../constants/colors";
 import WhatsNew from "../components/WhatsNew";
+import Wordmark from "../components/Wordmark";
 
 const safe = (fn: () => void) => { try { fn(); } catch { /* never trap the splash */ } };
 
@@ -160,7 +161,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex:1, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center" }}>
-        <Text style={{ fontSize:32, fontWeight:"900", color:Colors.accent, letterSpacing:4 }}>LOADQ</Text>
+        <Wordmark style={{ fontSize: 32 }} />
       </SafeAreaView>
     </SafeAreaProvider>
   );

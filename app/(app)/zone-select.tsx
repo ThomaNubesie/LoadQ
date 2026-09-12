@@ -10,6 +10,7 @@ import {
 } from "../../constants/zones";
 import { useZones } from "../../hooks/useZones";
 import { ArrowLeft, MapPin, Lock, ArrowRight } from "lucide-react-native";
+import Wordmark from "../../components/Wordmark";
 
 export default function ZoneSelectScreen() {
   const router     = useRouter();
@@ -77,7 +78,7 @@ export default function ZoneSelectScreen() {
         <TouchableOpacity onPress={() => router.replace("/(app)/queue")} style={{ padding:4 }}>
           <ArrowLeft size={16} color={Colors.t2} strokeWidth={2} />
         </TouchableOpacity>
-        <Text style={s.logo}>LOADQ</Text>
+        <Wordmark style={s.logo} />
         {loading ? (
           <ActivityIndicator color={Colors.accent} size="small" />
         ) : userRegion ? (

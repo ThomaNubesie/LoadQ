@@ -7,6 +7,7 @@ import { PassengersAPI } from "../../services/passengers";
 import { ReferralAPI } from "../../services/referral";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 type Sex = "male" | "female" | "other";
@@ -99,7 +100,7 @@ export default function PassengerSetupScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={s.logo}>LOADQ</Text>
+        <Wordmark style={s.logo} />
         <Text style={s.title}>{t.passengerProfile}</Text>
         <Text style={s.sub}>{t.passengerProfileSub}</Text>
 

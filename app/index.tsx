@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../services/supabase";
 import { resolveHome } from "../services/authRoute";
 import { Colors } from "../constants/colors";
+import Wordmark from "../components/Wordmark";
 
 // Startup must be near-instant and never trap users on the LOADQ splash.
 // A returning user is sent to their LAST KNOWN home immediately (no network wait),
@@ -57,7 +58,7 @@ export default function Index() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontSize: 32, fontWeight: "900", color: Colors.accent, letterSpacing: 4 }}>LOADQ</Text>
+      <Wordmark style={{ fontSize: 32 }} />
     </View>
   );
 }

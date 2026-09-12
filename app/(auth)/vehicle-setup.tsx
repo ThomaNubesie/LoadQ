@@ -7,6 +7,7 @@ import { DriversAPI } from "../../services/drivers";
 import { resolveHome } from "../../services/authRoute";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { VehicleType } from "../../constants/types";
 import { getSeatsForType, getSeatsForModel, CAR_COLORS } from "../../constants/vehicles";
 import { getVehicleImageUrl } from "../../utils/vehicleImage";
@@ -201,7 +202,7 @@ export default function VehicleSetupScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={s.logo}>LOADQ</Text>
+        <Wordmark style={s.logo} />
         <View style={s.stepRow}>
           <Text style={s.stepText}>2 {t.stepOf} 3</Text>
           <View style={s.stepBar}><View style={[s.stepFill, { width:"66%" }]} /></View>

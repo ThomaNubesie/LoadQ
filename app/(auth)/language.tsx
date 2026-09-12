@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { setLang } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { Lang, STRINGS } from "../../constants/i18n";
 import { ArrowRight } from "lucide-react-native";
 
@@ -25,7 +26,7 @@ export default function LanguageScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.inner}>
         <View style={s.logoBox}>
-          <Text style={s.logo}>LOADQ</Text>
+          <Wordmark style={s.logo} />
           <Text style={s.logoSub}>{STRINGS[selected].smartQueue}</Text>
         </View>
 

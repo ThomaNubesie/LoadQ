@@ -9,6 +9,7 @@ import { resolveHome } from "../../services/authRoute";
 import { SessionAPI } from "../../services/session";
 import { useStrings } from "../../hooks/useStrings";
 import { Colors } from "../../constants/colors";
+import Wordmark from "../../components/Wordmark";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 
 export default function OTPScreen() {
@@ -111,7 +112,7 @@ export default function OTPScreen() {
             <Text style={s.backText}>{t.back}</Text>
           </View>
         </TouchableOpacity>
-        <Text style={s.logo}>LOADQ</Text>
+        <Wordmark style={s.logo} />
         <Text style={s.title}>{t.verifyCode}</Text>
         <Text style={s.sub}>{t.codeSentTo}{" "}<Text style={{ color:Colors.accent }}>{phone}</Text></Text>
 
