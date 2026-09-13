@@ -98,12 +98,21 @@ export default function BoardScreen() {
     const fallbackZone = zones.find(z => z.id === DEFAULT_ZONE_ID) ?? zones[0] ?? null;
     const loc = await tryGetUserLocation(8000);
     let region = fallbackZone?.region ?? "ottawa";
+    let nearestId: string | null = null;
     if (loc) {
       const near = await PassengerBoardAPI.nearestZone(loc.coords.latitude, loc.coords.longitude);
-      if (near) { const nz = zones.find(z => z.id === near.id); if (nz) region = nz.region; }
+      if (near) {
+        const nz = zones.find(z => z.id === near.id);
+        if (nz) { region = nz.region; nearestId = nz.id; }
+      }
     }
     setHomeCity(region);
     setSelectedCity(prev => prev ?? region);
+    // Stand at Burger King, see Burger King. This used to keep only the REGION from the
+    // GPS lookup and drop the zone, so the city-zones effect below fell through to
+    // rows[0] — the BUSIEST zone in that city — and a rider at one pickup point was shown
+    // another. `prev ??` so an explicit ?zone= link still wins over GPS.
+    if (nearestId) setZoneId(prev => prev ?? nearestId);
   }, [zones]);
 
   useEffect(() => {
