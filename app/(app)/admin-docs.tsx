@@ -153,23 +153,43 @@ export default function AdminDocsScreen() {
       </Modal>
 
       {/* Reject note */}
+      {/* Why this sheet is built the way it is — it had three separate faults:
+          1. behavior={undefined} on Android meant nothing moved, so the keyboard sat on
+             top of the note and the Reject button.
+          2. The sheet is inside a full-screen Pressable dim. With the keyboard open the
+             first tap anywhere is swallowed dismissing it, so Reject appeared dead —
+             keyboardShouldPersistTaps="handled" is what lets that tap reach the button.
+          3. Nothing scrolled, so on a short screen the button had nowhere to go. */}
       <Modal visible={!!rejectRow} transparent animationType="slide" onRequestClose={() => setRejectRow(null)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
         <Pressable style={s.sheetDim} onPress={() => setRejectRow(null)}>
           <Pressable style={s.sheet} onPress={() => {}}>
-            <View style={s.grip} />
-            <Text style={s.sheetTitle}>{t("adminDocsRejectTitle")}</Text>
-            <TextInput
-              style={s.input}
-              value={rejectNote}
-              onChangeText={setRejectNote}
-              placeholder={t("adminDocsRejectPh")}
-              placeholderTextColor={Colors.t3}
-              multiline
-            />
-            <TouchableOpacity style={s.rejectConfirm} onPress={doReject} activeOpacity={0.85}>
-              <Text style={s.rejectConfirmTxt}>{t("adminDocsReject")}</Text>
-            </TouchableOpacity>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 4 }}
+            >
+              <View style={s.grip} />
+              <Text style={s.sheetTitle}>{t("adminDocsRejectTitle")}</Text>
+              <TextInput
+                style={s.input}
+                value={rejectNote}
+                onChangeText={setRejectNote}
+                placeholder={t("adminDocsRejectPh")}
+                placeholderTextColor={Colors.t3}
+                multiline
+                autoFocus
+                returnKeyType="done"
+                blurOnSubmit
+              />
+              <TouchableOpacity style={s.rejectConfirm} onPress={doReject} activeOpacity={0.85}>
+                <Text style={s.rejectConfirmTxt}>{t("adminDocsReject")}</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </Pressable>
         </Pressable>
         </KeyboardAvoidingView>
@@ -222,7 +242,7 @@ const s = StyleSheet.create({
   viewerImg: { width: "100%", height: "78%" },
   viewerClose: { position: "absolute", top: 40, right: 20 },
   sheetDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
-  sheet:    { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 16, paddingBottom: 28 },
+  sheet:    { maxHeight: "82%", backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 16, paddingBottom: 28 },
   grip:     { width: 36, height: 4, borderRadius: 3, backgroundColor: Colors.border, alignSelf: "center", marginBottom: 12 },
   sheetTitle: { color: Colors.t1, fontSize: 16, fontWeight: "800", marginBottom: 12 },
   input:    { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 11, padding: 12, color: Colors.t1, fontSize: 14, minHeight: 76, textAlignVertical: "top" },
