@@ -86,10 +86,20 @@ export default function VerificationScreen() {
     setExpiry(docs[docType]?.expires_on ?? "");
   };
 
-  const submit = async (withExpiry: boolean) => {
+  // Every document type here carries an expiry date, and the server now rejects a
+  // submission without one (loadq_driver_doc_submit). Letting the driver skip it only
+  // bought an upload, a wait, and a refusal — so the date is required before Save works.
+  const expiryOk = (() => {
+    const v = expiry.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+    const d = new Date(v + "T00:00:00");
+    return !isNaN(d.getTime()) && d.getTime() > Date.now();
+  })();
+
+  const submit = async () => {
     const docType = sheetFor;
-    if (!docType || !pendingUri) return;
-    const iso = withExpiry && /^\d{4}-\d{2}-\d{2}$/.test(expiry.trim()) ? expiry.trim() : null;
+    if (!docType || !pendingUri || !expiryOk) return;
+    const iso = expiry.trim();
     const uri = pendingUri;
     setSheetFor(null); setPendingUri(null); setExpiry("");
     setBusy(docType);
@@ -237,11 +247,13 @@ export default function VerificationScreen() {
                 <Text style={s.mLabel}>{t.docAddExpiry}</Text>
                 <TextInput style={s.mInput} value={expiry} onChangeText={setExpiry} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.t3} autoCapitalize="none" keyboardType="numbers-and-punctuation" />
                 <Text style={s.mHint}>{t.docExpiryHint}</Text>
-                <TouchableOpacity style={s.mSave} onPress={() => submit(true)} activeOpacity={0.85}>
+                <TouchableOpacity
+                  style={[s.mSave, !expiryOk && { opacity: 0.45 }]}
+                  disabled={!expiryOk}
+                  onPress={submit}
+                  activeOpacity={0.85}
+                >
                   <Text style={s.mSaveTxt}>{t.docSave}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.mSkip} onPress={() => submit(false)} activeOpacity={0.85}>
-                  <Text style={s.mSkipTxt}>{t.docSkip}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -305,6 +317,4 @@ const s = StyleSheet.create({
   mHint:       { color: Colors.t3, fontSize: 11.5, marginTop: 6 },
   mSave:       { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 13, alignItems: "center", marginTop: 14 },
   mSaveTxt:    { color: Colors.accentText, fontWeight: "800", fontSize: 14.5 },
-  mSkip:       { paddingVertical: 12, alignItems: "center", marginTop: 2 },
-  mSkipTxt:    { color: Colors.t3, fontSize: 13, fontWeight: "600" },
 });
