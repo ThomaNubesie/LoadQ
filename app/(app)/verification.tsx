@@ -120,7 +120,7 @@ export default function VerificationScreen() {
   };
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>{t.verifTitle}</Text>

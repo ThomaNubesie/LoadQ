@@ -330,7 +330,7 @@ export default function AdminUserScreen() {
 
   if (loading || !user) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>User</Text><View style={{ width: 24 }} />
@@ -341,7 +341,7 @@ export default function AdminUserScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>User</Text>

@@ -52,7 +52,7 @@ export default function PassengerZonesScreen() {
   };
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <Text style={s.title}>{t.loadingZones}</Text>
       </View>

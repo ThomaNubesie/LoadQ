@@ -13,7 +13,7 @@ export default function AdminThreadScreen() {
 
   if (!id) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Thread</Text>
@@ -25,7 +25,7 @@ export default function AdminThreadScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title} numberOfLines={1}>{displayName}</Text>

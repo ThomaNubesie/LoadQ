@@ -749,7 +749,7 @@ export default function QueueScreen() {
   const dropZones = getZonesByRegion(zones, dropRegion);
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
 
       {/* ── Header ── */}
       <View style={s.header}>

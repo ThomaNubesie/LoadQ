@@ -138,7 +138,7 @@ export default function AdminUsersScreen() {
   const statusFilters = roleTab === "driver" ? DRIVER_FILTERS : PASSENGER_FILTERS;
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
           <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />

@@ -86,7 +86,7 @@ export default function KolisScan() {
   // ── Camera permission gate ──
   if (!perm) return <View style={{ flex: 1, backgroundColor: "#000" }} />;
   if (!perm.granted) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, alignItems: "center", justifyContent: "center", padding: 30 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, alignItems: "center", justifyContent: "center", padding: 30 }} edges={["left", "right", "bottom"]}>
       <ScanLine size={40} color={Colors.t1} strokeWidth={2} />
       <Text style={{ color: Colors.t1, fontSize: 18, fontWeight: "800", marginTop: 12, textAlign: "center" }}>{fr ? "Autoriser la caméra" : "Allow the camera"}</Text>
       <Text style={{ color: Colors.t2, textAlign: "center", marginTop: 6 }}>{fr ? "Pour scanner les codes QR de colis Kolis." : "To scan Kolis parcel QR codes."}</Text>
@@ -101,7 +101,7 @@ export default function KolisScan() {
     // scan location is captured best-effort for the audit trail, never blocks.
     const dist = res.distance_m != null ? `${res.distance_m} m` : "";
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top", "bottom"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["left", "right", "bottom"]}>
         <View style={{ backgroundColor: MAG, padding: 16, flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{fr ? "Colis vérifié" : "Parcel verified"}</Text>
           <Pressable onPress={() => setRes(null)} style={{ marginLeft: "auto" }}><Text style={{ color: "#fff", fontWeight: "800" }}>{fr ? "Scanner à nouveau" : "Scan again"}</Text></Pressable>
@@ -153,7 +153,7 @@ export default function KolisScan() {
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       <CameraView style={{ flex: 1 }} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={onScan} />
-      <SafeAreaView style={{ position: "absolute", top: 0, left: 0, right: 0 }} edges={["top"]}>
+      <SafeAreaView style={{ position: "absolute", top: 0, left: 0, right: 0 }} edges={["left", "right", "bottom"]}>
         <View style={{ flexDirection: "row", alignItems: "center", padding: 16 }}>
           <Pressable onPress={() => router.back()} hitSlop={10}><X size={22} color="#fff" strokeWidth={2} /></Pressable>
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16, marginLeft: 12 }}>{fr ? "Scanner le QR du colis" : "Scan the parcel QR"}</Text>

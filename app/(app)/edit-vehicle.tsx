@@ -46,7 +46,7 @@ export default function EditVehicleScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
         <View style={s.center}><ActivityIndicator color={Colors.accent} /></View>
       </SafeAreaView>
     );
@@ -54,7 +54,7 @@ export default function EditVehicleScreen() {
 
   if (!vehicle) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Edit vehicle</Text>
@@ -66,7 +66,7 @@ export default function EditVehicleScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>Edit vehicle</Text>

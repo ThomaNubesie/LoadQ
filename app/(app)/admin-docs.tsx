@@ -82,11 +82,11 @@ export default function AdminDocsScreen() {
   }
 
   if (allowed === false) {
-    return <SafeAreaView style={s.screen} edges={["top"]}><View style={s.center}><Text style={s.muted}>{t("adminOnly")}</Text></View></SafeAreaView>;
+    return <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}><View style={s.center}><Text style={s.muted}>{t("adminOnly")}</Text></View></SafeAreaView>;
   }
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color={Colors.t1} /></TouchableOpacity>
         <Text style={s.title}>{t("adminDocs")}</Text>

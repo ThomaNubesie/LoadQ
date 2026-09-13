@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useStrings } from "../../hooks/useStrings";
@@ -73,7 +74,7 @@ export default function ZoneSelectScreen() {
   };
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/queue")} style={{ padding:4 }}>
           <ArrowLeft size={16} color={Colors.t2} strokeWidth={2} />

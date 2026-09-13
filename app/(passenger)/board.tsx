@@ -315,7 +315,7 @@ export default function BoardScreen() {
   };
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       {/* header — driver-style zone selector */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>

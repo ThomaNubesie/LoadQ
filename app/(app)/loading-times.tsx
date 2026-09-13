@@ -11,7 +11,7 @@ export default function DriverLoadingTimes() {
   const { zoneId, zoneName } = useLocalSearchParams<{ zoneId?: string; zoneName?: string }>();
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><ChevronLeft size={24} color={Colors.t1} /></TouchableOpacity>
       </View>

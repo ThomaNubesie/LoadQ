@@ -167,7 +167,7 @@ export default function RequestRideScreen() {
   const destName = (r: MyRideRequest) => r.dest_region ? getRegionName(r.dest_region) : (r.dest_address || "—");
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>{t.reqRideTitle}</Text>

@@ -82,7 +82,7 @@ export default function PickupScheduledScreen() {
   const dayLabel = (d: Date) => d.toLocaleDateString(fr ? "fr-CA" : "en-CA", { weekday: "short", month: "short", day: "numeric" });
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => (quote ? setQuote(null) : router.back())} hitSlop={10}><ArrowLeft size={22} color={Colors.t1} /></TouchableOpacity>
         <Text style={s.title}>{fr ? "Ramassage porte-à-porte" : "Door-to-door pickup"}</Text>
@@ -220,7 +220,7 @@ export default function PickupScheduledScreen() {
 
       <Modal visible={cityOpen} animationType="slide" transparent onRequestClose={() => setCityOpen(false)}>
         <View style={s.cityBackdrop}>
-          <SafeAreaView style={s.citySheet} edges={["bottom"]}>
+          <SafeAreaView style={s.citySheet} edges={["left", "right", "bottom"]}>
             <View style={s.cityHead}>
               <Text style={s.cityTitle}>{fr ? "Ville de destination" : "Destination city"}</Text>
               <TouchableOpacity onPress={() => setCityOpen(false)} hitSlop={10}><Text style={{ color: Colors.t2, fontSize: 20 }}>✕</Text></TouchableOpacity>

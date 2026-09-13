@@ -61,7 +61,7 @@ export default function PickupRequestScreen() {
   }
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color={Colors.t1} /></TouchableOpacity>
         <Text style={s.title}>{t("reqPickupTitle")}</Text>

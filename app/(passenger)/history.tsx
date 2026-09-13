@@ -163,7 +163,7 @@ export default function PassengerHistoryScreen() {
   const weekSavings     = useMemo(() => sumSavings(toSavingsInput(weekTrips)), [weekTrips, toSavingsInput]);
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <Text style={s.title}>{t.boardHistory}{zone ? ` · ${zone.name.toUpperCase()}` : ""}</Text>
       </View>

@@ -114,7 +114,7 @@ export default function RideOfferScreen() {
   const isRoute = (o: RideOffer) => o.kind === "route_pickup";
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <TouchableOpacity style={s.close} onPress={close} hitSlop={12}><X size={22} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
 
       {phase === "loading" && <View style={s.center}><ActivityIndicator color={Colors.accent} /></View>}

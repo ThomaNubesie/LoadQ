@@ -95,7 +95,7 @@ Joined: ${fmtDate(data.created_at)}`;
 
   if (loading || !data) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Print</Text><View style={{ width: 24 }} />
@@ -109,7 +109,7 @@ Joined: ${fmtDate(data.created_at)}`;
   const qrUrl     = ReferralAPI.link(data.id);
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>Print</Text>

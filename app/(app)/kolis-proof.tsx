@@ -82,7 +82,7 @@ export default function KolisProofScreen() {
   };
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity style={s.back} onPress={() => router.back()}><ChevronLeft size={22} color={Colors.t1} /></TouchableOpacity>
         <Text style={s.title}>{fr ? "Preuve de livraison" : "Proof of delivery"}</Text>

@@ -48,13 +48,13 @@ export default function AdminDestinationsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}><View style={s.center}><ActivityIndicator color={Colors.accent} /></View></SafeAreaView>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}><View style={s.center}><ActivityIndicator color={Colors.accent} /></View></SafeAreaView>
     );
   }
 
   if (!allowed) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>Admin · Destinations</Text>
@@ -72,7 +72,7 @@ export default function AdminDestinationsScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>Admin · Destinations</Text>

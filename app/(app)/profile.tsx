@@ -129,7 +129,7 @@ export default function ProfileScreen() {
     : t.subExpired;
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/zone-select")}>
           <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />

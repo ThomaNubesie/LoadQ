@@ -71,7 +71,7 @@ export default function KolisCarrying() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["left", "right", "bottom"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

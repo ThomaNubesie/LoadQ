@@ -40,7 +40,7 @@ export default function LoadingHistoryScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
           <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />

@@ -116,7 +116,7 @@ export default function ScheduledScreen() {
   };
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color={Colors.t1} /></TouchableOpacity>
         <Text style={s.title}>{fr ? "Courses planifiées" : "Scheduled trips"}</Text>

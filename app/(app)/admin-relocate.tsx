@@ -30,10 +30,10 @@ export default function AdminRelocateScreen() {
 
   const toast = (m: string) => { setFlash(m); setTimeout(() => setFlash(""), 3500); };
 
-  if (allowed === null) return <SafeAreaView style={s.container}><View style={s.center}><ActivityIndicator color={Colors.accent} /></View></SafeAreaView>;
+  if (allowed === null) return <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}><View style={s.center}><ActivityIndicator color={Colors.accent} /></View></SafeAreaView>;
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>{t.arTitle}</Text>

@@ -60,13 +60,13 @@ export default function AdminQueueHoursScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}><View style={s.center}><ActivityIndicator color={Colors.accent} /></View></SafeAreaView>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}><View style={s.center}><ActivityIndicator color={Colors.accent} /></View></SafeAreaView>
     );
   }
 
   if (!allowed) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
           <Text style={s.title}>{t.queueHoursTitle}</Text>
@@ -91,7 +91,7 @@ export default function AdminQueueHoursScreen() {
   );
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}><ArrowLeft size={20} color={Colors.t2} strokeWidth={2} /></TouchableOpacity>
         <Text style={s.title}>{t.queueHoursTitle}</Text>

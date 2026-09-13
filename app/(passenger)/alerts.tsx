@@ -46,7 +46,7 @@ export default function AlertsScreen() {
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
 
   return (
-    <SafeAreaView style={s.screen} edges={["top"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
       <Text style={s.title}>{t("navAlerts")}</Text>
       {loading ? (
         <View style={s.center}><ActivityIndicator color={Colors.accentP} /></View>
