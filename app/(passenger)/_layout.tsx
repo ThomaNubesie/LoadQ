@@ -1,16 +1,20 @@
 import { Stack } from "expo-router";
 import { View } from "react-native";
-import { SafeAreaInsetsContext } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BrandHeader from "../../components/BrandHeader";
 import { Colors } from "../../constants/colors";
 
 export default function PassengerLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
       <BrandHeader />
-      <SafeAreaInsetsContext.Consumer>
-        {(insets) => (
-          <SafeAreaInsetsContext.Provider value={{ ...(insets ?? { top: 0, bottom: 0, left: 0, right: 0 }), top: 0 }}>
+      {/* Every one of the 52 screens below renders its own <SafeAreaView>, which is a
+          NATIVE view: it reads the notch inset from the platform and ignores React
+          context, so it cannot be told the header already consumed it. Pulling the stack
+          up by exactly that inset cancels the duplicate padding. Safe precisely because
+          it is 52 of 52 — no screen is left without its own top padding to cancel. */}
+      <View style={{ flex: 1, marginTop: -insets.top }}>
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>
       <Stack.Screen name="board" />
       <Stack.Screen name="my-trip" />
@@ -29,9 +33,7 @@ export default function PassengerLayout() {
       <Stack.Screen name="pickup-status" />
       <Stack.Screen name="pickup-receipt" />
     </Stack>
-            </SafeAreaInsetsContext.Provider>
-          )}
-        </SafeAreaInsetsContext.Consumer>
+      </View>
       </View>
   );
 }
