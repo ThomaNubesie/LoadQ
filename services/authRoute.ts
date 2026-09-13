@@ -1,11 +1,13 @@
 import { supabase } from "./supabase";
 import { DriversAPI } from "./drivers";
 import { PassengersAPI } from "./passengers";
+import { UndertakingAPI } from "./undertaking";
 
 export type HomeRoute =
   | "/(auth)/welcome"
   | "/(auth)/profile-setup"
   | "/(auth)/passenger-setup"
+  | "/(auth)/engagement"
   | "/(auth)/subscribe"
   | "/(app)/zone-select"
   | "/(passenger)/board";
@@ -27,6 +29,12 @@ export async function resolveHome(): Promise<HomeRoute> {
 
   if (driver) {
     if (!driver.full_name) return "/(auth)/profile-setup";
+    // The engagement comes before the money: you accept the rules, then pay the
+    // contribution those rules describe. Only drivers who joined on or after
+    // loadq_settings.undertaking_required_from are asked — everyone already on the
+    // platform signed on paper, and `required` is false for them.
+    const u = await UndertakingAPI.get();
+    if (u?.required && !u.signed) return "/(auth)/engagement";
     const hasSub = await DriversAPI.hasActiveSubscription();
     return hasSub ? "/(app)/zone-select" : "/(auth)/subscribe";
   }
