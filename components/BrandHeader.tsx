@@ -18,15 +18,19 @@ import Wordmark from "./Wordmark";
 export default function BrandHeader() {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[s.wrap, { paddingTop: insets.top, backgroundColor: Colors.bg }]}>
+    <View style={[s.wrap, { paddingTop: insets.top, backgroundColor: Colors.bg, borderBottomColor: Colors.border }]}>
       <View style={s.row}>
-        <Wordmark style={{ fontSize: 19 }} />
+        <Wordmark style={{ fontSize: 17 }} />
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  row: { height: 34, justifyContent: "center", paddingHorizontal: 16 },
-  wrap: {},
+  // 34pt read as a gap rather than a header: the screen below draws its own padded
+  // header, so the two stacked into dead space. 26pt plus a hairline rule reads as a
+  // band that belongs to the chrome, and the rule is what separates it from the
+  // screen's own title.
+  row: { height: 26, justifyContent: "center", paddingHorizontal: 16 },
+  wrap: { borderBottomWidth: StyleSheet.hairlineWidth },
 });
