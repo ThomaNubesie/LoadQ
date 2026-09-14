@@ -12,7 +12,9 @@ export default function ThemePicker() {
   const OPTS: { key: ThemeName; label: string; swatch: string }[] = [
     { key: "light", label: fr ? "Clair" : "Light", swatch: "#FAF6EF" },
     { key: "dark", label: fr ? "Sombre" : "Dark", swatch: "#15171C" },
-    { key: "azure", label: "Azure", swatch: "#1B2740" },
+    // The Azure swatch was #1B2740 — the theme's dark BACKGROUND, so it looked like a
+    // second black square beside Sombre. Azure is named for its accent, #4C82F0.
+    { key: "azure", label: "Azure", swatch: "#4C82F0" },
   ];
 
   const pick = (t: ThemeName) => {

@@ -158,7 +158,7 @@ export default function PassengerProfileScreen() {
 
         <View style={{ marginTop: 18 }}><ThemePicker /></View>
 
-        <Text style={s.sectionLabel}>{t.accountLabel}</Text>
+        <Text style={[s.sectionLabel, { marginTop: 24 }]}>{t.accountLabel}</Text>
         <TouchableOpacity style={s.rowBtn} onPress={() => router.push("/(passenger)/messages" as any)} activeOpacity={0.85}>
           <Text style={s.rowBtnText}>{t.messagesLabel}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -169,10 +169,6 @@ export default function PassengerProfileScreen() {
             )}
             <Text style={s.rowBtnChevron}>›</Text>
           </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.rowBtn} onPress={handleSignOut} activeOpacity={0.85}>
-          <Text style={[s.rowBtnText, { color: Colors.red }]}>{t.signOutLabel}</Text>
-          <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.rowBtn} onPress={handleDeleteAccount} activeOpacity={0.85}>
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.deleteAccountAction}</Text>
@@ -196,7 +192,7 @@ export default function PassengerProfileScreen() {
         )}
 
         <Text style={[s.sectionLabel, { marginTop: 24 }]}>{t.aboutLabel}</Text>
-        <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL("https://loadq.ca/privacy")} activeOpacity={0.85}>
+        <TouchableOpacity style={s.rowBtn} onPress={() => Linking.openURL(lang === "fr" ? "https://loadq.ca/fr/privacy" : "https://loadq.ca/privacy")} activeOpacity={0.85}>
           <Text style={s.rowBtnText}>{t.privacy}</Text>
           <Text style={s.rowBtnChevron}>›</Text>
         </TouchableOpacity>
@@ -218,6 +214,15 @@ export default function PassengerProfileScreen() {
         <View style={[s.rowBtn, { justifyContent: "space-between" }]}>
           <Text style={[s.rowBtnText, { color: Colors.t3 }]}>{t.versionLabel}</Text>
           <Text style={[s.rowBtnText, { color: Colors.t3, fontWeight: "500" }]}>{`${Constants.expoConfig?.version ?? "—"} (${(Platform.OS === "ios" ? Constants.expoConfig?.ios?.buildNumber : Constants.expoConfig?.android?.versionCode) ?? "?"})`}</Text>
+        </View>
+
+        {/* Signing out is the last thing on the screen: it is the one row nobody should
+            reach by mistake while scanning the account block. */}
+        <View style={{ marginTop: 26 }}>
+          <TouchableOpacity style={s.rowBtn} onPress={handleSignOut} activeOpacity={0.85}>
+            <Text style={[s.rowBtnText, { color: Colors.red, fontWeight: "700" }]}>{t.signOutLabel}</Text>
+            <Text style={[s.rowBtnChevron, { color: Colors.red }]}>›</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ alignItems: "center", marginTop: 20 }}>
