@@ -404,10 +404,6 @@ export default function ProfileScreen() {
           </>
         )}
 
-        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
-          <Text style={s.signOutText}>{t.signOut}</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={s.deleteAccountBtn} onPress={handleDeleteAccount}>
           <Text style={s.deleteAccountText}>{t.deleteAccountAction}</Text>
         </TouchableOpacity>
@@ -417,6 +413,17 @@ export default function ProfileScreen() {
             <BookOpen size={16} color={Colors.t1} strokeWidth={2} />
             <Text style={{ color: Colors.t1, fontSize: 14.5, fontWeight: "700" }}>{lang === "fr" ? "Comment utiliser l'application" : "How to use the app"}</Text>
           </View>
+          <Text style={{ color: Colors.accent, fontSize: 18, fontWeight: "700" }}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => Linking.openURL(lang === "fr" ? "https://loadq.ca/fr/privacy" : "https://loadq.ca/privacy")}
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, borderRadius: 12, padding: 15, marginTop: 8 }}
+          activeOpacity={0.85}
+        >
+          <Text style={{ color: Colors.t1, fontSize: 14.5, fontWeight: "700" }}>
+            {lang === "fr" ? "Politique de confidentialité" : "Privacy policy"}
+          </Text>
           <Text style={{ color: Colors.accent, fontSize: 18, fontWeight: "700" }}>›</Text>
         </TouchableOpacity>
 
@@ -430,6 +437,12 @@ export default function ProfileScreen() {
             <Text style={{ color: Colors.accent, fontSize: 12.5, fontWeight: "700" }}>{lang === "fr" ? "Mettre à jour l'application" : "Update the app"}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Last thing on the screen, as on the passenger profile — the one row nobody
+            should reach by mistake while scanning. */}
+        <TouchableOpacity style={[s.signOutBtn, { marginTop: 26 }]} onPress={handleSignOut}>
+          <Text style={s.signOutText}>{t.signOut}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Interac editor */}
