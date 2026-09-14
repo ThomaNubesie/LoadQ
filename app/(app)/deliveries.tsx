@@ -20,7 +20,7 @@ export default function Deliveries() {
   const onRefresh = useCallback(() => { setRefreshing(true); setNonce((n) => n + 1); setTimeout(() => setRefreshing(false), 600); }, []);
 
   return (
-    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right"]}>
       <Text style={s.title}>{t.deliveries}</Text>
       <Text style={s.sub}>{t.deliveriesSub}</Text>
       <ScrollView

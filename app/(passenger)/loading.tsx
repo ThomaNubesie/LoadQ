@@ -514,7 +514,7 @@ export default function PassengerLoadingScreen() {
   };
 
   return (
-    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.container} edges={["left", "right"]}>
       <View style={s.header}>
         <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
           <Bus size={18} color={Colors.t1} strokeWidth={2} />

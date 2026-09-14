@@ -131,7 +131,7 @@ export default function MyTripScreen() {
   }
 
   if (loading) {
-    return <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}><Text style={s.title}>{t("myTripTitle")}</Text><View style={s.center}><ActivityIndicator color={Colors.accentP} /></View><PassengerBottomNav /></SafeAreaView>;
+    return <SafeAreaView style={s.screen} edges={["left", "right"]}><Text style={s.title}>{t("myTripTitle")}</Text><View style={s.center}><ActivityIndicator color={Colors.accentP} /></View><PassengerBottomNav /></SafeAreaView>;
   }
 
   // Active feeder pickup card (shown on My Trips + links to live tracking).
@@ -239,7 +239,7 @@ export default function MyTripScreen() {
 
   if (!trip) {
     return (
-      <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
+      <SafeAreaView style={s.screen} edges={["left", "right"]}>
         <Text style={s.title}>{t("myTripTitle")}</Text>
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>
@@ -264,7 +264,7 @@ export default function MyTripScreen() {
   const vehicle  = vehicleLabel(trip);
 
   return (
-    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right"]}>
       <Text style={s.title}>{t("myTripTitle")}</Text>
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}>

@@ -40,7 +40,7 @@ export default function ReferralScreen() {
   const waiverBanked = (prog?.waiver_months ?? 0) > 0;
 
   return (
-    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.container} edges={["left", "right"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/profile")}>
           <ArrowLeft size={20} color={Colors.t2} strokeWidth={2} />

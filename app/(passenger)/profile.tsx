@@ -90,7 +90,7 @@ export default function PassengerProfileScreen() {
   const phoneDisplay = passenger?.phone || "—";
 
   return (
-    <SafeAreaView style={s.container} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.container} edges={["left", "right"]}>
       <View style={s.header}>
         <Text style={s.title}>ME</Text>
         <View style={{ width: 24 }} />

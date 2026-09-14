@@ -127,7 +127,7 @@ export default function FeederScreen() {
   const nextStop = run?.stops?.find((st) => !st.picked_up && st.lat != null && st.lng != null) ?? null;
 
   return (
-    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><ArrowLeft size={22} color={Colors.t1} /></TouchableOpacity>
         <Text style={s.title}>{t("feederTitle")}</Text>

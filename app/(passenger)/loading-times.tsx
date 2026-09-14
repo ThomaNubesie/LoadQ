@@ -11,7 +11,7 @@ export default function PassengerLoadingTimes() {
   const { zoneId, zoneName, dest } = useLocalSearchParams<{ zoneId: string; zoneName?: string; dest?: string }>();
 
   return (
-    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right"]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><ChevronLeft size={24} color={Colors.t1} /></TouchableOpacity>
       </View>

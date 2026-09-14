@@ -96,14 +96,21 @@ export default function BoardScreen() {
   // zone in that city. Falls back to Ottawa / Universal Grocery.
   const resolveHome = useCallback(async () => {
     const fallbackZone = zones.find(z => z.id === DEFAULT_ZONE_ID) ?? zones[0] ?? null;
-    const loc = await tryGetUserLocation(8000);
+    // 8s was not enough for a cold fix indoors, and the fallback is silent — the
+    // rider just sees the wrong pickup point with no hint that GPS timed out.
+    const loc = await tryGetUserLocation(15000);
     let region = fallbackZone?.region ?? "ottawa";
     let nearestId: string | null = null;
     if (loc) {
       const near = await PassengerBoardAPI.nearestZone(loc.coords.latitude, loc.coords.longitude);
       if (near) {
+        // The server now returns the region with the zone. This used to look `near.id` up
+        // in the locally loaded `zones` array and DISCARD the whole answer when it was not
+        // there — so a rider standing at a pickup point the list had not loaded was sent to
+        // the city's busiest one instead.
         const nz = zones.find(z => z.id === near.id);
-        if (nz) { region = nz.region; nearestId = nz.id; }
+        region    = nz?.region ?? near.region ?? region;
+        nearestId = near.id;
       }
     }
     setHomeCity(region);
@@ -315,7 +322,7 @@ export default function BoardScreen() {
   };
 
   return (
-    <SafeAreaView style={s.screen} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={s.screen} edges={["left", "right"]}>
       {/* header — driver-style zone selector */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>

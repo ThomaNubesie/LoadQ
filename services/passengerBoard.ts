@@ -20,6 +20,8 @@ export type TripStatus = "held" | "boarded" | "departed" | "cancelled" | "expire
 export interface NearestZone {
   id:            string;
   name:          string;
+  // Returned by loadq_nearest_zone so the caller need not look the zone up locally.
+  region:        string;
   distance_m:    number;
   within_radius: boolean;
   latitude:      number;
