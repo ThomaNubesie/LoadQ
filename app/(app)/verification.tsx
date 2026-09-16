@@ -3,14 +3,28 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIn
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { ArrowLeft, Camera, Images, FileText, ShieldCheck, Car, CheckCircle2, Clock3, XCircle, AlertTriangle, X } from "lucide-react-native";
+import { ArrowLeft, Camera, Images, FileText, ShieldCheck, Car, CheckCircle2, Clock3, XCircle, AlertTriangle, X, BadgeCheck, ScrollText, FileCheck, ClipboardCheck } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc, ScreeningConsent } from "../../services/driverDocs";
+import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc, ScreeningConsent, RequiredDoc } from "../../services/driverDocs";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import BottomNav from "../../components/BottomNav";
 
-const ICONS: Record<DocType, any> = { drivers_license: FileText, insurance: ShieldCheck, registration: Car };
+// Line icons, stroke-only and transparent, matching the three already on this screen — the
+// document cards sit on the card background and a filled glyph would read as a sticker.
+//
+// Chosen to be legible as documents rather than decorative: an official verification, a
+// record, an attested statement, an inspection result. NOTE: lucide 1.27 has no
+// `FileSignature` or `Fingerprint` — importing either compiles and then crashes the screen.
+const ICONS: Record<DocType, any> = {
+  drivers_license:     FileText,       // the licence itself
+  insurance:           ShieldCheck,    // cover
+  registration:        Car,            // the vehicle permit
+  police_record_check: BadgeCheck,     // an official check, cleared
+  driving_record:      ScrollText,     // a record issued by the ministry
+  charges_declaration: FileCheck,      // a statement the driver attests to
+  safety_certificate:  ClipboardCheck, // an inspection, passed
+};
 
 export default function VerificationScreen() {
   const router = useRouter();
@@ -21,17 +35,34 @@ export default function VerificationScreen() {
   const [busy, setBusy] = useState<DocType | null>(null);
   const [consent, setConsent] = useState<ScreeningConsent | null>(null);
   const [consentBusy, setConsentBusy] = useState(false);
+  // What the City requires TODAY, fetched rather than compiled in — so a by-law change
+  // reaches drivers without an App Store release.
+  const [required, setRequired] = useState<RequiredDoc[] | null>(null);
 
   // Photo-source + expiry sheet state for the doc currently being uploaded.
   const [sheetFor, setSheetFor] = useState<DocType | null>(null);
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [expiry, setExpiry] = useState("");
 
-  const label: Record<DocType, string> = {
+  // The three original labels are translated in the app; anything the City adds later arrives
+  // already worded, in both languages, from the server.
+  const bundled: Partial<Record<DocType, string>> = {
     drivers_license: t.docDriversLicense,
     insurance: t.docInsurance,
     registration: t.docRegistration,
   };
+  const labelFor = (dt: DocType) => {
+    const r = required?.find((x) => x.doc_type === dt);
+    return bundled[dt] ?? (lang === "fr" ? r?.label_fr : r?.label_en) ?? dt;
+  };
+  const helpFor = (dt: DocType) => {
+    const r = required?.find((x) => x.doc_type === dt);
+    return (lang === "fr" ? r?.help_fr : r?.help_en) ?? null;
+  };
+  // Offline, or before the first fetch, show the full set rather than a short one.
+  const types: DocType[] = required?.length
+    ? required.map((r) => r.doc_type)
+    : DOC_TYPES;
 
   const load = useCallback(async () => {
     try {
@@ -41,12 +72,13 @@ export default function VerificationScreen() {
       setDocs(map);
       setVerified(verified);
       setConsent(await DriverDocsAPI.getConsent().catch(() => null));
+      setRequired(await DriverDocsAPI.required().catch(() => null));
     } catch { /* offline / not signed in — leave empty */ }
     finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const approvedCount = DOC_TYPES.filter((dt) => docs[dt]?.status === "approved").length;
+  const approvedCount = types.filter((dt) => docs[dt]?.status === "approved").length;
 
   const fmtDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" });
 
@@ -177,7 +209,7 @@ export default function VerificationScreen() {
         {loading ? (
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 28 }} />
         ) : (
-          DOC_TYPES.map((dt) => {
+          types.map((dt) => {
             const doc = docs[dt];
             const meta = statusMeta(dt);
             const CardIcon = ICONS[dt];
@@ -186,7 +218,8 @@ export default function VerificationScreen() {
                 <View style={s.crow}>
                   <View style={s.cardIco}><CardIcon size={19} color={Colors.t2} strokeWidth={2} /></View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={s.cname}>{label[dt]}</Text>
+                    <Text style={s.cname}>{labelFor(dt)}</Text>
+                    {!doc && helpFor(dt) ? <Text style={s.chelp}>{helpFor(dt)}</Text> : null}
                     {doc?.status === "approved" && doc.expires_on
                       ? <Text style={s.cmeta}>{t("docExpiresOn", { date: fmtDate(doc.expires_on) })}</Text>
                       : doc?.status === "expired" && doc.expires_on
@@ -229,7 +262,7 @@ export default function VerificationScreen() {
           <View style={s.mSheet}>
             <View style={s.mGrip} />
             <View style={s.mHead}>
-              <Text style={s.mTitle}>{sheetFor ? label[sheetFor] : ""}</Text>
+              <Text style={s.mTitle}>{sheetFor ? labelFor(sheetFor) : ""}</Text>
               <TouchableOpacity onPress={closeSheet} hitSlop={8}><X size={20} color={Colors.t3} /></TouchableOpacity>
             </View>
 
@@ -270,6 +303,7 @@ const s = StyleSheet.create({
   container:   { flex: 1, backgroundColor: Colors.bg },
   header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16 },
   title:       { fontSize: 17, fontWeight: "700", color: Colors.t1 },
+  chelp:       { fontSize: 11.5, color: Colors.t3, marginTop: 2, lineHeight: 16 },
   inner:       { padding: 20, paddingBottom: 80 },
 
   overall:     { flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: Colors.card, borderWidth: 0.5, borderColor: Colors.border, borderRadius: 16, padding: 15, marginBottom: 14 },

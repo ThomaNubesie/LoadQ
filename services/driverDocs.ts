@@ -1,10 +1,41 @@
 import { supabase } from "./supabase";
 
-// The three documents every driver must have approved to be verified. The
-// backend (loadq_driver_documents + loadq_driver_doc_submit) keys on exactly
-// these doc_type strings.
-export type DocType = "drivers_license" | "insurance" | "registration";
-export const DOC_TYPES: DocType[] = ["drivers_license", "insurance", "registration"];
+// The documents a driver must have approved to be verified.
+//
+// This list used to be three hard-coded strings. Ottawa's PTC Licence Information Guide
+// (By-law 2016-272) requires four more — a vulnerable-sector Police Record Check, a Statement
+// of Driving Record, an annual declaration of no outstanding charges, and a vehicle Safety
+// Standards Certificate — and a hard-coded array meant every future by-law change needed an
+// App Store release before a driver could even comply.
+//
+// So the list now comes from the server (loadq_required_documents), which reads the
+// loadq_doc_kinds table. Adding a requirement is a row, not a release. These strings stay as
+// the type because the backend keys on them, and because the icons below need names.
+export type DocType =
+  | "drivers_license" | "insurance" | "registration"
+  | "police_record_check" | "driving_record" | "charges_declaration" | "safety_certificate";
+
+// Fallback only — used if the device is offline before it has ever seen the server list.
+// It is deliberately the FULL set, so an offline app under-promises nothing.
+export const DOC_TYPES: DocType[] = [
+  "drivers_license", "insurance", "registration",
+  "police_record_check", "driving_record", "charges_declaration", "safety_certificate",
+];
+
+// One required document, as the server describes it — label and help text included, so the
+// wording of a new requirement does not need an app release either.
+export type RequiredDoc = {
+  doc_type: DocType;
+  label_en: string; label_fr: string;
+  help_en: string | null; help_fr: string | null;
+  about: "driver" | "vehicle";
+  renew_months: number;
+  required: boolean;
+  bylaw_ref: string | null;
+  status: DocStatus;
+  expires_on: string | null;
+  review_notes: string | null;
+};
 
 export type DocStatus = "not_submitted" | "pending" | "approved" | "rejected" | "expired";
 
@@ -20,8 +51,13 @@ export type DriverDoc = {
 
 // Consent version + scopes covered by the A1 verification agreement. Bumping
 // the version forces drivers to re-consent (e.g. when a new check is added).
-export const CONSENT_VERSION = "v1-2026-08";
-export const CONSENT_SCOPES = ["drivers_license", "registration", "driving_record", "criminal_record"];
+export const CONSENT_VERSION = "v2-2026-09";
+export const CONSENT_SCOPES = [
+  "drivers_license", "registration", "driving_record", "criminal_record",
+  // added with the Ottawa PTC requirements — bumping CONSENT_VERSION above forces every
+  // driver to agree again, which is the point: they are consenting to more than before.
+  "police_record_check", "safety_certificate",
+];
 
 export type ScreeningConsent = { version: string; scopes: string[]; consented_at: string };
 
@@ -68,6 +104,14 @@ export const AdminDocsAPI = {
 };
 
 export const DriverDocsAPI = {
+  // What the City currently requires, with this driver's standing against each. Ordered by
+  // the server so the screen shows them in the order the by-law lists them.
+  async required(): Promise<RequiredDoc[]> {
+    const { data, error } = await supabase.rpc("loadq_required_documents");
+    if (error) throw error;
+    return (data as RequiredDoc[]) ?? [];
+  },
+
   // Latest active screening consent for this driver (null if none / revoked).
   async getConsent(): Promise<ScreeningConsent | null> {
     const { data, error } = await supabase.rpc("loadq_screening_consent_status");

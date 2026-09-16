@@ -11,10 +11,16 @@ import { Colors } from "../../constants/colors";
 type Filter = "pending" | "approved" | "rejected" | "expired" | "all";
 const FILTERS: Filter[] = ["pending", "approved", "rejected", "expired", "all"];
 
+// The reviewer's labels. Ottawa's PTC guide added four document types; a reviewer who sees
+// a raw doc_type string cannot tell a Police Record Check from a driving abstract at a glance.
 const DOC_LABEL: Record<DocType, { en: string; fr: string }> = {
-  drivers_license: { en: "Driver's licence", fr: "Permis de conduire" },
-  insurance:       { en: "Insurance",        fr: "Assurance" },
-  registration:    { en: "Registration",     fr: "Immatriculation" },
+  drivers_license:     { en: "Driver's licence",     fr: "Permis de conduire" },
+  insurance:           { en: "Insurance",            fr: "Assurance" },
+  registration:        { en: "Registration",         fr: "Immatriculation" },
+  police_record_check: { en: "Police Record Check",  fr: "Vérification des antécédents" },
+  driving_record:      { en: "Driving Record",       fr: "Relevé de conduite" },
+  charges_declaration: { en: "Declaration",          fr: "Déclaration" },
+  safety_certificate:  { en: "Safety Certificate",   fr: "Certificat de sécurité" },
 };
 
 function fmtDate(iso: string | null): string {
