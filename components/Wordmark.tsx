@@ -15,20 +15,22 @@ import { Colors } from "../constants/colors";
 export const BRAND_ORANGE = "#FF8A1A";
 export const BRAND_INK = "#15171C";
 
-// Perceived lightness of the active background decides the "Load" colour, so a future
-// palette is handled without editing this file.
-export function brandInk(): string {
-  const hex = (Colors.bg || "#FFFFFF").replace("#", "");
+// Perceived lightness of the background decides the "Load" colour, so a future palette is
+// handled without editing this file. Defaults to the active theme; a screen that paints its
+// own surface — the blocked wall is deliberately dark whatever the theme — passes `on` so the
+// mark reads against what is actually behind it rather than against Colors.bg.
+export function brandInk(on?: string): string {
+  const hex = (on || Colors.bg || "#FFFFFF").replace("#", "");
   const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? BRAND_INK : "#FFFFFF";
 }
 
-export default function Wordmark({ style }: { style?: StyleProp<TextStyle> }) {
+export default function Wordmark({ style, on }: { style?: StyleProp<TextStyle>; on?: string }) {
   // `style` carries each screen's own size and spacing; colour and letter-spacing are
   // applied AFTER it so a caller cannot reintroduce the accent colour or the wide
   // all-caps tracking.
   return (
-    <Text style={[{ fontWeight: "900" }, style, { color: brandInk(), letterSpacing: -0.5 }]}>
+    <Text style={[{ fontWeight: "900" }, style, { color: brandInk(on), letterSpacing: -0.5 }]}>
       Load<Text style={{ color: BRAND_ORANGE }}>Q</Text>
     </Text>
   );

@@ -19,11 +19,14 @@ import { supabase } from "../services/supabase";
 import { Colors } from "../constants/colors";
 import WhatsNew from "../components/WhatsNew";
 import Wordmark from "../components/Wordmark";
+import Blocked from "../components/Blocked";
+import { BlockAPI, NOT_BLOCKED, type Block } from "../services/block";
 
 const safe = (fn: () => void) => { try { fn(); } catch { /* never trap the splash */ } };
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  const [block, setBlock] = useState<Block>(NOT_BLOCKED);
 
   // 1) SPLASH CONTROL ONLY. Nothing native/heavy runs here, so the UI always
   // reveals — as soon as language loads, and forced after 4s no matter what.
@@ -128,6 +131,46 @@ export default function RootLayout() {
     };
   }, [ready]);
 
+  // 2c) BLOCKED ACCOUNTS. Checked on sign-in, on every foreground, and by realtime on the
+  // driver's own row so a block applied mid-shift lands while the app is open rather than at
+  // the next cold start.
+  //
+  // Fail-safe is OPEN — a failed check leaves the driver unblocked. The database refuses a
+  // blocked driver a place in any line whatever the app believes, so the cost of this being
+  // wrong is a wasted tap; the cost of the opposite is locking someone out of their evening's
+  // work because a request timed out in a parking lot.
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    let unsub: (() => void) | null = null;
+
+    const refresh = () => {
+      BlockAPI.check().then((b) => { if (!cancelled) setBlock(b); });
+    };
+
+    const watch = (userId: string | null) => {
+      unsub?.(); unsub = null;
+      if (!userId) { setBlock(NOT_BLOCKED); return; }
+      refresh();
+      unsub = BlockAPI.subscribe(userId, refresh);
+    };
+
+    supabase.auth.getUser()
+      .then(({ data }) => { if (!cancelled) watch(data.user?.id ?? null); })
+      .catch(() => {});
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (!cancelled) watch(session?.user?.id ?? null);
+    });
+    const appStateSub = AppState.addEventListener("change", (st) => {
+      if (st === "active") refresh();
+    });
+
+    return () => {
+      cancelled = true; unsub?.();
+      authSub.subscription.unsubscribe(); appStateSub.remove();
+    };
+  }, [ready]);
+
   // 3) Push-tap routing — also gated on `ready` + guarded, since touching
   // expo-notifications at cold mount can crash on old FCM / Play Services.
   useEffect(() => {
@@ -163,6 +206,15 @@ export default function RootLayout() {
       <SafeAreaView style={{ flex:1, backgroundColor:Colors.bg, alignItems:"center", justifyContent:"center" }}>
         <Wordmark style={{ fontSize: 32 }} />
       </SafeAreaView>
+    </SafeAreaProvider>
+  );
+
+  // The navigator is not merely covered — it is not mounted. Nothing to swipe back to, no
+  // tab bar, no deep link or notification tap that lands anywhere else.
+  if (block.blocked) return (
+    <SafeAreaProvider>
+      <StatusBar style="light" />
+      <Blocked block={block} />
     </SafeAreaProvider>
   );
 
