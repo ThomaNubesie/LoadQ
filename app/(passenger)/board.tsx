@@ -50,6 +50,7 @@ export default function BoardScreen() {
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);
   const [pickerOpen, setPickerOpen]     = useState(false);
+  const [destOpen,   setDestOpen]       = useState(false);
   const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [profileCar, setProfileCar]     = useState<BoardCar | null>(null);
 
@@ -352,13 +353,16 @@ export default function BoardScreen() {
         contentContainerStyle={{ padding: 14, paddingBottom: 28 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentP} />}
       >
-        {/* Pickup chooser: on-route · home→zone (feeder) · door-to-door (scheduled) */}
-        <TouchableOpacity style={s.reqRideBtn} onPress={() => router.push("/(passenger)/pickup-options" as any)} activeOpacity={0.85}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Car size={17} color={Colors.accentP} />
-            <Text style={s.reqRideBtnTxt}>{t("reqRideTitle")}</Text>
+        {/* Getting to the departure point. This used to be two differently-worded buttons that
+            both pushed to pickup-options, plus the four services hidden a screen below. One door
+            now, and it leads with the question rather than the service name. */}
+        <TouchableOpacity style={s.pickupCard} onPress={() => router.push("/(passenger)/pickup-options" as any)} activeOpacity={0.85}>
+          <View style={s.pickupCardIcon}><Car size={18} color={Colors.accentP} strokeWidth={2.2} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.pickupCardTitle}>{t("boardPickupTitle")}</Text>
+            <Text style={s.pickupCardSub}>{t("boardPickupSub")}</Text>
           </View>
-          <Text style={s.reqRideBtnArrow}>→</Text>
+          <ChevronDown size={18} color={Colors.accentP} style={{ transform: [{ rotate: "-90deg" }] }} />
         </TouchableOpacity>
 
         {zoneId && zoneMeta && (
@@ -372,25 +376,30 @@ export default function BoardScreen() {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={s.pickupLink} activeOpacity={0.8} onPress={() => router.push("/(passenger)/pickup-options" as any)}>
-          <MapPin size={14} color={Colors.t2} />
-          <Text style={s.pickupLinkTxt}>{t("pickupBoardLink")}</Text>
-        </TouchableOpacity>
-
         {!reservable && (
           <View style={s.viewOnlyBanner}><Text style={s.viewOnlyTxt}>{t("viewOnlyBanner", { city: regionName(homeCity) })}</Text></View>
         )}
 
-        {/* destinations */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pills} contentContainerStyle={{ gap: 8 }}>
-          {destinations.map(code => (
-            <TouchableOpacity key={code} style={[s.pill, dest === code && s.pillOn]} onPress={() => setDest(code)} activeOpacity={0.8}>
-              <Text style={[s.pillTxt, dest === code && s.pillTxtOn]}>{getRegionName(code)}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* The seat board, framed as the alternative to being picked up rather than as an
+            unrelated widget — and the destination named, since a bare row of city pills never
+            said what it was choosing. */}
+        <Text style={s.reserveHead}>{t("boardReserveHead")}</Text>
+        <Text style={s.destLbl}>{t("boardCarsGoingTo")}</Text>
+        <TouchableOpacity style={s.destPicker} onPress={() => setDestOpen(true)} activeOpacity={0.8}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.destPickerVal}>{dest ? getRegionName(dest) : t("pickDestination")}</Text>
+            <Text style={s.destPickerSub}>
+              {cars.length === 0 ? t("boardLoadingNowNone")
+                : cars.length === 1 ? t("boardLoadingNowOne")
+                : t("boardLoadingNowMany", { n: cars.length })}
+            </Text>
+          </View>
+          <ChevronDown size={18} color={Colors.accentP} />
+        </TouchableOpacity>
 
-        <Text style={s.sectionLbl}>{t("liveQueue")} · {cars.length === 1 ? t("carOne") : t("carsCount", { n: cars.length })}</Text>
+        <Text style={s.sectionLbl}>
+          {dest ? t("boardLoadingFor", { city: getRegionName(dest) }) : t("liveQueue")} · {cars.length === 1 ? t("carOne") : t("carsCount", { n: cars.length })}
+        </Text>
 
         {loading ? (
           <ActivityIndicator color={Colors.accentP} style={{ marginTop: 40 }} />
@@ -437,6 +446,29 @@ export default function BoardScreen() {
               </TouchableOpacity>
             ))}
             {cityZones.length === 0 && <Text style={s.empty}>{t("noCarsRoute")}</Text>}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* destination picker — the pills, given a name and somewhere to live */}
+      <Modal visible={destOpen} transparent animationType="slide" onRequestClose={() => setDestOpen(false)}>
+        <Pressable style={s.sheetDim} onPress={() => setDestOpen(false)} />
+        <View style={[s.sheet, { maxHeight: "70%" }]}>
+          <View style={s.grip} />
+          <Text style={s.sheetTitle}>{t("boardCarsGoingTo")}</Text>
+          <ScrollView style={{ maxHeight: 400 }}>
+            {destinations.map(code => (
+              <TouchableOpacity
+                key={code}
+                style={[s.destRow, code === dest && s.destRowOn]}
+                onPress={() => { setDest(code); setDestOpen(false); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.destRowName, code === dest && s.destRowNameOn]}>{getRegionName(code)}</Text>
+                {code === dest && <Text style={s.destRowTick}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+            {destinations.length === 0 && <Text style={s.empty}>{t("noCarsRoute")}</Text>}
           </ScrollView>
         </View>
       </Modal>
@@ -661,21 +693,25 @@ const s = StyleSheet.create({
   msgBtn:      { width: 40, alignItems: "center", justifyContent: "center", gap: 1 },
   msgAdminTag: { fontSize: 8.5, fontWeight: "700", color: Colors.t3, letterSpacing: 0.3, opacity: 0.6 },
 
-  reqRideBtn:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(234,106,30,0.06)", borderWidth: 1.5, borderColor: Colors.accentP, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 16, marginBottom: 12 },
-  reqRideBtnTxt: { color: Colors.accentP, fontWeight: "800", fontSize: 15 },
-  reqRideBtnArrow: { color: Colors.accentP, fontWeight: "800", fontSize: 18 },
+  pickupCard:  { flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "rgba(234,106,30,0.06)", borderWidth: 1.5, borderColor: Colors.accentP, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 14, marginBottom: 10 },
+  pickupCardIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: "rgba(47,111,224,0.12)", alignItems: "center", justifyContent: "center" },
+  pickupCardTitle: { color: Colors.t1, fontWeight: "800", fontSize: 14.5, lineHeight: 19 },
+  pickupCardSub:   { color: Colors.t2, fontWeight: "600", fontSize: 11.5, marginTop: 2 },
   loadingTimesLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, marginBottom: 8 },
   loadingTimesLinkTxt: { color: Colors.accentP, fontWeight: "800", fontSize: 12.5 },
-  pickupLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, marginBottom: 6 },
-  pickupLinkTxt: { color: Colors.t2, fontWeight: "700", fontSize: 12 },
   viewOnlyBanner: { backgroundColor: "rgba(245,200,66,0.12)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", borderRadius: 12, padding: 11, marginBottom: 12 },
   viewOnlyTxt:    { color: Colors.yellow, fontSize: 12, fontWeight: "600", lineHeight: 17 },
 
-  pills:       { marginBottom: 14 },
-  pill:        { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  pillOn:      { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
-  pillTxt:     { color: Colors.t2, fontWeight: "700", fontSize: 13 },
-  pillTxtOn:   { color: Colors.accentPText },
+  reserveHead: { color: Colors.t2, fontSize: 10, fontWeight: "800", letterSpacing: 0.9, textTransform: "uppercase", lineHeight: 15, marginTop: 4, marginBottom: 10 },
+  destLbl:     { color: Colors.t3, fontSize: 11, fontWeight: "700", marginBottom: 5 },
+  destPicker:  { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.accentP, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14, marginBottom: 16 },
+  destPickerVal: { color: Colors.t1, fontSize: 16, fontWeight: "800" },
+  destPickerSub: { color: Colors.t2, fontSize: 11.5, fontWeight: "600", marginTop: 1 },
+  destRow:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 7 },
+  destRowOn:   { borderColor: Colors.accentP, borderWidth: 1.5, backgroundColor: "rgba(234,106,30,0.06)" },
+  destRowName: { color: Colors.t1, fontSize: 15, fontWeight: "700" },
+  destRowNameOn: { color: Colors.accentP, fontWeight: "800" },
+  destRowTick: { color: Colors.accentP, fontSize: 15, fontWeight: "800" },
 
   sectionLbl:  { color: Colors.t3, fontSize: 9.5, fontWeight: "800", letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 10 },
   empty:       { color: Colors.t3, fontSize: 13, textAlign: "center", marginTop: 34, paddingHorizontal: 20, lineHeight: 19 },

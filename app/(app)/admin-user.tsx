@@ -382,7 +382,9 @@ export default function AdminUserScreen() {
             <>
               <Row k="Email" v={user.email || "—"} />
               <Row k="Phone" v={user.phone || "—"} />
-              <Row k="Date of birth" v={fmtDate(user.dob)} />
+              {/* Drivers only: a driver's DOB is on the licence we verify against. We no longer
+                  collect or store one for passengers, so for them this row only ever read "—". */}
+              {isDriver && <Row k="Date of birth" v={fmtDate(user.dob)} />}
               <Row k="Sex" v={user.sex || "—"} />
               <Row k="Joined" v={fmtDate(user.created_at)} />
               {isDriver && <Row k="Subscription" v={user.subscription_status || "—"} />}

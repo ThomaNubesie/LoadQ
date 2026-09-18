@@ -1,35 +1,39 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Route as RouteIcon, Home, MapPinned, ChevronRight } from "lucide-react-native";
+import { ArrowLeft, Route as RouteIcon, Home, MapPinned, CalendarClock, ChevronRight } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 
 export default function PickupOptionsScreen() {
   const router = useRouter();
-  const { lang } = useStrings();
+  const { t, lang } = useStrings();
   const fr = lang === "fr";
 
+  // Four, not three. "Pick me up now" and "Arrange a pickup" were previously one card — but they
+  // are different products: one chooses the nearest zone and dispatches immediately, the other
+  // lets you choose the zone, takes payment up front and pools you into a run. Naming them by
+  // their route ("home → loading zone") hid that, because the route is identical. They are named
+  // by NOW vs ARRANGED instead, and each leads with the question that identifies its rider.
   const OPTIONS = [
     {
       key: "on_route", icon: RouteIcon, warm: false,
-      title: fr ? "Ramassage sur le trajet" : "On-route pickup",
-      desc: fr ? "Un chauffeur en route vous prend en chemin, puis dépose au point de chargement." : "A driver already heading out grabs you along their route, then drops at a loading zone.",
-      price: fr ? "dès 12,99 $" : "from $12.99",
-      go: () => router.push("/(passenger)/request-ride" as any),
+      title: t("optOnRouteTitle"), desc: t("optOnRouteDesc"), price: t("optOnRouteMeta"),
+      go: () => router.push({ pathname: "/(passenger)/request-ride" as any, params: { kind: "route_pickup" } }),
     },
     {
-      key: "home_zone", icon: Home, warm: true,
-      title: fr ? "Domicile → point de chargement" : "Home → loading zone",
-      desc: fr ? "Un chauffeur-navette vous prend à domicile et vous dépose au point de chargement de votre choix." : "A feeder driver collects you at home and drops you at a loading zone you pick.",
-      price: fr ? "12,99 $ + distance" : "$12.99 + distance",
+      key: "on_demand", icon: Home, warm: false,
+      title: t("optNowTitle"), desc: t("optNowDesc"), price: t("optNowMeta"),
+      go: () => router.push({ pathname: "/(passenger)/request-ride" as any, params: { kind: "on_demand" } }),
+    },
+    {
+      key: "home_zone", icon: CalendarClock, warm: true,
+      title: t("optArrangeTitle"), desc: t("optArrangeDesc"), price: t("optArrangeMeta"),
       go: () => router.push("/(passenger)/pickup-request" as any),
     },
     {
       key: "door", icon: MapPinned, warm: true,
-      title: fr ? "Domicile → porte-à-porte" : "Home → door-to-door",
-      desc: fr ? "Réservez à l'avance. Un seul chauffeur vous conduit du domicile jusqu'à votre adresse en ville." : "Book ahead. One driver takes you home → city → your drop-off address.",
-      price: fr ? "12,99 $ + trajet + distance" : "$12.99 + fare + distance",
+      title: t("optDoorTitle"), desc: t("optDoorDesc"), price: t("optDoorMeta"),
       go: () => router.push("/(passenger)/pickup-scheduled" as any),
     },
   ];

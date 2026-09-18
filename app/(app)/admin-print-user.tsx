@@ -138,7 +138,8 @@ Joined: ${fmtDate(data.created_at)}`;
 
           <PrintField k="Phone"  v={data.phone || "—"} />
           <PrintField k="Email"  v={data.email || "—"} />
-          <PrintField k="DOB"    v={fmtDate(data.dob)} />
+          {/* Drivers only — see admin-user.tsx; passengers have no DOB to print. */}
+          {isDriver && <PrintField k="DOB" v={fmtDate(data.dob)} />}
           <PrintField k="Sex"    v={data.sex || "—"} />
           <PrintField k="Joined" v={fmtDate(data.created_at)} />
 

@@ -24,10 +24,11 @@ export default function SignInScreen() {
   // paid plan, so the phone path is intentionally not exposed here.
   const emailValid   = email.includes("@") && email.includes(".");
   const emailsMatch  = email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
-  const canSend      = emailValid && confirmEmail.length > 0 && emailsMatch;
+  // The confirm field only exists when signing up, so only gate on it then.
+  const canSend      = emailValid && (isSignIn || (confirmEmail.length > 0 && emailsMatch));
 
   const handleSend = async () => {
-    if (!emailsMatch) { setError(t.emailsDoNotMatch); return; }
+    if (!isSignIn && !emailsMatch) { setError(t.emailsDoNotMatch); return; }
     setLoading(true); setError("");
     const addr = email.trim().toLowerCase();
     // Sign-in must NOT create accounts — an unknown email should fail so the
@@ -80,19 +81,27 @@ export default function SignInScreen() {
           autoCorrect={false}
         />
 
-        <Text style={s.label}>{t.confirmEmail.toUpperCase()}</Text>
-        <TextInput
-          style={[s.input, confirmEmail.length > 0 && !emailsMatch && s.inputError]}
-          value={confirmEmail}
-          onChangeText={v => { setConfirmEmail(v); setError(""); }}
-          placeholder="you@email.com"
-          placeholderTextColor={Colors.t3}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {confirmEmail.length > 0 && !emailsMatch && (
-          <Text style={s.fieldMsg}>{t.emailsDoNotMatch}</Text>
+        {/* Signing UP only. A typo when creating an account sends the code to someone else's
+            inbox and the user can never get in, so confirming is worth the second field. Signing
+            IN, the address is already on file — asking a returning user to type it twice,
+            correctly, on a phone keyboard is a wall in front of our own front door. */}
+        {!isSignIn && (
+          <>
+            <Text style={s.label}>{t.confirmEmail.toUpperCase()}</Text>
+            <TextInput
+              style={[s.input, confirmEmail.length > 0 && !emailsMatch && s.inputError]}
+              value={confirmEmail}
+              onChangeText={v => { setConfirmEmail(v); setError(""); }}
+              placeholder="you@email.com"
+              placeholderTextColor={Colors.t3}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {confirmEmail.length > 0 && !emailsMatch && (
+              <Text style={s.fieldMsg}>{t.emailsDoNotMatch}</Text>
+            )}
+          </>
         )}
 
         {!!error && <Text style={s.error}>{error}</Text>}

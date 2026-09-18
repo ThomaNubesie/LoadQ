@@ -6,7 +6,8 @@ import * as Location from "expo-location";
 import { ArrowLeft, Navigation } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { DESTINATION_CITIES } from "../../constants/pricing";
+import { DESTINATION_CITIES, getRegionName } from "../../constants/pricing";
+import VanIcon from "../../components/VanIcon";
 import { PickupAPI } from "../../services/pickup";
 import { PassengersAPI } from "../../services/passengers";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
@@ -70,7 +71,7 @@ export default function PickupRequestScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <Text style={s.lead}>{t("pickupLead")}</Text>
 
-        <Text style={s.label}>{t("pickupAddrLabel")}</Text>
+        <Step n={1} h={t("reqWherePickup")} />
         <AddressAutocomplete value={address} onChangeText={(v) => { setAddress(v); setAddrPostal(null); }} onResolved={(d) => setAddrPostal(d.postal_code)} placeholder={t("pickupAddrPh")} accent={Colors.accentP} />
         {!!address.trim() && (addrPostal ? <Text style={s.postalOk}>✓ {lang === "fr" ? "Code postal" : "Postal code"} {addrPostal}</Text> : <Text style={s.postalWarn}>⚠ {lang === "fr" ? "Choisissez une adresse dans les suggestions" : "Pick an address from the suggestions"}</Text>)}
         <TouchableOpacity style={s.locBtn} onPress={useMyLocation} activeOpacity={0.8} disabled={locating}>
@@ -78,7 +79,7 @@ export default function PickupRequestScreen() {
           <Text style={s.locBtnTxt}>{locating ? t("loading") : t("pickupUseLocation")}</Text>
         </TouchableOpacity>
 
-        <Text style={s.label}>{t("pickupDestLabel")}</Text>
+        <Step n={2} h={t("reqWhichCity")} x={t("pickupWhyCity")} />
         <View style={s.pills}>
           {DESTINATION_CITIES.map(c => (
             <TouchableOpacity key={c.code} style={[s.pill, dest === c.code && s.pillOn]} onPress={() => setDest(c.code)} activeOpacity={0.8}>
@@ -87,7 +88,7 @@ export default function PickupRequestScreen() {
           ))}
         </View>
 
-        <Text style={s.label}>{lang === "fr" ? "Point de chargement (dépôt)" : "Loading zone (drop-off)"}</Text>
+        <Step n={3} h={t("pickupWhereDrop")} />
         <View style={{ gap: 8 }}>
           {zones.filter(z => !dest || z.region !== dest).map(z => {
             const on = zoneId === z.id;
@@ -100,18 +101,60 @@ export default function PickupRequestScreen() {
           })}
         </View>
 
+        {/* What you are actually buying, drawn. The commonest misunderstanding on this screen is
+            that the fee covers the whole journey; it covers the first leg only. */}
+        {!!dest && !!zoneId && (
+          <View style={s.route}>
+            <Text style={s.routeEnd}>{t("pickupRouteYou")}</Text>
+            <View style={s.routeDash} />
+            <VanIcon size={30} color={Colors.accentWarm} heading="east" />
+            <View style={s.routeDash} />
+            <Text style={s.routeEnd} numberOfLines={1}>{zones.find(z => z.id === zoneId)?.name ?? ""}</Text>
+            <View style={s.routeDash} />
+            <Text style={s.routeEndDim} numberOfLines={1}>{getRegionName(dest)}</Text>
+          </View>
+        )}
+
+        <View style={s.warn}><Text style={s.warnTxt}>{t("pickupFirstLegOnly")}</Text></View>
+
         <View style={s.note}><Text style={s.noteTxt}>{t("pickupFeeNote")}</Text></View>
 
         <TouchableOpacity style={[s.cta, busy && { opacity: 0.6 }]} onPress={getQuote} disabled={busy} activeOpacity={0.85}>
-          {busy ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.ctaTxt}>{t("pickupGetQuote")}</Text>}
+          {busy ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.ctaTxt}>{t("pickupSeePrice")}</Text>}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// A numbered step. The three fields on this screen are sequential — where you are, where you're
+// going, where we drop you — and reading as a numbered list rather than three unrelated labels is
+// the whole difference between "form" and "steps".
+function Step({ n, h, x }: { n: number; h: string; x?: string }) {
+  return (
+    <View style={s.step}>
+      <View style={s.stepNum}><Text style={s.stepNumTxt}>{n}</Text></View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.stepH}>{h}</Text>
+        {!!x && <Text style={s.stepX}>{x}</Text>}
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bg },
+  step: { flexDirection: "row", gap: 9, marginTop: 18, marginBottom: 8 },
+  stepNum: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.accentP, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  stepNumTxt: { color: Colors.accentPText, fontSize: 11, fontWeight: "800" },
+  stepH: { color: Colors.t1, fontSize: 14.5, fontWeight: "800", lineHeight: 19 },
+  stepX: { color: Colors.t2, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
+  route: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginTop: 16 },
+  routeDash: { flex: 1, height: 1, borderTopWidth: 1.4, borderStyle: "dashed", borderColor: Colors.t3, opacity: 0.6 },
+  routeEnd: { color: Colors.t1, fontSize: 10.5, fontWeight: "800", maxWidth: 78 },
+  routeEndDim: { color: Colors.t2, fontSize: 10.5, fontWeight: "700", maxWidth: 70 },
+  warn: { backgroundColor: "rgba(201,138,0,0.10)", borderLeftWidth: 3, borderLeftColor: Colors.yellow, borderRadius: 9, padding: 11, marginTop: 12 },
+  warnTxt: { color: Colors.t1, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingTop: 4, paddingBottom: 10 },
   title: { color: Colors.t1, fontSize: 18, fontWeight: "800" },
   lead: { color: Colors.t2, fontSize: 13, lineHeight: 19, marginBottom: 16 },

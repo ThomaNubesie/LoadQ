@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Linking, KeyboardAvoidingView, Platform, Modal, Pressable } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import { RidesAPI, RIDE_TERMINAL, type MyRideRequest } from "../../services/rides";
 import { DESTINATION_CITIES, getRegionName } from "../../constants/pricing";
@@ -28,8 +28,13 @@ export default function RequestRideScreen() {
   const { t } = useStrings();
   const insets = useSafeAreaInsets();
 
+  // Which of the two "now" services this is was chosen on pickup-options; this screen no longer
+  // asks again. The param is the source of truth, with route_pickup as the fallback for anything
+  // that still lands here without one.
+  const { kind: kindParam } = useLocalSearchParams<{ kind?: "route_pickup" | "on_demand" }>();
+  const kind: "route_pickup" | "on_demand" = kindParam === "on_demand" ? "on_demand" : "route_pickup";
+
   const [phase, setPhase] = useState<"loading" | "form" | "active">("loading");
-  const [kind, setKind] = useState<"route_pickup" | "on_demand">("route_pickup");
   const [dest, setDest] = useState<string | null>(null);
   const [addr, setAddr] = useState("");                                   // typed/selected pickup address
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -190,24 +195,19 @@ export default function RequestRideScreen() {
               : <View style={s.mapPlaceholder}><Navigation size={22} color={Colors.t3} /><Text style={s.mapPlaceholderTxt}>{t.reqMapHint}</Text></View>}
 
             <View style={s.sheet}>
-              {/* Ride type — segmented pill */}
-              <View style={s.segC}>
-                <TouchableOpacity style={[s.segCb, kind === "route_pickup" && s.segCbOn]} onPress={() => setKind("route_pickup")} activeOpacity={0.85}>
-                  <Route size={17} color={kind === "route_pickup" ? Colors.accentPText : Colors.t2} />
-                  <Text style={[s.segCbTxt, kind === "route_pickup" && s.segCbTxtOn]}>{t.reqRoutePickup}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.segCb, kind === "on_demand" && s.segCbOn]} onPress={() => setKind("on_demand")} activeOpacity={0.85}>
-                  <Home size={17} color={kind === "on_demand" ? Colors.accentPText : Colors.t2} />
-                  <Text style={[s.segCbTxt, kind === "on_demand" && s.segCbTxtOn]}>{t.reqHomePickup}</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity style={s.infoHint} onPress={() => setInfoOpen(kind)} activeOpacity={0.7}>
-                <Info size={13} color={Colors.accentP} />
-                <Text style={s.infoHintTxt}>{kind === "route_pickup" ? t.reqWhatRoute : t.reqWhatHome}</Text>
+              {/* The ride-type toggle that used to sit here is gone: pickup-options already asked,
+                  and being asked the same question twice reads as two different questions.
+                  The payment row is gone too — Interac is the only method, and a field with one
+                  choice is decoration. It belongs on the price screen, where it matters. */}
+              <TouchableOpacity onPress={() => setInfoOpen(kind)} activeOpacity={0.7}>
+                <Text style={s.lead}>
+                  {kind === "route_pickup" ? t.reqWhatRoute : t.reqWhatHome}
+                  <Text style={s.leadMore}>  {t.reqHowItWorks}</Text>
+                </Text>
               </TouchableOpacity>
 
               {/* Pickup — address on the left, location icon on the right */}
-              <Text style={s.lbl}>{t.reqPickup}</Text>
+              <Text style={s.lbl}>{t.reqWherePickup}</Text>
               <AddressAutocomplete
                 value={addr}
                 onChangeText={(x) => { setAddr(x); setCoords(null); }}
@@ -221,9 +221,10 @@ export default function RequestRideScreen() {
                   </TouchableOpacity>
                 }
               />
+              {!!coords && <Text style={s.derived}>✓ {t.reqUsingLocation}</Text>}
 
               {/* Destination */}
-              <Text style={s.lbl}>{t.reqDestination}</Text>
+              <Text style={s.lbl}>{t.reqWhichCity}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }} keyboardShouldPersistTaps="handled">
                 {DESTINATION_CITIES.map((c) => (
                   <TouchableOpacity key={c.code} style={[s.chip, dest === c.code && s.chipOn]} onPress={() => setDest(c.code)}>
@@ -232,15 +233,11 @@ export default function RequestRideScreen() {
                 ))}
               </ScrollView>
 
-              {/* Payment — Interac only, centred */}
-              <Text style={s.lbl}>{t.reqPayment}</Text>
-              <View style={s.payWrap}>
-                <View style={s.payPill}><Navigation size={14} color={Colors.accentP} /><Text style={s.payPillTxt}>{t.reqInterac}</Text></View>
-              </View>
-
               <TouchableOpacity style={[s.cta, busy && s.ctaOff]} onPress={submit} disabled={busy}>
-                <Text style={s.ctaTxt}>{busy ? "…" : t.reqGetPrice}</Text>
+                <Text style={s.ctaTxt}>{busy ? "…" : t.reqSeePrice}</Text>
               </TouchableOpacity>
+              {/* Already true in the code, never said to the rider. */}
+              <Text style={s.reassure}>{t.reqNothingCharged}</Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -371,6 +368,10 @@ const s = StyleSheet.create({
   title:      { fontSize: 17, fontWeight: "700", color: Colors.t1 },
   center:     { alignItems: "center", justifyContent: "center", padding: 30, gap: 12 },
   lbl:        { fontSize: 11, color: Colors.t3, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 16, marginBottom: 8 },
+  lead:       { fontSize: 13, color: Colors.t2, lineHeight: 19, marginBottom: 2 },
+  leadMore:   { color: Colors.accentP, fontWeight: "800", fontSize: 12.5 },
+  derived:    { fontSize: 11.5, color: Colors.green, fontWeight: "700", marginTop: 7 },
+  reassure:   { fontSize: 11.5, color: Colors.t2, textAlign: "center", marginTop: 10 },
   seg:        { flexDirection: "row", gap: 8 },
   segBtn:     { flex: 1, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 6, alignItems: "center" },
   segOn:      { backgroundColor: Colors.accentP, borderColor: Colors.accentP },
