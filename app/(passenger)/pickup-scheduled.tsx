@@ -6,7 +6,7 @@ import * as Clipboard from "expo-clipboard";
 import { ArrowLeft, Navigation, Copy, Check } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { NETWORK_CITIES, networkCityLabel } from "../../constants/cities";
+import { NETWORK_CITIES, networkCityLabel, cityFromAddress } from "../../constants/cities";
 import { ScheduledAPI, ScheduledQuote, TIME_BLOCKS } from "../../services/scheduled";
 import { PassengersAPI } from "../../services/passengers";
 import AddressAutocomplete from "../../components/AddressAutocomplete";
@@ -38,6 +38,7 @@ export default function PickupScheduledScreen() {
   const [dropPostal, setDropPostal] = useState<string | null>(null);
   const [dest, setDest] = useState<string | null>(null);
   const [cityOpen, setCityOpen] = useState(false);
+  const [destAuto, setDestAuto] = useState(false);   // city was derived from the drop-off address
   const [citySearch, setCitySearch] = useState("");
   const [day, setDay] = useState<Date>(DAYS[1]); // default tomorrow
   const [block, setBlock] = useState<string | null>(null);
@@ -99,22 +100,46 @@ export default function PickupScheduledScreen() {
           <>
             <Text style={s.lead}>{fr ? "Réservez jusqu'à 30 jours à l'avance. Un seul chauffeur vous conduit du domicile jusqu'à votre adresse en ville." : "Book up to 30 days ahead. One driver takes you from home to your city drop-off address."}</Text>
 
-            <Text style={s.label}>{fr ? "Départ (domicile)" : "Pick-up (your home)"}</Text>
+            <Step n={1} h={t("reqWherePickup")} />
             <AddressAutocomplete value={home} onChangeText={(v) => { setHome(v); setHomePostal(null); }} onResolved={(d) => setHomePostal(d.postal_code)} placeholder={fr ? "Adresse du domicile" : "Home address"} accent={Colors.accentP} />
             {!!home.trim() && (homePostal ? <Text style={s.postalOk}>✓ {fr ? "Code postal" : "Postal code"} {homePostal}</Text> : <Text style={s.postalWarn}>⚠ {fr ? "Choisissez une adresse dans les suggestions" : "Pick an address from the suggestions"}</Text>)}
 
-            <Text style={s.label}>{fr ? "Arrivée (adresse en ville)" : "Drop-off (city address)"}</Text>
-            <AddressAutocomplete value={dropoff} onChangeText={(v) => { setDropoff(v); setDropPostal(null); }} onResolved={(d) => setDropPostal(d.postal_code)} placeholder={fr ? "Adresse de destination" : "Destination address"} accent={Colors.accentP} />
+            <Step n={2} h={t("schedWhereTo")} />
+            <AddressAutocomplete
+              value={dropoff}
+              onChangeText={(v) => { setDropoff(v); setDropPostal(null); setDestAuto(false); }}
+              onResolved={(d) => {
+                setDropPostal(d.postal_code);
+                // The rider has just told us the address; asking which city it is in is asking
+                // them to repeat themselves. Only falls back to the picker when we can't tell.
+                const code = cityFromAddress(d.formatted_address);
+                if (code) { setDest(code); setDestAuto(true); } else { setDestAuto(false); }
+              }}
+              placeholder={fr ? "Adresse de destination" : "Destination address"}
+              accent={Colors.accentP}
+            />
             {!!dropoff.trim() && (dropPostal ? <Text style={s.postalOk}>✓ {fr ? "Code postal" : "Postal code"} {dropPostal}</Text> : <Text style={s.postalWarn}>⚠ {fr ? "Choisissez une adresse dans les suggestions" : "Pick an address from the suggestions"}</Text>)}
 
-            <Text style={s.label}>{fr ? "Ville de destination" : "Destination city"}</Text>
-            <TouchableOpacity style={s.field} onPress={() => setCityOpen(true)} activeOpacity={0.8}>
-              <Text style={[{ flex: 1, fontSize: 15, fontWeight: "700" }, dest ? { color: Colors.t1 } : { color: Colors.t3 }]}>
-                {dest ? networkCityLabel(dest) : (fr ? "Choisir une ville" : "Choose a city")}
-              </Text>
-              <Text style={{ color: Colors.accentP, fontWeight: "800" }}>▾</Text>
-            </TouchableOpacity>
+            {destAuto && !!dest ? (
+              <TouchableOpacity onPress={() => setCityOpen(true)} activeOpacity={0.7}>
+                <Text style={s.postalOk}>
+                  ✓ {t("schedDestFromAddress", { city: networkCityLabel(dest) })}
+                  <Text style={s.changeLink}>  {t("schedChange")}</Text>
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Text style={s.label}>{fr ? "Ville de destination" : "Destination city"}</Text>
+                <TouchableOpacity style={s.field} onPress={() => setCityOpen(true)} activeOpacity={0.8}>
+                  <Text style={[{ flex: 1, fontSize: 15, fontWeight: "700" }, dest ? { color: Colors.t1 } : { color: Colors.t3 }]}>
+                    {dest ? networkCityLabel(dest) : (fr ? "Choisir une ville" : "Choose a city")}
+                  </Text>
+                  <Text style={{ color: Colors.accentP, fontWeight: "800" }}>▾</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
+            <Step n={3} h={t("schedWhen")} />
             <Text style={s.label}>{fr ? "Quel jour ?" : "Which day?"}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
               {DAYS.map((d, i) => {
@@ -156,7 +181,7 @@ export default function PickupScheduledScreen() {
               </>
             )}
 
-            <Text style={s.label}>{fr ? "Type de course" : "Ride type"}</Text>
+            <Step n={4} h={t("schedShareOrWhole")} />
             <View style={s.rideRow}>
               <TouchableOpacity style={[s.ride, rideType === "share" && s.rideOn]} onPress={() => setRideType("share")} activeOpacity={0.85}>
                 <Text style={[s.rideT, rideType === "share" && s.rideTOn]}>{fr ? "Partagée" : "Share"}</Text>
@@ -183,7 +208,7 @@ export default function PickupScheduledScreen() {
             )}
 
             <TouchableOpacity style={[s.cta, busy && { opacity: 0.6 }]} onPress={getQuote} disabled={busy} activeOpacity={0.85}>
-              {busy ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.ctaTxt}>{fr ? "Voir le prix" : "See price"}</Text>}
+              {busy ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.ctaTxt}>{t("pickupSeePrice")}</Text>}
             </TouchableOpacity>
             <Text style={s.fine}>{fr ? "Payé à la réservation. Annulation 24 h+ = remboursement complet, sinon partiel." : "Paid at booking. Cancel 24h+ = full refund, otherwise partial."}</Text>
           </>
@@ -229,8 +254,11 @@ export default function PickupScheduledScreen() {
               <TextInput value={citySearch} onChangeText={setCitySearch} placeholder={fr ? "Rechercher…" : "Search…"} placeholderTextColor={Colors.t3} autoFocus style={{ flex: 1, color: Colors.t1, fontSize: 15, paddingVertical: 10 }} />
             </View>
             <ScrollView style={{ maxHeight: 380, marginTop: 8 }} keyboardShouldPersistTaps="handled">
+              {/* A manual choice overrides the derived one and keeps the picker visible, so the
+                  rider can see and change what they chose rather than it reverting to a line of
+                  text claiming the address decided it. */}
               {NETWORK_CITIES.filter(c => c.label.toLowerCase().includes(citySearch.trim().toLowerCase())).map(c => (
-                <TouchableOpacity key={c.code} style={s.cityRow} onPress={() => { setDest(c.code); setCityOpen(false); setCitySearch(""); }} activeOpacity={0.8}>
+                <TouchableOpacity key={c.code} style={s.cityRow} onPress={() => { setDest(c.code); setDestAuto(false); setCityOpen(false); setCitySearch(""); }} activeOpacity={0.8}>
                   <Text style={[s.cityRowTxt, dest === c.code && { color: Colors.accentP, fontWeight: "800" }]}>{c.label}</Text>
                   {dest === c.code && <Text style={{ color: Colors.accentP, fontWeight: "800" }}>✓</Text>}
                 </TouchableOpacity>
@@ -252,7 +280,26 @@ function Row({ k, v, sub }: { k: string; v: string; sub?: string }) {
   );
 }
 
+// Same numbered step as the feeder flow — four questions in order, not eight labels in a column.
+function Step({ n, h, x }: { n: number; h: string; x?: string }) {
+  return (
+    <View style={s.step}>
+      <View style={s.stepNum}><Text style={s.stepNumTxt}>{n}</Text></View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.stepH}>{h}</Text>
+        {!!x && <Text style={s.stepX}>{x}</Text>}
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  step: { flexDirection: "row", gap: 9, marginTop: 20, marginBottom: 8 },
+  stepNum: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.accentP, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  stepNumTxt: { color: Colors.accentPText, fontSize: 11, fontWeight: "800" },
+  stepH: { color: Colors.t1, fontSize: 14.5, fontWeight: "800", lineHeight: 19 },
+  stepX: { color: Colors.t2, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
+  changeLink: { color: Colors.accentP, fontWeight: "800", fontSize: 11.5 },
   screen: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingTop: 4, paddingBottom: 10 },
   title: { color: Colors.t1, fontSize: 18, fontWeight: "800" },

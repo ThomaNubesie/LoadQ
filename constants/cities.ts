@@ -78,3 +78,25 @@ export function networkCityLabel(code: string | null | undefined): string {
   if (!code) return "";
   return NETWORK_CITIES.find((c) => c.code === code)?.label ?? code;
 }
+
+// Derive the destination city from a Google formatted_address, so a rider who has already typed
+// their drop-off address is not then asked which city it is in.
+//
+// Matching is per comma-separated COMPONENT and exact, never a substring of the whole string:
+// "1234 Montreal Rd, Ottawa, ON K1J 1A1, Canada" contains "Montreal", but its city component is
+// "Ottawa". A substring match would silently book that rider to the wrong city.
+//
+// Returns null when nothing matches — the caller must keep a manual picker for that case rather
+// than guessing.
+const norm = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z\s-]/g, "").trim();
+
+export function cityFromAddress(formatted: string | null | undefined): string | null {
+  if (!formatted) return null;
+  const parts = formatted.split(",").map(norm).filter(Boolean);
+  for (const part of parts) {
+    const hit = NETWORK_CITIES.find((c) => norm(c.label) === part || c.code === part);
+    if (hit) return hit.code;
+  }
+  return null;
+}
