@@ -1,6 +1,120 @@
 # Kolis / Concord Express — session handoff
 
-_Last updated: 2026-09-13._
+_Last updated: 2026-09-18._
+
+## Latest session — 2026-09-18 (passenger DOB removed; van icon; three bug fixes shipped)
+
+### SHIPPED — OTA to production, both runtimes, both platforms
+
+Commit `8074c65` on `ship-loadq-1.2.6`, pushed. Published twice, as the iOS workaround below
+requires:
+
+| Runtime | Update group |
+|---|---|
+| 1.2.25 | `67b4a04e-a745-43be-92f2-cf36d5440579` |
+| 1.2.23 | `91675b2c-8906-4480-82e9-c78d83e67a27` |
+
+Verified by fetching the manifest as a device would — `u.expo.dev/b060bf16…` with
+`expo-platform: android`, `expo-runtime-version: 1.2.23`, `expo-channel-name: production`
+returns update id `01a0b45c-d1db-7fee-9697-e2c19731f98f`, i.e. ours. Channel→branch mapping
+confirmed via `eas channel:list`. **Publishing "success" alone proves nothing** — check the
+manifest.
+
+**1. Passenger date of birth removed** (`app/(auth)/passenger-setup.tsx`). Field, `dob` state,
+`formatDob`, `parseDobIso`, the validation branch and the `createOrUpdate` payload key all gone.
+**Sex is kept** (user decision). Nothing in booking, pricing, matching or messaging ever read a
+passenger's DOB; Law 25 / PIPEDA require a stated purpose per item collected, and DOB is one of
+the fields that turns an ordinary breach into a reportable one.
+**`profile-setup.tsx` (driver) deliberately keeps DOB** — it is on the licence we verify against,
+so it has a purpose. There is a comment saying so in `passenger-setup.tsx`; do not "make the two
+screens consistent".
+
+**2. Android bottom nav** (`components/BottomNav.tsx`) — sat under the system nav bar on
+gesture-nav devices. Now `useSafeAreaInsets()` + `paddingBottom: 8 + insets.bottom`.
+`PassengerBottomNav` was already correct; only the driver one was wrong.
+
+**3. Address autocomplete reopening** (`components/AddressAutocomplete.tsx`) — an in-flight
+request resolving *after* a selection repopulated the list. Added a `seq` ref: each keystroke
+takes a ticket, `pick()` increments it to retire anything in flight, and a skip is only claimed
+when the value will actually change.
+
+**4. `components/VanIcon.tsx` + `assets/van.svg`** — shipped but **not yet wired into any
+screen**. Available, unused.
+
+### Data — 159 passenger DOBs cleared
+
+`update passengers set dob = null` — 159 rows, 0 remaining, verified. `sex` untouched (159),
+**driver DOBs untouched (137)**. Stopping collection does not address what is stored; the Law 25
+retention argument is the same as the collection argument. `fmtDate` already returned `—` for
+null so `admin-user.tsx` and `admin-print-user.tsx` degrade cleanly — but both still `select`
+and render a "Date of birth" row, which will now always read `—` for passengers. Worth removing.
+
+### "The passenger screen is still the same" — it is supposed to be
+
+`passenger-setup` is reachable from exactly three places: `otp.tsx:98` (straight after first
+verification), `welcome.tsx:20` (signup), and `authRoute.ts:43` (only when
+`!passenger.full_name`). **An existing passenger with a name can never navigate back to it.** To
+see the change you must create a new passenger account. Nothing in `(passenger)/profile.tsx`
+shows DOB, so there is no other surface where it would appear.
+
+Second cause, if testing with a fresh account: `checkAutomatically: ON_LOAD` with
+`fallbackToCacheTimeout: 10000` — if the download does not finish inside 10s the app launches the
+cached bundle and applies the update on the *next* launch. Needs a full swipe-away kill, not a
+background/foreground.
+
+### The van icon
+
+Orange `#FF8A1A` (= `accentWarm` in `constants/colors.ts`, identical in light and azure themes),
+strokes only so it stays transparent, wheel arches **cut out of the body path** rather than masked
+with a background-coloured disc (a masked disc becomes a solid blob the moment the background
+changes). `heading: "east" | "west"` points the nose the way the passenger travels; route strips
+run origin-left → destination-right so `east` is the default.
+Two copies, keep in step: `assets/van.svg` (canonical, for flyers/HTML) and
+`components/VanIcon.tsx` (RN port). **Never the 🚐 emoji** — cannot be recoloured, cannot be
+turned round, renders as a different vehicle on every platform.
+
+### Marketing — the flyer upload, and a near-miss worth recording
+
+The Facebook noon job reads **`marketing/loadq-ott-mtl-shuttle.png`**, NOT
+`loadq-intercity-flyer.png`. I had this wrong in conversation. `loadq-intercity-flyer.png` holds
+the **dark-blue board flyer the user chose**; overwriting it would have destroyed that choice.
+Always confirm the cron's actual target before replacing a marketing asset:
+
+```sql
+select jobname, schedule, substring(command from 'marketing/[a-z0-9.-]+')
+from cron.job where command ilike '%fb-post%';
+-- loadq-fb-noon-1200 | 30 16 * * 0-5 | marketing/loadq-ott-mtl-shuttle.png
+```
+
+Uploaded via `loadq-asset-put` (141,918 bytes), previous version kept at
+`~/Downloads/loadq-ott-mtl-shuttle-PREVIOUS.png`. Storage CDN caches `max-age=3600`; the first
+re-fetch was a stale `cf-cache-status: HIT` — append `?bust=…` to read the origin, and compare
+with `cmp` rather than trusting a 200.
+
+### Mockups — 27 of 63 screens drawn (`~/Downloads`)
+
+- `loadq-passenger-all-screens.html` — all 18 passenger screens
+- `loadq-auth-screens.html` — all 9 auth screens
+- Remaining: **35 driver/admin screens**, the biggest slice, and the one carrying the 16 Oct
+  document deadline.
+
+### Found while drawing, NOT yet fixed
+
+- **`sign-in.tsx:27`** — `const canSend = emailValid && confirmEmail.length > 0 && emailsMatch;`
+  No `isSignIn` guard, and the confirm field at line 83 renders unconditionally, so **returning
+  users must type their email twice to log in**. Correct on signup (a typo sends the code to a
+  stranger); wrong on sign-in. Two-line fix: gate both on `!isSignIn`.
+- **`engagement.tsx`** — hard-coded "Step 4 / 5"; it is the third of four, and no other setup
+  screen shows position at all.
+- **`profile-setup.tsx` vs `passenger-setup.tsx`** — were 368 lines duplicated to differ by a
+  heading. Now genuinely divergent (DOB), so both should stay.
+- **`zones.tsx`** — lists loading points with no car counts, so riders pick blind and arrive at
+  an empty board. Same query the board already runs.
+- **`history.tsx`** — lists past trips but offers no receipt.
+- **`pickup-receipt.tsx`** — should carry the HST number, but **777954975 RT0001 is not live**;
+  only RC0001 (corporate income tax) exists today. Do not print it until the GST/HST account is open.
+- **`welcome.tsx`** — offers "you can add the other role later"; there is no such path in the app.
+
 
 ## Latest session — 2026-09-13 (brand mark across the app; keyboard; onboarding fee)
 
