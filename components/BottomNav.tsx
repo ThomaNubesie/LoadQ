@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { ListOrdered, CarFront, Package, Bell, CircleUserRound, LucideIcon } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStrings } from "../hooks/useStrings";
 import { useMyAvatar } from "../hooks/useMyAvatar";
 import { Colors } from "../constants/colors";
@@ -20,6 +21,7 @@ interface Props {
 export default function BottomNav({ items }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
+  const insets   = useSafeAreaInsets();
   const { t }    = useStrings();
   const avatar   = useMyAvatar();
 
@@ -34,7 +36,7 @@ export default function BottomNav({ items }: Props) {
   const list = items ?? defaultItems;
 
   return (
-    <View style={s.bar}>
+    <View style={[s.bar, { paddingBottom: 8 + insets.bottom }]}>
       {list.map(item => {
         const active = pathname.startsWith(item.match);
         const showAvatar = item.isProfile && !!avatar;

@@ -18,7 +18,6 @@ export default function PassengerSetupScreen() {
   const { t }  = useStrings();
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
-  const [dob,       setDob]       = useState("");
   const [phone,     setPhone]     = useState("");
   const [sex,       setSex]       = useState<Sex | "">("");
   const [loading,   setLoading]   = useState(false);
@@ -28,33 +27,17 @@ export default function PassengerSetupScreen() {
   const clearInvalid = (k: string) =>
     setInvalid(prev => (prev[k] ? { ...prev, [k]: "" } : prev));
 
-  const formatDob = (val: string) => {
-    const d = val.replace(/\D/g, "");
-    if (d.length <= 2)  return d;
-    if (d.length <= 4)  return `${d.slice(0,2)} / ${d.slice(2)}`;
-    return `${d.slice(0,2)} / ${d.slice(2,4)} / ${d.slice(4,8)}`;
-  };
-
-  const parseDobIso = (val: string): string | null => {
-    const d = val.replace(/\D/g, "");
-    if (d.length !== 8) return null;
-    const day   = d.slice(0, 2);
-    const month = d.slice(2, 4);
-    const year  = d.slice(4, 8);
-    const test = new Date(`${year}-${month}-${day}`);
-    if (Number.isNaN(test.getTime())) return null;
-    return `${year}-${month}-${day}`;
-  };
-
+  // No date of birth here, deliberately. A driver's DOB is on the licence we verify against, so it
+  // has a stated purpose; a passenger's is read by nothing — not booking, pricing, matching or
+  // messaging. Québec Law 25 and PIPEDA require a purpose for every item collected, and DOB is one
+  // of the fields that turns an ordinary breach into a reportable one. See profile-setup.tsx,
+  // which keeps it for exactly that reason.
   const handleNext = async () => {
     setError("");
-    const dobIso = parseDobIso(dob);
     const phoneDigits = phone.replace(/\D/g, "");
     const errs: Record<string, string> = {};
     if (!firstName.trim()) errs.firstName = t.fieldRequired;
     if (!lastName.trim())  errs.lastName  = t.fieldRequired;
-    if (!dob.trim())       errs.dob = t.fieldRequired;
-    else if (!dobIso)      errs.dob = t.invalidDob;
     if (!phone.trim())     errs.phone = t.fieldRequired;
     else if (phoneDigits.length < 10) errs.phone = t.invalidPhone;
     if (!sex)              errs.sex = t.selectAnOption;
@@ -67,7 +50,6 @@ export default function PassengerSetupScreen() {
       full_name: `${firstName.trim()} ${lastName.trim()}`,
       phone: phoneDigits,
       ...(user?.email ? { email: user.email } : {}),
-      ...(dobIso ? { dob: dobIso } : {}),
       ...(sex ? { sex } : {}),
       ...(referredBy && referredBy !== user?.id ? { referred_by: referredBy } : {}),
     });
@@ -111,18 +93,6 @@ export default function PassengerSetupScreen() {
         <Text style={s.label}>{t.lastName.toUpperCase()}</Text>
         <TextInput style={[s.input, invalid.lastName && s.inputError]} value={lastName} onChangeText={v => { setLastName(v); clearInvalid("lastName"); }} placeholder="Martin" placeholderTextColor={Colors.t3} autoCapitalize="words" />
         {!!invalid.lastName && <Text style={s.fieldMsg}>{invalid.lastName}</Text>}
-
-        <Text style={s.label}>{t.dateOfBirth.toUpperCase()}</Text>
-        <TextInput
-          style={[s.input, invalid.dob && s.inputError]}
-          value={dob}
-          onChangeText={v => { setDob(formatDob(v)); clearInvalid("dob"); }}
-          placeholder={t.dobPlaceholder}
-          placeholderTextColor={Colors.t3}
-          keyboardType="number-pad"
-          maxLength={14}
-        />
-        {!!invalid.dob && <Text style={s.fieldMsg}>{invalid.dob}</Text>}
 
         <Text style={s.label}>{t.phoneNumber.toUpperCase()}</Text>
         <TextInput

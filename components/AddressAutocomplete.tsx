@@ -25,23 +25,44 @@ export default function AddressAutocomplete({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const skip = useRef(false);
+  // Every lookup takes a ticket. A response whose ticket is no longer current is thrown away.
+  //
+  // Clearing the timeout is not enough: once the debounce has fired and we are awaiting Google,
+  // the effect cleanup can no longer stop it. Tapping a suggestion used to close the list and
+  // then have that in-flight response reopen it — showing the very address just chosen, sitting
+  // under the filled field.
+  const seq = useRef(0);
 
   useEffect(() => {
     if (skip.current) { skip.current = false; return; }
     if (value.trim().length < 3) { setPreds([]); setOpen(false); return; }
     setLoading(true);
+    const mine = ++seq.current;
     const id = setTimeout(async () => {
       const p = await addressAutocomplete(value, lang);
+      if (mine !== seq.current) return;   // superseded by a newer keystroke, or by a selection
       setPreds(p); setOpen(p.length > 0); setLoading(false);
     }, 320);
     return () => { clearTimeout(id); setLoading(false); };
   }, [value, lang]);
 
   async function pick(desc: string, placeId: string) {
-    skip.current = true; onChangeText(desc); onPick?.(desc); setPreds([]); setOpen(false);
+    seq.current++;                        // retire anything already in flight
+    setPreds([]); setOpen(false); setLoading(false);
+
+    // Only claim a skip when the value actually changes, otherwise the effect never runs to
+    // consume it and the flag sits true — swallowing the next keystroke the rider types.
+    if (desc !== value) skip.current = true;
+    onChangeText(desc); onPick?.(desc);
+
     if (placeId && onResolved) {
       const d = await addressDetails(placeId);
-      if (d) { if (d.formatted_address) { skip.current = true; onChangeText(d.formatted_address); } onResolved(d); }
+      if (d) {
+        if (d.formatted_address && d.formatted_address !== desc) {
+          skip.current = true; onChangeText(d.formatted_address);
+        }
+        onResolved(d);
+      }
     }
   }
 
