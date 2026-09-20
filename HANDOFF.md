@@ -62,6 +62,44 @@ Second cause, if testing with a fresh account: `checkAutomatically: ON_LOAD` wit
 cached bundle and applies the update on the *next* launch. Needs a full swipe-away kill, not a
 background/foreground.
 
+
+### Marketing — the noon flyer is now a rotation, not a file
+
+Cron job **30** (`loadq-fb-noon-1200`) is `30 16 * * *` — **12:30 ET every day, Saturday
+included**. It was `0-5` (Sun–Fri), so Saturday silently posted nothing.
+
+It no longer names an image. It calls `loadq_flyer_claim_today()`, which picks from
+`loadq_flyer_assets` (20 landmark/scenic flyers, 1600×900 JPEG in the `marketing` bucket) and
+stamps `last_posted_on` in the same statement, so it cannot post without recording it.
+
+`loadq_flyer_for(date)` scores by **season** (from what the photo shows; wrong season −6, so snow
+cannot run in July) plus **mood** from the day of week — Mon–Thu `city`, Fri/Sat `escape`, Sun
+`calm`. Candidates are everything within 4 points of the best, then a date index rotates.
+
+**Two bugs already found and fixed here — do not reintroduce:**
+- `where fit = max(fit)` left a ONE-ROW candidate set for `escape`, so Niagara Falls ran every
+  Friday and Saturday forever. A rotation must not collapse into a ranking.
+- Adjacent repeats cannot be prevented by date arithmetic when two moods' bands overlap; that is
+  what `last_posted_on` (−40 at one day, fading over three) is for. Verified by simulating 21
+  days with stamping inside a rolled-back DO block: zero adjacent repeats.
+
+**Captions are assembled in SQL** (`loadq_flyer_caption`) from stored parts — never store 20
+rendered captions, or changing one line is 20 UPDATEs with 20 chances to miss one.
+
+**`board` decides the wording.** `true` = on the live seat board, may say "reserve a seat".
+`false` = door-to-door only (Niagara, Tadoussac, Rivière-du-Loup, Georgian Bay, Sandbanks,
+Peterborough, Île d'Orléans) and says *"porte-à-porte, sur réservation"*. Saying "reserve a seat"
+for a city that is not on the board advertises a service that does not exist.
+
+**Every photo is share-alike-free** (CC0 / public domain / CC BY), credit burned into the
+bottom-right of the JPEG. CC BY-SA and GFDL were excluded on purpose: as a flyer background they
+arguably make the flyer a derivative, which would oblige releasing the flyer under the same
+licence. The filter cost real subjects — Habitat 67, the Biosphère, Charlevoix, Tadoussac, Lévis
+and the Ottawa Valley had nothing usable on Commons. Those are the ones to shoot in person.
+
+Kolis rides along: the artwork carries "Colis aussi · kolis.ca" and every caption has a parcel
+paragraph. Rendered set + browsable index: `~/Downloads/LoadQ-Daily-Flyers/`.
+
 ### The van icon
 
 Orange `#FF8A1A` (= `accentWarm` in `constants/colors.ts`, identical in light and azure themes),
