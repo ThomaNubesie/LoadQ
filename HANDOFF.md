@@ -113,7 +113,10 @@ turned round, renders as a different vehicle on every platform.
 
 ### Marketing — the flyer upload, and a near-miss worth recording
 
-The Facebook noon job reads **`marketing/loadq-ott-mtl-shuttle.png`**, NOT
+> **SUPERSEDED 2026-09-19** — the noon job no longer names an image at all; see the
+> rotation section above. Kept for the CDN-verification lesson and the near-miss.
+
+The Facebook noon job read **`marketing/loadq-ott-mtl-shuttle.png`**, NOT
 `loadq-intercity-flyer.png`. I had this wrong in conversation. `loadq-intercity-flyer.png` holds
 the **dark-blue board flyer the user chose**; overwriting it would have destroyed that choice.
 Always confirm the cron's actual target before replacing a marketing asset:
