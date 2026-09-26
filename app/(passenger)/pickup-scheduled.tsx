@@ -244,6 +244,14 @@ export default function PickupScheduledScreen() {
       </KeyboardAvoidingView>
 
       <Modal visible={cityOpen} animationType="slide" transparent onRequestClose={() => setCityOpen(false)}>
+        {/* The screen's own KeyboardAvoidingView closes above this Modal, so the picker had none.
+            Its search field is autoFocus, meaning the keyboard opens straight on top of the field
+            and the results it filters. Offset 0: a Modal already starts at the screen top. */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
         <View style={s.cityBackdrop}>
           <SafeAreaView style={s.citySheet} edges={["left", "right", "bottom"]}>
             <View style={s.cityHead}>
@@ -266,6 +274,7 @@ export default function PickupScheduledScreen() {
             </ScrollView>
           </SafeAreaView>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { Colors } from "../../constants/colors";
@@ -30,6 +30,7 @@ function slugify(s: string): string {
 }
 
 export default function AdminZonesScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { zones, refresh } = useZones();
 
@@ -177,6 +178,7 @@ export default function AdminZonesScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
       <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
         <Text style={s.section}>NEW ZONE</Text>

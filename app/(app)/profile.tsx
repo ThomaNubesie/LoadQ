@@ -450,6 +450,11 @@ export default function ProfileScreen() {
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <Pressable style={s.mOverlay} onPress={() => !iBusy && setInteracOpen(false)} />
           <View style={s.mSheet}>
+            {/* Two fields and a Save button: nothing scrolled and the sheet had no height cap, so
+                on a short screen Save sat under the keyboard. The cap is what makes the scroll
+                real — an unbounded ScrollView just measures to its content. */}
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 4 }}>
             <View style={s.mGrip} />
             <Text style={s.mTitle}>{t.interacTitle}</Text>
             <Text style={s.mSub}>{t.interacModalSub}</Text>
@@ -460,6 +465,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={[s.mSave, iBusy && { opacity: 0.6 }]} disabled={iBusy} onPress={saveInterac} activeOpacity={0.85}>
               <Text style={s.mSaveTxt}>{iBusy ? "…" : t.save}</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -472,7 +478,7 @@ export default function ProfileScreen() {
 
 const s = StyleSheet.create({
   mOverlay:          { flex:1, backgroundColor:"rgba(0,0,0,0.55)" },
-  mSheet:            { backgroundColor:Colors.surface, borderTopLeftRadius:20, borderTopRightRadius:20, borderTopWidth:1, borderColor:Colors.border, padding:18, paddingBottom:28 },
+  mSheet:            { maxHeight:"82%", backgroundColor:Colors.surface, borderTopLeftRadius:20, borderTopRightRadius:20, borderTopWidth:1, borderColor:Colors.border, padding:18, paddingBottom:28 },
   mGrip:             { width:36, height:4, borderRadius:3, backgroundColor:Colors.border, alignSelf:"center", marginBottom:12 },
   mTitle:            { color:Colors.t1, fontSize:17, fontWeight:"800" },
   mSub:              { color:Colors.t3, fontSize:12.5, marginTop:4, marginBottom:12, lineHeight:17 },

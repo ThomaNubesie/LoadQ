@@ -189,6 +189,7 @@ export default function AdminUsersScreen() {
       </View>
 
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={filtered}
         keyExtractor={i => `${i.role}-${i.id}`}
         contentContainerStyle={{ padding: 16, paddingBottom: 96 }}

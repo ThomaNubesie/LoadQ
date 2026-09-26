@@ -568,9 +568,19 @@ export default function BoardScreen() {
 
       {/* Notify me when a seat opens — pick SMS or Email, capture + save if missing */}
       <Modal visible={!!notifyCar} transparent animationType="slide" onRequestClose={() => setNotifyCar(null)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {/* Android got behavior={undefined}, which lifts nothing, and the sheet had no scroll or
+            height cap — two channel rows, a field, a checkbox and Confirm is more than fits above
+            an open keyboard, so Confirm was unreachable. keyboardShouldPersistTaps keeps the dim
+            Pressable from eating the first tap on it. */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
         <Pressable style={s.sheetDim} onPress={() => setNotifyCar(null)}>
           <Pressable style={s.sheet} onPress={() => {}}>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 4 }}>
             <View style={s.grip} />
             <Text style={s.sheetTitle}>{t("notifyWhenOpen")}</Text>
             <Text style={s.otherCarsSub}>{t("notifySub")}</Text>
@@ -612,6 +622,7 @@ export default function BoardScreen() {
             <TouchableOpacity style={[s.reserveBtn, { marginTop: 14 }, notifyBusy && { opacity: 0.6 }]} disabled={notifyBusy} onPress={submitNotify} activeOpacity={0.85}>
               <Text style={s.reserveBtnTxt}>{notifyBusy ? t("reserving") : t("notifyConfirm")}</Text>
             </TouchableOpacity>
+            </ScrollView>
           </Pressable>
         </Pressable>
         </KeyboardAvoidingView>
@@ -753,7 +764,7 @@ const s = StyleSheet.create({
 
   // picker / sheets
   sheetDim:    { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
-  sheet:       { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 16, paddingBottom: 26 },
+  sheet:       { maxHeight: "82%", backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 16, paddingBottom: 26 },
   grip:        { width: 36, height: 4, borderRadius: 3, backgroundColor: Colors.border, alignSelf: "center", marginBottom: 12 },
   sheetTitle:  { color: Colors.t1, fontSize: 17, fontWeight: "800", marginBottom: 12 },
   sheetDriver: { flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 6 },

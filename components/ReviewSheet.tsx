@@ -1,7 +1,7 @@
 // Reusable two-way review modal: stars + quick tags + written review.
 // Used by both the passenger (rating the driver) and the driver (rating the rider).
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ActivityIndicator, Alert, Keyboard, Platform } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, ActivityIndicator, Alert, Keyboard, Platform } from "react-native";
 import { Star, X } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
@@ -54,6 +54,12 @@ export default function ReviewSheet({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={[s.backdrop, { paddingBottom: kb }]}>
         <View style={s.sheet}>
+          {/* The lift above is sound, but stars + a wrapping tag grid + a multiline field is taller
+              than what is left above an open keyboard, and nothing scrolled — Submit went off the
+              top. The cap is what gives the ScrollView a bounded height to scroll within; the gap
+              moves onto the content container, since the sheet now has a single child. */}
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
           <View style={s.head}>
             <Text style={s.title}>{rateRole === "driver" ? (fr ? "Évaluez le chauffeur" : "Rate your driver") : (fr ? "Évaluez le passager" : "Rate your rider")}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={10}><X size={20} color={Colors.t2} /></TouchableOpacity>
@@ -81,6 +87,7 @@ export default function ReviewSheet({
           <TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy} activeOpacity={0.85}>
             {busy ? <ActivityIndicator color={Colors.accentText} /> : <Text style={s.btnTxt}>{fr ? "Envoyer" : "Submit review"}</Text>}
           </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -89,7 +96,7 @@ export default function ReviewSheet({
 
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  sheet: { backgroundColor: Colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, gap: 12 },
+  sheet: { maxHeight: "82%", backgroundColor: Colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18 },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   title: { color: Colors.t1, fontSize: 18, fontWeight: "800" },
   who: { color: Colors.t2, fontSize: 13, fontWeight: "700", textAlign: "center" },

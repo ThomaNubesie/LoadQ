@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput,
          ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Check, ShieldAlert } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
@@ -20,6 +20,7 @@ import { resolveHome } from "../../services/authRoute";
 // Only drivers who joined on or after loadq_settings.undertaking_required_from see this;
 // the 165 already on the platform signed on paper and are never asked.
 export default function Engagement() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { lang } = useStrings();
   const fr = lang === "fr";
@@ -66,7 +67,11 @@ export default function Engagement() {
 
   return (
     <SafeAreaView style={s.screen} edges={["left","right","bottom"]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
         <View style={s.head}>
           <Wordmark style={{ fontSize: 18 }} />
           <Text style={s.step}>{fr ? "Étape 4 / 5" : "Step 4 / 5"}</Text>

@@ -182,7 +182,7 @@ export default function RequestRideScreen() {
       {phase === "loading" && <View style={s.center}><ActivityIndicator color={Colors.accentP} /></View>}
 
       {phase === "form" && (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={insets.top + 8}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 8 : 0}>
           <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {/* Map hero — draggable pin for a pinpoint pickup */}
             {coords

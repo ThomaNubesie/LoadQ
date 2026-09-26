@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { ArrowLeft, Navigation } from "lucide-react-native";
@@ -15,6 +15,7 @@ import AddressAutocomplete from "../../components/AddressAutocomplete";
 import { ZonesAPI, ZoneRow } from "../../services/zones";
 
 export default function PickupRequestScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t, lang } = useStrings();
   const [address, setAddress] = useState("");
@@ -68,7 +69,16 @@ export default function PickupRequestScreen() {
         <Text style={s.title}>{t("reqPickupTitle")}</Text>
         <View style={{ width: 22 }} />
       </View>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      {/* The address field had no keyboard handling at all, and without persistTaps the first tap
+          on a Places suggestion or on "See price" was swallowed dismissing the keyboard. The top
+          inset is not consumed by the SafeAreaView above, hence insets.top. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+                  keyboardShouldPersistTaps="handled">
         <Text style={s.lead}>{t("pickupLead")}</Text>
 
         <Step n={1} h={t("reqWherePickup")} />
@@ -123,6 +133,7 @@ export default function PickupRequestScreen() {
           {busy ? <ActivityIndicator color={Colors.accentPText} /> : <Text style={s.ctaTxt}>{t("pickupSeePrice")}</Text>}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

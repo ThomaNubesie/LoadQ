@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, RefreshControl, TextInput, KeyboardAvoidingView, Platform } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Check, Search } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
@@ -11,6 +11,7 @@ const money = (c: number) => `$${((c ?? 0) / 100).toFixed(2)}`;
 type Unpaid = { pay_ref: string; kind: string; amount_cents: number; origin: string | null; dropoff: string | null; scheduled_date: string | null; created_at: string };
 
 export default function AdminPaymentsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [rows, setRows] = useState<Unpaid[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +49,11 @@ export default function AdminPaymentsScreen() {
         <Text style={s.title}>Payments</Text>
         <View style={{ width: 22 }} />
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+        style={{ flex: 1 }}
+      >
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}>
 
