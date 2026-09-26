@@ -6,7 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ArrowLeft, Camera, Images, FileText, ShieldCheck, Car, CheckCircle2, Clock3, XCircle, AlertTriangle, X, BadgeCheck, ScrollText, FileCheck, ClipboardCheck, MapPin, Phone, Globe } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc, ScreeningConsent, RequiredDoc, DocSource, Province } from "../../services/driverDocs";
+import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc, ScreeningConsent, RequiredDoc, DocSource, DocCity, Province } from "../../services/driverDocs";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import BottomNav from "../../components/BottomNav";
 
@@ -43,10 +43,11 @@ export default function VerificationScreen() {
   const [province, setProvince] = useState<Province | null>(null);
   const [sources, setSources] = useState<Record<string, DocSource>>({});
   // A police record check is issued by the service that polices where the driver lives, so the
-  // province alone sends someone in Laval to the SPVM. The towns are not filtered by province —
-  // an Ontario licence with a Gatineau address still needs the SPVG.
+  // province alone sends someone in Laval to the SPVM. The list is this province's towns plus the
+  // one across the river: an Ontario licence with a Gatineau address still needs the SPVG, but an
+  // Ontario driver has no business being offered Laval or Longueuil.
   const [city, setCity] = useState<string>("");
-  const [cities, setCities] = useState<string[]>([]);
+  const [cities, setCities] = useState<DocCity[]>([]);
 
   // Photo-source + expiry sheet state for the doc currently being uploaded.
   const [sheetFor, setSheetFor] = useState<DocType | null>(null);
@@ -179,7 +180,13 @@ export default function VerificationScreen() {
 
   const chooseProvince = async (p: Province) => {
     setProvince(p);                      // answer immediately; the save is not worth a spinner
-    await refreshSources(p, city);       // the town stands: it is where they live, not what licenses them
+    const offered = await DriverDocsAPI.sourceCities(p).catch(() => [] as DocCity[]);
+    setCities(offered);
+    // Keep the town if the new province still offers it — someone correcting a mistyped province
+    // should not lose their answer — and drop it if it is no longer on the list.
+    const keep = offered.some((c) => c.city === city) ? city : "";
+    if (keep !== city) { setCity(keep); await DriverDocsAPI.setCity(keep); }
+    await refreshSources(p, keep);
     const { error } = await DriverDocsAPI.setProvince(p);
     if (error) Alert.alert(lang === "fr" ? "Non enregistré" : "Not saved", error);
   };
@@ -283,12 +290,19 @@ export default function VerificationScreen() {
                 <View style={s.cityWrap}>
                   {cities.map((c) => (
                     <TouchableOpacity
-                      key={c}
-                      style={[s.cityChip, city === c && s.cityChipOn]}
-                      onPress={() => chooseCity(c)}
+                      key={c.city}
+                      style={[s.cityChip, city === c.city && s.cityChipOn]}
+                      onPress={() => chooseCity(c.city)}
                       activeOpacity={0.85}
                     >
-                      <Text style={[s.cityTxt, city === c && s.cityTxtOn]}>{c}</Text>
+                      <Text style={[s.cityTxt, city === c.city && s.cityTxtOn]}>{c.city}</Text>
+                      {/* Gatineau under Ontario is deliberate, not a leak — say so, because an
+                          unexplained out-of-province town reads as a bug. */}
+                      {c.province !== province && (
+                        <Text style={s.cityProv}>
+                          {c.province === "QC" ? (fr ? "Québec" : "Quebec") : "Ontario"}
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -467,8 +481,10 @@ const s = StyleSheet.create({
   provBtnTxt:  { fontSize: 13.5, fontWeight: "700", color: Colors.t2 },
   provBtnTxtOn:{ color: Colors.accent },
   cityWrap:    { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 9 },
-  cityChip:    { paddingVertical: 7, paddingHorizontal: 13, borderRadius: 999,
+  cityChip:    { flexDirection: "row", alignItems: "center", gap: 5,
+                 paddingVertical: 7, paddingHorizontal: 13, borderRadius: 999,
                  borderWidth: 1, borderColor: Colors.border },
+  cityProv:    { fontSize: 10, fontWeight: "700", color: Colors.t3 },
   cityChipOn:  { borderColor: Colors.accent, backgroundColor: Colors.accent + "1A" },
   cityTxt:     { fontSize: 12.5, fontWeight: "600", color: Colors.t2 },
   cityTxtOn:   { color: Colors.accent },

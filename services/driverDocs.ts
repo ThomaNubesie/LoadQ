@@ -117,6 +117,8 @@ export type DocSource = {
   turnaround_en: string | null; turnaround_fr: string | null;
 };
 
+export type DocCity = { city: string; province: Province };
+
 export type Province = "ON" | "QC";
 
 export const DriverDocsAPI = {
@@ -149,11 +151,13 @@ export const DriverDocsAPI = {
     return { error: error?.message };
   },
 
-  // The towns with their own entry, so the app offers exactly those and no others.
-  async sourceCities(province: Province): Promise<string[]> {
+  // The towns this province's drivers can plausibly live in: its own, plus the one across the
+  // river. Each carries its own province so the screen can label a crossing instead of silently
+  // listing a Quebec town under Ontario.
+  async sourceCities(province: Province): Promise<DocCity[]> {
     const { data, error } = await supabase.rpc("loadq_doc_source_cities", { p_province: province });
     if (error) return [];
-    return ((data as { city: string }[]) ?? []).map((r) => r.city);
+    return ((data as DocCity[]) ?? []).filter((r) => !!r.city);
   },
 
   async setProvince(province: Province): Promise<{ error?: string }> {
