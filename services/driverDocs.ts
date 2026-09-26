@@ -103,7 +103,75 @@ export const AdminDocsAPI = {
   },
 };
 
+// Where a driver gets one document, in their province. Written by hand and reviewed before it
+// reaches a driver — a wrong address costs somebody an afternoon.
+export type DocSource = {
+  doc_type: DocType;
+  province: "ON" | "QC";
+  city: string;                     // "" is the province-wide entry
+  org_en: string; org_fr: string;
+  what_en: string | null; what_fr: string | null;
+  where_en: string | null; where_fr: string | null;
+  url: string | null; phone: string | null; address: string | null;
+  cost_en: string | null; cost_fr: string | null;
+  turnaround_en: string | null; turnaround_fr: string | null;
+};
+
+export type Province = "ON" | "QC";
+
 export const DriverDocsAPI = {
+  // Which province licenses this driver. Ontario and Québec issue different papers from
+  // different bodies, so nothing below can be shown until this is known.
+  async getProvince(): Promise<Province | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from("drivers").select("province").eq("id", user.id).maybeSingle();
+    if (error) return null;
+    const p = (data as { province?: string } | null)?.province;
+    return p === "ON" || p === "QC" ? p : null;
+  },
+
+  // The town whose police service issues this driver's record check. Blank is fine — the
+  // province-wide entry then applies.
+  async getCity(): Promise<string> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return "";
+    const { data } = await supabase
+      .from("drivers").select("service_city").eq("id", user.id).maybeSingle();
+    return (data as { service_city?: string } | null)?.service_city ?? "";
+  },
+
+  async setCity(city: string): Promise<{ error?: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "not signed in" };
+    const { error } = await supabase.from("drivers").update({ service_city: city }).eq("id", user.id);
+    return { error: error?.message };
+  },
+
+  // The towns with their own entry, so the app offers exactly those and no others.
+  async sourceCities(province: Province): Promise<string[]> {
+    const { data, error } = await supabase.rpc("loadq_doc_source_cities", { p_province: province });
+    if (error) return [];
+    return ((data as { city: string }[]) ?? []).map((r) => r.city);
+  },
+
+  async setProvince(province: Province): Promise<{ error?: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "not signed in" };
+    const { error } = await supabase.from("drivers").update({ province }).eq("id", user.id);
+    return { error: error?.message };
+  },
+
+  // Where to get each document in that province. Empty list is not an error — it just means
+  // the screen shows the checklist without the extra guidance.
+  async sources(province: Province, city = ""): Promise<DocSource[]> {
+    const { data, error } = await supabase.rpc("loadq_doc_sources_for",
+      { p_province: province, p_city: city });
+    if (error) return [];
+    return (data as DocSource[]) ?? [];
+  },
+
   // What the City currently requires, with this driver's standing against each. Ordered by
   // the server so the screen shows them in the order the by-law lists them.
   async required(): Promise<RequiredDoc[]> {

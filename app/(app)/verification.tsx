@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { ArrowLeft, Camera, Images, FileText, ShieldCheck, Car, CheckCircle2, Clock3, XCircle, AlertTriangle, X, BadgeCheck, ScrollText, FileCheck, ClipboardCheck } from "lucide-react-native";
+import { ArrowLeft, Camera, Images, FileText, ShieldCheck, Car, CheckCircle2, Clock3, XCircle, AlertTriangle, X, BadgeCheck, ScrollText, FileCheck, ClipboardCheck, MapPin, Phone, Globe } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc, ScreeningConsent, RequiredDoc } from "../../services/driverDocs";
+import { DriverDocsAPI, DOC_TYPES, DocType, DriverDoc, ScreeningConsent, RequiredDoc, DocSource, Province } from "../../services/driverDocs";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import BottomNav from "../../components/BottomNav";
 
@@ -38,6 +38,15 @@ export default function VerificationScreen() {
   // What the City requires TODAY, fetched rather than compiled in — so a by-law change
   // reaches drivers without an App Store release.
   const [required, setRequired] = useState<RequiredDoc[] | null>(null);
+  // Ontario and Québec issue different papers from different bodies. Asked once, then every
+  // outstanding document says where that driver actually goes for it.
+  const [province, setProvince] = useState<Province | null>(null);
+  const [sources, setSources] = useState<Record<string, DocSource>>({});
+  // A police record check is issued by the service that polices where the driver lives, so the
+  // province alone sends someone in Laval to the SPVM. The towns are not filtered by province —
+  // an Ontario licence with a Gatineau address still needs the SPVG.
+  const [city, setCity] = useState<string>("");
+  const [cities, setCities] = useState<string[]>([]);
 
   // Photo-source + expiry sheet state for the doc currently being uploaded.
   const [sheetFor, setSheetFor] = useState<DocType | null>(null);
@@ -64,6 +73,13 @@ export default function VerificationScreen() {
     ? required.map((r) => r.doc_type)
     : DOC_TYPES;
 
+  const refreshSources = async (p: Province, town: string) => {
+    const list = await DriverDocsAPI.sources(p, town).catch(() => []);
+    const byType: Record<string, DocSource> = {};
+    for (const x of list) byType[x.doc_type] = x;
+    setSources(byType);
+  };
+
   const load = useCallback(async () => {
     try {
       const { docs, verified } = await DriverDocsAPI.getMine();
@@ -73,6 +89,14 @@ export default function VerificationScreen() {
       setVerified(verified);
       setConsent(await DriverDocsAPI.getConsent().catch(() => null));
       setRequired(await DriverDocsAPI.required().catch(() => null));
+      const prov = await DriverDocsAPI.getProvince().catch(() => null);
+      setProvince(prov);
+      const town = await DriverDocsAPI.getCity().catch(() => "");
+      setCity(town);
+      // Loaded whether or not a province is on file: a driver choosing one for the first time has
+      // to see the towns in the same breath.
+      setCities(await DriverDocsAPI.sourceCities(prov ?? "ON").catch(() => []));
+      if (prov) await refreshSources(prov, town);
     } catch { /* offline / not signed in — leave empty */ }
     finally { setLoading(false); }
   }, []);
@@ -153,6 +177,24 @@ export default function VerificationScreen() {
     return { text: t.docNotSubmitted, color: Colors.t3, Icon: FileText };
   };
 
+  const chooseProvince = async (p: Province) => {
+    setProvince(p);                      // answer immediately; the save is not worth a spinner
+    await refreshSources(p, city);       // the town stands: it is where they live, not what licenses them
+    const { error } = await DriverDocsAPI.setProvince(p);
+    if (error) Alert.alert(lang === "fr" ? "Non enregistré" : "Not saved", error);
+  };
+
+  const chooseCity = async (town: string) => {
+    const next = town === city ? "" : town;   // tapping the chosen town again clears it
+    setCity(next);
+    if (province) await refreshSources(province, next);
+    const { error } = await DriverDocsAPI.setCity(next);
+    if (error) Alert.alert(lang === "fr" ? "Non enregistré" : "Not saved", error);
+  };
+
+  const fr = lang === "fr";
+  const sourceFor = (dt: DocType) => sources[dt] ?? null;
+
   const ctaLabel = (dt: DocType): string => {
     const st = docs[dt]?.status;
     if (!st) return t.docUpload;
@@ -206,6 +248,60 @@ export default function VerificationScreen() {
           </View>
         ))}
 
+        {!loading && (
+          <View style={s.provCard}>
+            <Text style={s.provTitle}>
+              {fr ? "Votre permis vient de quelle province ?" : "Which province licenses you?"}
+            </Text>
+            <Text style={s.provSub}>
+              {fr
+                ? "On vous dira où obtenir chaque document, près de chez vous."
+                : "We'll tell you where to get each document, where you live."}
+            </Text>
+            <View style={s.provRow}>
+              {(["ON", "QC"] as Province[]).map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={[s.provBtn, province === p && s.provBtnOn]}
+                  onPress={() => chooseProvince(p)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[s.provBtnTxt, province === p && s.provBtnTxtOn]}>
+                    {p === "ON" ? "Ontario" : "Québec"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {!!province && cities.length > 0 && (
+              <>
+                <Text style={[s.provSub, { marginTop: 13 }]}>
+                  {fr
+                    ? "Où habitez-vous ? La vérification de police se fait au service de police de votre adresse."
+                    : "Where do you live? The record check is issued by the police service for your address."}
+                </Text>
+                <View style={s.cityWrap}>
+                  {cities.map((c) => (
+                    <TouchableOpacity
+                      key={c}
+                      style={[s.cityChip, city === c && s.cityChipOn]}
+                      onPress={() => chooseCity(c)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[s.cityTxt, city === c && s.cityTxtOn]}>{c}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={s.cityHint}>
+                  {fr
+                    ? "Ailleurs ? Laissez vide — on vous indiquera la règle provinciale."
+                    : "Somewhere else? Leave it unset — we'll show the provincial rule."}
+                </Text>
+              </>
+            )}
+          </View>
+        )}
+
         {loading ? (
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 28 }} />
         ) : (
@@ -234,6 +330,45 @@ export default function VerificationScreen() {
                   </View>
                 </View>
 
+                {/* Where to get it — only while it is still outstanding. Once a document is
+                    filed the driver does not need the address again, and the card gets long. */}
+                {(!doc || doc.status === "rejected" || doc.status === "expired") && sourceFor(dt) && (() => {
+                  const src = sourceFor(dt)!;
+                  const org = fr ? src.org_fr : src.org_en;
+                  const where = fr ? src.where_fr : src.where_en;
+                  const cost = fr ? src.cost_fr : src.cost_en;
+                  const wait = fr ? src.turnaround_fr : src.turnaround_en;
+                  return (
+                    <View style={s.where}>
+                      <Text style={s.whereOrg}>{org}</Text>
+                      {!!where && <Text style={s.whereSub}>{where}</Text>}
+                      {!!src.address && (
+                        <View style={s.whereLine}>
+                          <MapPin size={12} color={Colors.t3} strokeWidth={2} />
+                          <Text style={s.whereTxt}>{src.address}</Text>
+                        </View>
+                      )}
+                      {!!src.phone && (
+                        <TouchableOpacity style={s.whereLine} onPress={() => Linking.openURL(`tel:${src.phone}`)} activeOpacity={0.7}>
+                          <Phone size={12} color={Colors.accent} strokeWidth={2} />
+                          <Text style={[s.whereTxt, s.whereLink]}>{src.phone}</Text>
+                        </TouchableOpacity>
+                      )}
+                      {!!src.url && (
+                        <TouchableOpacity style={s.whereLine} onPress={() => Linking.openURL(src.url!)} activeOpacity={0.7}>
+                          <Globe size={12} color={Colors.accent} strokeWidth={2} />
+                          <Text style={[s.whereTxt, s.whereLink]} numberOfLines={1}>
+                            {fr ? "Ouvrir le site officiel" : "Open the official site"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      {(!!cost || !!wait) && (
+                        <Text style={s.whereMeta}>{[cost, wait].filter(Boolean).join(" · ")}</Text>
+                      )}
+                    </View>
+                  );
+                })()}
+
                 {doc?.status === "rejected" && !!doc.review_notes && (
                   <View style={s.reason}><Text style={s.reasonTxt}>“{doc.review_notes}”</Text></View>
                 )}
@@ -257,9 +392,26 @@ export default function VerificationScreen() {
 
       {/* Source picker → expiry sheet */}
       <Modal visible={sheetFor !== null} transparent animationType="slide" onRequestClose={closeSheet}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {/* The expiry field sits in this sheet, so the keyboard has to be handled here:
+            1. Android got behavior={undefined}, which lifts nothing — the keyboard covered the
+               field and the Save button. "height" is what works there.
+            2. The sheet is a flex sibling of the dim, not absolutely positioned, so "padding"
+               does lift it on iOS; the offset is 0 because a Modal starts at the screen top.
+            3. Nothing scrolled, so on a short screen the Save button had nowhere to go.
+               keyboardShouldPersistTaps="handled" keeps the first tap on Save from being
+               swallowed by the keyboard dismissing. Same three as the admin-docs reject sheet. */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
           <Pressable style={s.mOverlay} onPress={closeSheet} />
           <View style={s.mSheet}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 4 }}
+            >
             <View style={s.mGrip} />
             <View style={s.mHead}>
               <Text style={s.mTitle}>{sheetFor ? labelFor(sheetFor) : ""}</Text>
@@ -290,6 +442,7 @@ export default function VerificationScreen() {
                 </TouchableOpacity>
               </>
             )}
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -301,6 +454,35 @@ export default function VerificationScreen() {
 
 const s = StyleSheet.create({
   container:   { flex: 1, backgroundColor: Colors.bg },
+
+  // Province chooser — two taps wide, because there are two provinces and a dropdown for two
+  // choices is a dropdown too many.
+  provCard:    { backgroundColor: Colors.card, borderRadius: 14, padding: 14, marginBottom: 12 },
+  provTitle:   { fontSize: 14, fontWeight: "700", color: Colors.t1 },
+  provSub:     { fontSize: 12, color: Colors.t3, marginTop: 3, lineHeight: 17 },
+  provRow:     { flexDirection: "row", gap: 10, marginTop: 11 },
+  provBtn:     { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: "center",
+                 borderWidth: 1, borderColor: Colors.border, backgroundColor: "transparent" },
+  provBtnOn:   { borderColor: Colors.accent, backgroundColor: Colors.accent + "1A" },
+  provBtnTxt:  { fontSize: 13.5, fontWeight: "700", color: Colors.t2 },
+  provBtnTxtOn:{ color: Colors.accent },
+  cityWrap:    { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 9 },
+  cityChip:    { paddingVertical: 7, paddingHorizontal: 13, borderRadius: 999,
+                 borderWidth: 1, borderColor: Colors.border },
+  cityChipOn:  { borderColor: Colors.accent, backgroundColor: Colors.accent + "1A" },
+  cityTxt:     { fontSize: 12.5, fontWeight: "600", color: Colors.t2 },
+  cityTxtOn:   { color: Colors.accent },
+  cityHint:    { fontSize: 11.5, color: Colors.t3, marginTop: 7 },
+
+  // Where to get the document. Sits inside the card, under the name, while it is outstanding.
+  where:       { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
+  whereOrg:    { fontSize: 13, fontWeight: "700", color: Colors.t1 },
+  whereSub:    { fontSize: 12, color: Colors.t2, marginTop: 3, lineHeight: 17 },
+  whereLine:   { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 6 },
+  whereTxt:    { fontSize: 12, color: Colors.t2, flexShrink: 1 },
+  whereLink:   { color: Colors.accent, fontWeight: "600" },
+  whereMeta:   { fontSize: 11.5, color: Colors.t3, marginTop: 7 },
+
   header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16 },
   title:       { fontSize: 17, fontWeight: "700", color: Colors.t1 },
   chelp:       { fontSize: 11.5, color: Colors.t3, marginTop: 2, lineHeight: 16 },
@@ -340,7 +522,7 @@ const s = StyleSheet.create({
   btnTxt:      { color: Colors.accentText, fontWeight: "800", fontSize: 13.5 },
 
   mOverlay:    { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
-  mSheet:      { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 18, paddingBottom: 30 },
+  mSheet:      { maxHeight: "82%", backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: Colors.border, padding: 18, paddingBottom: 30 },
   mGrip:       { width: 36, height: 4, borderRadius: 3, backgroundColor: Colors.border, alignSelf: "center", marginBottom: 12 },
   mHead:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   mTitle:      { color: Colors.t1, fontSize: 17, fontWeight: "800" },
