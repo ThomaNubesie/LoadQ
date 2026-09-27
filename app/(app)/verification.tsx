@@ -48,6 +48,10 @@ export default function VerificationScreen() {
   // Ontario driver has no business being offered Laval or Longueuil.
   const [city, setCity] = useState<string>("");
   const [cities, setCities] = useState<DocCity[]>([]);
+  // Ontario alone has a couple of dozen towns with their own police service, which is more than a
+  // row of chips can carry. One button that opens a searchable list scales and reads better.
+  const [cityOpen, setCityOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState("");
 
   // Photo-source + expiry sheet state for the doc currently being uploaded.
   const [sheetFor, setSheetFor] = useState<DocType | null>(null);
@@ -191,9 +195,21 @@ export default function VerificationScreen() {
     if (error) Alert.alert(lang === "fr" ? "Non enregistré" : "Not saved", error);
   };
 
+  // Gatineau under Ontario is deliberate, not a leak. Naming the province is what keeps an
+  // out-of-province town from reading as a bug — it was reported as one when unlabelled.
+  const crossing = (town: string): string | null => {
+    const row = cities.find((c) => c.city === town);
+    if (!row || row.province === province) return null;
+    if (row.province === "QC") return fr ? "Québec" : "Quebec";
+    if (row.province === "NB") return fr ? "Nouveau-Brunswick" : "New Brunswick";
+    return "Ontario";
+  };
+
   const chooseCity = async (town: string) => {
     const next = town === city ? "" : town;   // tapping the chosen town again clears it
     setCity(next);
+    setCityOpen(false);
+    setCitySearch("");
     if (province) await refreshSources(province, next);
     const { error } = await DriverDocsAPI.setCity(next);
     if (error) Alert.alert(lang === "fr" ? "Non enregistré" : "Not saved", error);
@@ -266,7 +282,7 @@ export default function VerificationScreen() {
                 : "We'll tell you where to get each document, where you live."}
             </Text>
             <View style={s.provRow}>
-              {(["ON", "QC"] as Province[]).map((p) => (
+              {(["ON", "QC", "NB"] as Province[]).map((p) => (
                 <TouchableOpacity
                   key={p}
                   style={[s.provBtn, province === p && s.provBtnOn]}
@@ -274,7 +290,7 @@ export default function VerificationScreen() {
                   activeOpacity={0.85}
                 >
                   <Text style={[s.provBtnTxt, province === p && s.provBtnTxtOn]}>
-                    {p === "ON" ? "Ontario" : "Québec"}
+                    {p === "ON" ? "Ontario" : p === "QC" ? "Québec" : "N.-B."}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -287,29 +303,24 @@ export default function VerificationScreen() {
                     ? "Où habitez-vous ? La vérification de police se fait au service de police de votre adresse."
                     : "Where do you live? The record check is issued by the police service for your address."}
                 </Text>
-                <View style={s.cityWrap}>
-                  {cities.map((c) => (
-                    <TouchableOpacity
-                      key={c.city}
-                      style={[s.cityChip, city === c.city && s.cityChipOn]}
-                      onPress={() => chooseCity(c.city)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={[s.cityTxt, city === c.city && s.cityTxtOn]}>{c.city}</Text>
-                      {/* Gatineau under Ontario is deliberate, not a leak — say so, because an
-                          unexplained out-of-province town reads as a bug. */}
-                      {c.province !== province && (
-                        <Text style={s.cityProv}>
-                          {c.province === "QC" ? (fr ? "Québec" : "Quebec") : "Ontario"}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <TouchableOpacity
+                  style={[s.cityPick, !!city && s.cityPickOn]}
+                  onPress={() => { setCitySearch(""); setCityOpen(true); }}
+                  activeOpacity={0.85}
+                >
+                  <MapPin size={15} color={city ? Colors.accent : Colors.t3} strokeWidth={2} />
+                  <Text style={[s.cityPickTxt, !!city && s.cityPickTxtOn]}>
+                    {city || (fr ? "Choisir votre ville" : "Choose your town")}
+                  </Text>
+                  {!!city && crossing(city) && (
+                    <Text style={s.cityProv}>{crossing(city)}</Text>
+                  )}
+                  <Text style={s.cityPickCaret}>›</Text>
+                </TouchableOpacity>
                 <Text style={s.cityHint}>
                   {fr
-                    ? "Ailleurs ? Laissez vide — on vous indiquera la règle provinciale."
-                    : "Somewhere else? Leave it unset — we'll show the provincial rule."}
+                    ? "Ville absente de la liste ? Laissez vide — on vous indiquera la règle provinciale."
+                    : "Town not listed? Leave it unset — we'll show the provincial rule."}
                 </Text>
               </>
             )}
@@ -404,6 +415,55 @@ export default function VerificationScreen() {
         )}
       </ScrollView>
 
+      {/* Where the driver lives — searchable, because Ontario's list is long */}
+      <Modal visible={cityOpen} transparent animationType="slide" onRequestClose={() => setCityOpen(false)}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          <Pressable style={s.mOverlay} onPress={() => setCityOpen(false)} />
+          <View style={s.mSheet}>
+            <View style={s.mGrip} />
+            <View style={s.mHead}>
+              <Text style={s.mTitle}>{fr ? "Votre ville" : "Your town"}</Text>
+              <TouchableOpacity onPress={() => setCityOpen(false)} hitSlop={8}>
+                <X size={20} color={Colors.t3} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={s.mInput}
+              value={citySearch}
+              onChangeText={setCitySearch}
+              placeholder={fr ? "Rechercher…" : "Search…"}
+              placeholderTextColor={Colors.t3}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <ScrollView style={{ maxHeight: 320, marginTop: 8 }} keyboardShouldPersistTaps="handled">
+              {cities
+                .filter((c) => c.city.toLowerCase().includes(citySearch.trim().toLowerCase()))
+                .map((c) => (
+                  <TouchableOpacity key={c.city} style={s.cityRow} onPress={() => chooseCity(c.city)} activeOpacity={0.8}>
+                    <Text style={[s.cityRowTxt, city === c.city && s.cityRowTxtOn]}>{c.city}</Text>
+                    {c.province !== province && (
+                      <Text style={s.cityProv}>{crossing(c.city)}</Text>
+                    )}
+                    {city === c.city && <Text style={s.cityRowTick}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+              {cities.filter((c) => c.city.toLowerCase().includes(citySearch.trim().toLowerCase())).length === 0 && (
+                <Text style={s.cityNone}>
+                  {fr
+                    ? "Aucune ville trouvée. Laissez vide — la règle provinciale s'appliquera."
+                    : "No town found. Leave it unset — the provincial rule applies."}
+                </Text>
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Source picker → expiry sheet */}
       <Modal visible={sheetFor !== null} transparent animationType="slide" onRequestClose={closeSheet}>
         {/* The expiry field sits in this sheet, so the keyboard has to be handled here:
@@ -474,20 +534,26 @@ const s = StyleSheet.create({
   provCard:    { backgroundColor: Colors.card, borderRadius: 14, padding: 14, marginBottom: 12 },
   provTitle:   { fontSize: 14, fontWeight: "700", color: Colors.t1 },
   provSub:     { fontSize: 12, color: Colors.t3, marginTop: 3, lineHeight: 17 },
-  provRow:     { flexDirection: "row", gap: 10, marginTop: 11 },
+  provRow:     { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 11 },
   provBtn:     { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: "center",
                  borderWidth: 1, borderColor: Colors.border, backgroundColor: "transparent" },
   provBtnOn:   { borderColor: Colors.accent, backgroundColor: Colors.accent + "1A" },
   provBtnTxt:  { fontSize: 13.5, fontWeight: "700", color: Colors.t2 },
   provBtnTxtOn:{ color: Colors.accent },
-  cityWrap:    { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 9 },
-  cityChip:    { flexDirection: "row", alignItems: "center", gap: 5,
-                 paddingVertical: 7, paddingHorizontal: 13, borderRadius: 999,
-                 borderWidth: 1, borderColor: Colors.border },
+  cityPick:    { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 9,
+                 paddingVertical: 11, paddingHorizontal: 13, borderRadius: 12,
+                 borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
+  cityPickOn:  { borderColor: Colors.accent },
+  cityPickTxt: { flex: 1, fontSize: 13.5, fontWeight: "600", color: Colors.t3 },
+  cityPickTxtOn: { color: Colors.t1 },
+  cityPickCaret: { fontSize: 18, color: Colors.t3, marginTop: -2 },
   cityProv:    { fontSize: 10, fontWeight: "700", color: Colors.t3 },
-  cityChipOn:  { borderColor: Colors.accent, backgroundColor: Colors.accent + "1A" },
-  cityTxt:     { fontSize: 12.5, fontWeight: "600", color: Colors.t2 },
-  cityTxtOn:   { color: Colors.accent },
+  cityRow:     { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12,
+                 borderBottomWidth: 1, borderBottomColor: Colors.border },
+  cityRowTxt:  { flex: 1, fontSize: 14.5, fontWeight: "600", color: Colors.t2 },
+  cityRowTxtOn:{ color: Colors.accent, fontWeight: "800" },
+  cityRowTick: { color: Colors.accent, fontWeight: "800" },
+  cityNone:    { fontSize: 12.5, color: Colors.t3, paddingVertical: 14, lineHeight: 18 },
   cityHint:    { fontSize: 11.5, color: Colors.t3, marginTop: 7 },
 
   // Where to get the document. Sits inside the card, under the name, while it is outstanding.

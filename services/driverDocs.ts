@@ -119,7 +119,7 @@ export type DocSource = {
 
 export type DocCity = { city: string; province: Province };
 
-export type Province = "ON" | "QC";
+export type Province = "ON" | "QC" | "NB";
 
 export const DriverDocsAPI = {
   // Which province licenses this driver. Ontario and Québec issue different papers from
@@ -131,7 +131,7 @@ export const DriverDocsAPI = {
       .from("drivers").select("province").eq("id", user.id).maybeSingle();
     if (error) return null;
     const p = (data as { province?: string } | null)?.province;
-    return p === "ON" || p === "QC" ? p : null;
+    return p === "ON" || p === "QC" || p === "NB" ? p : null;
   },
 
   // The town whose police service issues this driver's record check. Blank is fine — the
