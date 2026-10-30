@@ -112,7 +112,7 @@ export default function Raffle() {
           </View>
         )}
 
-        {s.status === "none" && <Banner tone="muted" text={t.raffleNotRunning} />}
+        {s.status === "none" && !s.can_raffle && <Banner tone="muted" text={t.raffleNotRunning} />}
         {s.window_open && !s.already_raffled && !s.eligible && (
           <Banner tone="warn" text={t.raffleNotEligibleLong} />)}
 
@@ -158,7 +158,7 @@ export default function Raffle() {
             <Text style={{ fontSize: 13, color: Colors.t2 }}>{demo ? t.raffleTestNumber : (drawn ? t.raffleYourNumber : t.raffleYourNumberFinal)}</Text>
             <Text style={{ fontSize: 56, fontWeight: "900", color: Colors.accentWarm, lineHeight: 62 }}>{demo ? demo.num : (s.my_number ?? "—")}</Text>
             <Text style={{ fontSize: 13, color: demo ? Colors.yellow : Colors.t2, textAlign: "center", marginTop: 4, fontWeight: demo ? "700" : "400" }}>
-              {demo ? demo.note : t.raffleSameOdds}
+              {demo ? t.raffleTestNote : t.raffleSameOdds}
             </Text>
           </View>
         )}
