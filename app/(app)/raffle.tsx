@@ -13,6 +13,7 @@ import { Colors } from "../../constants/colors";
 import { supabase } from "../../services/supabase";
 import { RaffleAPI, RaffleStatus, RaffleOrderRow } from "../../services/raffle";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
+import { useStrings, TFn } from "../../hooks/useStrings";
 import BottomNav from "../../components/BottomNav";
 
 async function deviceId(): Promise<string> {
@@ -21,20 +22,27 @@ async function deviceId(): Promise<string> {
   return id;
 }
 const hhmm = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-const ERRORS: Record<string, string> = {
-  not_at_lot: "You're not at the lot yet — move closer to check in.",
-  low_gps_accuracy: "Weak GPS signal — step into the open and try again.",
-  location_required: "Turn on location to check in at the lot.",
-  bad_code: "Wrong code. Ask for today's code posted at the lot.",
-  window_closed: "Too late — the 7:15 cutoff has passed.",
-  not_open: "The raffle isn't open right now.",
-  not_eligible: "Your driver account isn't eligible to raffle.",
-  no_vehicle: "No active vehicle on your account.",
-  already_raffled: "You've already raffled today.",
-  duplicate_device: "This device already raffled another driver today.",
-};
+
+// Map a backend error code to its localized message (falls back to the raw
+// code, then a generic message).
+function errMessage(t: TFn, code?: string): string {
+  const map: Record<string, string> = {
+    not_at_lot:        t.raffleErrNotAtLot,
+    low_gps_accuracy:  t.raffleErrLowGps,
+    location_required: t.raffleErrLocationReq,
+    bad_code:          t.raffleErrBadCode,
+    window_closed:     t.raffleErrWindowClosed,
+    not_open:          t.raffleErrNotOpen,
+    not_eligible:      t.raffleErrNotEligible,
+    no_vehicle:        t.raffleErrNoVehicle,
+    already_raffled:   t.raffleErrAlready,
+    duplicate_device:  t.raffleErrDuplicateDevice,
+  };
+  return (code && map[code]) || code || t.raffleErrGeneric;
+}
 
 export default function Raffle() {
+  const { t } = useStrings();
   const [st, setSt] = useState<RaffleStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState("");
@@ -58,8 +66,8 @@ export default function Raffle() {
 
   useFocusEffect(useCallback(() => {
     refresh();
-    const t = setInterval(refresh, 15000);
-    return () => clearInterval(t);
+    const iv = setInterval(refresh, 15000);
+    return () => clearInterval(iv);
   }, [refresh]));
 
   const doSpin = () => {
@@ -70,7 +78,7 @@ export default function Raffle() {
   const raffle = async () => {
     setErr(null); setBusy(true);
     const loc = await tryGetUserLocation(8000, Location.Accuracy.High);
-    if (!loc) { setErr(ERRORS.location_required); setBusy(false); return; }
+    if (!loc) { setErr(errMessage(t, "location_required")); setBusy(false); return; }
     const res = await RaffleAPI.enter({
       lat: loc.coords.latitude, lng: loc.coords.longitude, accuracy: loc.coords.accuracy ?? null,
       code: code.trim(), deviceId: await deviceId() });
@@ -79,7 +87,7 @@ export default function Raffle() {
       doSpin();
       if (res.registered === false) setDemo({ num: res.provisional_position, note: res.note }); else setDemo(null);
       await refresh();
-    } else setErr(ERRORS[(res as any).error] ?? (res as any).error ?? "Something went wrong.");
+    } else setErr(errMessage(t, (res as any).error));
   };
 
   const spinDeg = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "1440deg"] });
@@ -95,35 +103,35 @@ export default function Raffle() {
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 30 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <Dices size={26} color={Colors.accentWarm} strokeWidth={2} />
-          <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.t1 }}>Morning Raffle</Text>
+          <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.t1 }}>{t.raffleTitle}</Text>
         </View>
-        <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: s.test_mode ? 8 : 16 }}>Universal Grocery → Montréal · cutoff {hhmm(s.draw_at) || "7:15"}</Text>
+        <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: s.test_mode ? 8 : 16 }}>{t("raffleRoute", { time: hhmm(s.draw_at) || "7:15" })}</Text>
         {s.test_mode && (
           <View style={{ alignSelf: "flex-start", backgroundColor: Colors.yellow, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 16 }}>
-            <Text style={{ fontSize: 11, fontWeight: "800", color: "#20140A" }}>TEST MODE · dry run — doesn't change the real line</Text>
+            <Text style={{ fontSize: 11, fontWeight: "800", color: "#20140A" }}>{t.raffleTestMode}</Text>
           </View>
         )}
 
-        {s.status === "none" && <Banner tone="muted" text="The raffle isn't running right now. It opens at 6:00 AM." />}
+        {s.status === "none" && <Banner tone="muted" text={t.raffleNotRunning} />}
         {s.window_open && !s.already_raffled && !s.eligible && (
-          <Banner tone="warn" text="Your driver account isn't eligible to raffle (needs a verified account and an active vehicle)." />)}
+          <Banner tone="warn" text={t.raffleNotEligibleLong} />)}
 
         {/* Real check-in (window open) */}
         {s.can_raffle && s.window_open && (
           <View>
-            <Banner tone="ok" icon={<Clock size={16} color={Colors.green} />} text={`Check-in open · ${s.entrant_count} drivers in · closes ${hhmm(s.draw_at)}`} />
-            <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.t3, letterSpacing: 0.6, marginTop: 14, marginBottom: 6 }}>TODAY'S CODE (posted at the lot)</Text>
+            <Banner tone="ok" icon={<Clock size={16} color={Colors.green} />} text={t("raffleCheckinOpen", { n: s.entrant_count, time: hhmm(s.draw_at) })} />
+            <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.t3, letterSpacing: 0.6, marginTop: 14, marginBottom: 6 }}>{t.raffleCodeLabel}</Text>
             <TextInput value={code} onChangeText={setCode} placeholder="····" placeholderTextColor={Colors.t3} keyboardType="number-pad" maxLength={6}
               style={{ borderWidth: 1.5, borderColor: Colors.border, borderRadius: 14, padding: 16, fontSize: 24, fontWeight: "800",
                 textAlign: "center", letterSpacing: 8, color: Colors.t1, backgroundColor: Colors.card }} />
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
               <MapPin size={14} color={Colors.t3} />
-              <Text style={{ fontSize: 12, color: Colors.t3 }}>We'll confirm you're at the lot when you tap.</Text>
+              <Text style={{ fontSize: 12, color: Colors.t3 }}>{t.raffleAtLotHint}</Text>
             </View>
             {err && <Text style={{ color: Colors.red, marginTop: 10, fontWeight: "600" }}>{err}</Text>}
             <TouchableOpacity onPress={raffle} disabled={busy || code.trim().length === 0}
               style={{ marginTop: 16, backgroundColor: Colors.accent, borderRadius: 14, padding: 18, alignItems: "center", opacity: busy || code.trim().length === 0 ? 0.5 : 1 }}>
-              {busy ? <ActivityIndicator color={Colors.accentText} /> : <Text style={{ color: Colors.accentText, fontWeight: "800", fontSize: 16 }}>RAFFLE MY SPOT</Text>}
+              {busy ? <ActivityIndicator color={Colors.accentText} /> : <Text style={{ color: Colors.accentText, fontWeight: "800", fontSize: 16 }}>{t.raffleMySpot}</Text>}
             </TouchableOpacity>
           </View>
         )}
@@ -131,11 +139,11 @@ export default function Raffle() {
         {/* Admin test tap (outside window — not counted) */}
         {s.can_raffle && !s.window_open && (
           <View>
-            <Banner tone="muted" text="Outside the 6:00–7:15 window. As a raffle admin you can test a tap — it won't be registered." />
+            <Banner tone="muted" text={t.raffleAdminTest} />
             {err && <Text style={{ color: Colors.red, marginTop: 10, fontWeight: "600" }}>{err}</Text>}
             <TouchableOpacity onPress={raffle} disabled={busy}
               style={{ marginTop: 14, backgroundColor: Colors.t1, borderRadius: 14, padding: 18, alignItems: "center", opacity: busy ? 0.5 : 1 }}>
-              {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={{ color: Colors.bg, fontWeight: "800", fontSize: 16 }}>TEST THE RAFFLE</Text>}
+              {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={{ color: Colors.bg, fontWeight: "800", fontSize: 16 }}>{t.raffleTestBtn}</Text>}
             </TouchableOpacity>
           </View>
         )}
@@ -147,23 +155,23 @@ export default function Raffle() {
               borderWidth: 10, borderColor: Colors.accentWarm, borderTopColor: Colors.yellow, alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
               <Dices size={36} color={Colors.accentWarm} />
             </Animated.View>
-            <Text style={{ fontSize: 13, color: Colors.t2 }}>{demo ? "Test number" : (drawn ? "Your number" : "Your number (final at cutoff)")}</Text>
+            <Text style={{ fontSize: 13, color: Colors.t2 }}>{demo ? t.raffleTestNumber : (drawn ? t.raffleYourNumber : t.raffleYourNumberFinal)}</Text>
             <Text style={{ fontSize: 56, fontWeight: "900", color: Colors.accentWarm, lineHeight: 62 }}>{demo ? demo.num : (s.my_number ?? "—")}</Text>
             <Text style={{ fontSize: 13, color: demo ? Colors.yellow : Colors.t2, textAlign: "center", marginTop: 4, fontWeight: demo ? "700" : "400" }}>
-              {demo ? demo.note : "Everyone present had the same odds — the order you checked in didn't matter."}
+              {demo ? demo.note : t.raffleSameOdds}
             </Text>
           </View>
         )}
 
         {closed && !s.already_raffled && s.status !== "none" && (
-          <Banner tone="muted" icon={<Lock size={16} color={Colors.t2} />} text={drawn ? "The line is locked for today." : "Check-in is closed for today."} />)}
+          <Banner tone="muted" icon={<Lock size={16} color={Colors.t2} />} text={drawn ? t.raffleLineLocked : t.raffleCheckinClosed} />)}
 
         {/* Live board */}
         {board.length > 0 && (
           <View style={{ marginTop: 22 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.t1 }}>Today's line</Text>
-              {drawn && <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Lock size={12} color={Colors.t3} /><Text style={{ fontSize: 11, color: Colors.t3 }}>locked</Text></View>}
+              <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.t1 }}>{t.raffleTodaysLine}</Text>
+              {drawn && <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Lock size={12} color={Colors.t3} /><Text style={{ fontSize: 11, color: Colors.t3 }}>{t.raffleLocked}</Text></View>}
             </View>
             {board.map((r) => {
               const me = r.driver_id === myUid;
@@ -174,8 +182,8 @@ export default function Raffle() {
                     backgroundColor: r.pos === 1 ? Colors.accentWarm : (me ? Colors.accent : Colors.card), borderWidth: 1, borderColor: Colors.border }}>
                     <Text style={{ fontWeight: "900", color: (r.pos === 1 || me) ? "#fff" : Colors.t1 }}>{r.pos}</Text>
                   </View>
-                  <Text style={{ flex: 1, fontWeight: "700", color: Colors.t1 }}>{me ? "You" : r.name}</Text>
-                  <Text style={{ fontSize: 12, color: Colors.t2 }}>{r.seats} seats</Text>
+                  <Text style={{ flex: 1, fontWeight: "700", color: Colors.t1 }}>{me ? t.raffleYou : r.name}</Text>
+                  <Text style={{ fontSize: 12, color: Colors.t2 }}>{t("raffleSeats", { n: r.seats })}</Text>
                 </View>
               );
             })}
@@ -186,8 +194,8 @@ export default function Raffle() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 18, padding: 12, borderRadius: 12, backgroundColor: Colors.cardAlt }}>
             <ShieldCheck size={18} color={Colors.green} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.t1 }}>Provably fair</Text>
-              <Text style={{ fontSize: 11, color: Colors.t2 }} numberOfLines={1}>seed {drawn ? "revealed" : "committed"} · {s.seed_commit.slice(0, 16)}…</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.t1 }}>{t.raffleProvablyFair}</Text>
+              <Text style={{ fontSize: 11, color: Colors.t2 }} numberOfLines={1}>{drawn ? t.raffleSeedRevealed : t.raffleSeedCommitted} · {s.seed_commit.slice(0, 16)}…</Text>
             </View>
           </View>
         )}
