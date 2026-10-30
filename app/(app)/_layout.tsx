@@ -15,6 +15,7 @@ export default function AppLayout() {
     <Stack screenOptions={{ headerShown:false, contentStyle:{ backgroundColor:Colors.bg } }}>
       <Stack.Screen name="zone-select" />
       <Stack.Screen name="queue" />
+      <Stack.Screen name="raffle" />
       <Stack.Screen name="my-loading" />
       <Stack.Screen name="verification" />
       <Stack.Screen name="profile" />

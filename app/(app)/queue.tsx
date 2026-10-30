@@ -15,6 +15,7 @@ import { QueueEntry, Vehicle } from "../../constants/types";
 import SeatSvg from "../../components/SeatSvg";
 import BottomNav from "../../components/BottomNav";
 import KolisParcels from "../../components/KolisParcels";
+import RaffleBanner from "../../components/RaffleBanner";
 import ParkingButton from "../../components/ParkingButton";
 import ZoneMap from "../../components/ZoneMap";
 import { loadingState, formatRemaining, isWithinHours, nextRegistrationOpen } from "../../utils/loadingTimer";
@@ -900,6 +901,8 @@ export default function QueueScreen() {
         style={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
       >
+        {/* Morning raffle entry (self-hides unless eligible / already raffled) */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}><RaffleBanner /></View>
         {/* Kolis: parcel offers for queued drivers (self-hides if none) */}
         <KolisParcels />
         {/* A6: pay for on-street parking while waiting (self-hides if no providers) */}
