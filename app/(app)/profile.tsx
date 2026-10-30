@@ -25,7 +25,7 @@ import VerifiedBadge from "../../components/VerifiedBadge";
 import ThemePicker from "../../components/ThemePicker";
 import { ReviewsAPI, Review } from "../../services/reviews";
 import { Star } from "lucide-react-native";
-import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, Clock, Pencil, Gift, Map, Inbox, BookOpen, ArrowLeftRight, Wallet, FileCheck, Navigation } from "lucide-react-native";
+import { ArrowLeft, CircleUserRound, ListOrdered, MessageSquare, Wrench, Users, Clock, Pencil, Gift, Map, Inbox, BookOpen, ArrowLeftRight, Wallet, FileCheck, Navigation, Dices } from "lucide-react-native";
 
 export default function ProfileScreen() {
   const router      = useRouter();
@@ -399,6 +399,12 @@ export default function ProfileScreen() {
               <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
                 <Wallet size={16} color={Colors.accent} strokeWidth={2} />
                 <Text style={s.adminBtnText}>{lang === "fr" ? "Paiements" : "Payments"}</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.adminBtn} onPress={() => router.push("/(app)/admin-raffle" as any)} activeOpacity={0.85}>
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6 }}>
+                <Dices size={16} color={Colors.accent} strokeWidth={2} />
+                <Text style={s.adminBtnText}>{t.raffleAdminTitle}</Text>
               </View>
             </TouchableOpacity>
           </>

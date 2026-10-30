@@ -38,6 +38,7 @@ export default function AppLayout() {
       <Stack.Screen name="scheduled" />
       <Stack.Screen name="scheduled-trip" />
       <Stack.Screen name="admin-payments" />
+      <Stack.Screen name="admin-raffle" />
     </Stack>
       </View>
       </View>

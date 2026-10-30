@@ -39,6 +39,28 @@ export type RaffleResult = {
   error?: string;
 };
 
+// ── Admin surface (tiered: lead = full control, other admins = partial) ──
+export type RaffleMonitorRow = {
+  driver_id: string; checked_in_at: string; provisional: number; geo_ok: boolean; code_ok: boolean;
+};
+export type RaffleAdminCtx = {
+  is_admin: boolean;
+  is_lead: boolean;
+  enabled: boolean;
+  test_mode: boolean;
+  code_len: number;
+  checkin_opens_local: string | null;
+  draw_at_local: string | null;
+  has_round: boolean;
+  status: "none" | "open" | "locked" | "drawn" | "cancelled";
+  service_date: string | null;
+  code: string | null;
+  draw_at: string | null;
+  entrant_count: number;
+  error?: string;
+};
+export type RaffleActionResult = { ok?: boolean; error?: string; expected_len?: number; [k: string]: any };
+
 export const RaffleAPI = {
   async status(zone: string = RAFFLE_ZONE): Promise<RaffleStatus> {
     const { data, error } = await supabase.rpc("loadq_raffle_status", { p_zone: zone });
@@ -62,5 +84,49 @@ export const RaffleAPI = {
     if (error) return { round_id: roundId, status: "error", drawn_at: null, final: false,
       seed_commit: "", seed_reveal: null, order: [], error: error.message };
     return data as RaffleResult;
+  },
+
+  // ── Admin actions (server-gated: see loadq_raffle_admin_controls migration) ──
+  async isLead(zone: string = RAFFLE_ZONE): Promise<boolean> {
+    const { data, error } = await supabase.rpc("loadq_raffle_is_lead", { p_zone: zone });
+    return !error && data === true;
+  },
+
+  async adminCtx(zone: string = RAFFLE_ZONE): Promise<RaffleAdminCtx> {
+    const { data, error } = await supabase.rpc("loadq_raffle_admin_ctx", { p_zone: zone });
+    if (error) return { is_admin: false, is_lead: false, enabled: false, test_mode: false, code_len: 4,
+      checkin_opens_local: null, draw_at_local: null, has_round: false, status: "none",
+      service_date: null, code: null, draw_at: null, entrant_count: 0, error: error.message };
+    return data as RaffleAdminCtx;
+  },
+
+  async monitor(zone: string = RAFFLE_ZONE): Promise<RaffleMonitorRow[]> {
+    const { data, error } = await supabase.rpc("loadq_raffle_monitor", { p_zone: zone });
+    if (error || !Array.isArray(data)) return [];
+    return data as RaffleMonitorRow[];
+  },
+
+  // Any raffle admin (lead or sub) — set / rotate today's lot code.
+  async setCode(code: string, zone: string = RAFFLE_ZONE): Promise<RaffleActionResult> {
+    const { data, error } = await supabase.rpc("loadq_raffle_set_code", { p_zone: zone, p_code: code });
+    if (error) return { error: error.message };
+    return data as RaffleActionResult;
+  },
+
+  // Lead admin only — enforced server-side; the UI also hides these for sub-admins.
+  async setTestMode(enabled: boolean, zone: string = RAFFLE_ZONE): Promise<RaffleActionResult> {
+    const { data, error } = await supabase.rpc("loadq_raffle_set_test_mode", { p_zone: zone, p_enabled: enabled });
+    if (error) return { error: error.message };
+    return data as RaffleActionResult;
+  },
+  async setEnabled(enabled: boolean, zone: string = RAFFLE_ZONE): Promise<RaffleActionResult> {
+    const { data, error } = await supabase.rpc("loadq_raffle_set_enabled_lead", { p_zone: zone, p_enabled: enabled });
+    if (error) return { error: error.message };
+    return data as RaffleActionResult;
+  },
+  async forceDraw(zone: string = RAFFLE_ZONE): Promise<RaffleActionResult> {
+    const { data, error } = await supabase.rpc("loadq_raffle_finalize_lead", { p_zone: zone });
+    if (error) return { error: error.message };
+    return data as RaffleActionResult;
   },
 };
