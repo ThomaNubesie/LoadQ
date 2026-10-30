@@ -70,7 +70,7 @@ export const RaffleAPI = {
     return data as RaffleStatus;
   },
 
-  async enter(args: { zone?: string; lat: number; lng: number; accuracy: number | null;
+  async enter(args: { zone?: string; lat: number | null; lng: number | null; accuracy: number | null;
                       code: string; deviceId: string }): Promise<RaffleEnterResult> {
     const { data, error } = await supabase.rpc("loadq_raffle_enter", {
       p_zone: args.zone ?? RAFFLE_ZONE, p_lat: args.lat, p_lng: args.lng,

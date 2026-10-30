@@ -77,11 +77,18 @@ export default function Raffle() {
 
   const raffle = async () => {
     setErr(null); setBusy(true);
-    const loc = await tryGetUserLocation(8000, Location.Accuracy.High);
-    if (!loc) { setErr(errMessage(t, "location_required")); setBusy(false); return; }
+    // The admin test tap (outside the window) is a non-registered, non-geofenced
+    // dry run on the backend, so don't gate it on a GPS fix. A real in-window
+    // check-in still needs location to prove you're at the lot.
+    const testTap = !st?.window_open;
+    let lat: number | null = null, lng: number | null = null, accuracy: number | null = null;
+    if (!testTap) {
+      const loc = await tryGetUserLocation(8000, Location.Accuracy.High);
+      if (!loc) { setErr(errMessage(t, "location_required")); setBusy(false); return; }
+      lat = loc.coords.latitude; lng = loc.coords.longitude; accuracy = loc.coords.accuracy ?? null;
+    }
     const res = await RaffleAPI.enter({
-      lat: loc.coords.latitude, lng: loc.coords.longitude, accuracy: loc.coords.accuracy ?? null,
-      code: code.trim(), deviceId: await deviceId() });
+      lat, lng, accuracy, code: code.trim(), deviceId: await deviceId() });
     setBusy(false);
     if ("ok" in res && res.ok) {
       doSpin();
