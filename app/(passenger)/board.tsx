@@ -329,7 +329,14 @@ export default function BoardScreen() {
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={s.zonePicker} onPress={() => setPickerOpen(true)} activeOpacity={0.8}>
             <Text style={s.zoneName} numberOfLines={1}>{zoneMeta?.name ?? t("findingZone")}</Text>
-            <Text style={s.zoneCity}>{regionName(zoneMeta?.region)} <ChevronDown size={13} color={Colors.accentP} /></Text>
+            {/* The chevron used to sit inside the Text. An SVG nested in a Text lands on the text
+                baseline, so it rode up against the last glyph — "Montréal⌄" with the mark biting
+                the l. It never showed on "Ottawa" because the word is short enough that the
+                collision fell outside the visible run. A row with a gap positions it properly. */}
+            <View style={s.zoneCityRow}>
+              <Text style={s.zoneCity}>{regionName(zoneMeta?.region)}</Text>
+              <ChevronDown size={13} color={Colors.accentP} />
+            </View>
           </TouchableOpacity>
           {zoneMeta && (
             <View style={s.liveRow}>
@@ -695,7 +702,8 @@ const s = StyleSheet.create({
   header:      { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 10 },
   zonePicker:  { flexDirection: "column" },
   zoneName:    { fontSize: 22, fontWeight: "800", color: Colors.t1 },
-  zoneCity:    { fontSize: 13.5, color: Colors.accentP, fontWeight: "700", marginTop: 1 },
+  zoneCityRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 1 },
+  zoneCity:    { fontSize: 13.5, color: Colors.accentP, fontWeight: "700" },
   liveRow:     { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 },
   liveDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.accentP },
   liveTxt:     { fontSize: 12, color: Colors.t2, fontWeight: "600" },
