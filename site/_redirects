@@ -1,0 +1,18 @@
+# Short links that carry their own tag.
+#
+# Artwork can print "loadq.ca/tk" — a query string on a flyer is unreadable and untypeable — and
+# the visit still lands in the right row on admin.loadq.ca/traffic. 302, not 301: browsers cache
+# a 301 forever, and these targets will change.
+/tk        /?s=tk-bio        302
+/fb        /?s=fb-page       302
+/ig        /?s=ig-bio        302
+/yt        /?s=yt            302
+
+# The ones printed on a specific post, so a board post and the noon flyer can be told apart.
+/tkboard   /?s=tk-board      302
+/fbboard   /?s=fb-board      302
+/fbnoon    /?s=fb-noon       302
+
+# Straight to the download page, tag intact.
+/tk/get    /get?s=tk-get     302
+/fb/get    /get?s=fb-get     302

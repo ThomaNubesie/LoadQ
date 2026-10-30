@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete your account — LoadQ</title>
+  <meta name="description" content="Delete your LoadQ account and personal data. Verify your phone and remove your account yourself." />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #15171C; color: #FFFFFF; line-height: 1.7; min-height: 100vh; }
+    header { padding: 32px 24px; text-align: center; border-bottom: 1px solid #3E4453; }
+    .logo { font-size: 24px; font-weight: 800; color: #FF8A1A; text-decoration: none; letter-spacing: -0.5px; }
+    main { padding: 44px 24px 72px; max-width: 620px; margin: 0 auto; }
+    h1 { font-size: 34px; font-weight: 800; margin-bottom: 8px; }
+    .meta { color: #7C8697; font-size: 14px; margin-bottom: 32px; }
+    h2 { font-size: 20px; font-weight: 700; color: #FF8A1A; margin-top: 34px; margin-bottom: 10px; }
+    p { color: #D4D9E2; margin-bottom: 12px; }
+    ul { color: #D4D9E2; margin: 0 0 12px 20px; }
+    li { margin-bottom: 6px; }
+    .lead { color: #AEB6C4; font-size: 16px; }
+    .fr { color: #7C8697; font-size: 14.5px; border-left: 2px solid #3E4453; padding-left: 14px; margin: 6px 0 20px; }
+
+    .card { background: #1C1F27; border: 1px solid #3E4453; border-radius: 16px; padding: 24px; margin: 28px 0; }
+    label { display: block; font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #7C8697; margin-bottom: 8px; }
+    input { width: 100%; background: #15171C; border: 1px solid #3E4453; border-radius: 11px; color: #fff;
+      font-size: 17px; padding: 13px 14px; outline: none; }
+    input:focus { border-color: #FF8A1A; }
+    input.code { font-variant-numeric: tabular-nums; letter-spacing: 8px; text-align: center; font-size: 24px; }
+    button { width: 100%; margin-top: 16px; background: #FF8A1A; color: #20140A; border: 0; border-radius: 11px;
+      font-weight: 800; font-size: 16px; padding: 14px; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    button.danger { background: #E5484D; color: #fff; }
+    .ghost { background: transparent; color: #AEB6C4; border: 1px solid #3E4453; font-weight: 600; font-size: 14px; }
+    .msg { font-size: 14px; margin-top: 14px; min-height: 18px; }
+    .msg.err { color: #ff9ca0; } .msg.ok { color: #58d68d; }
+    .warn { background: #2a1416; border: 1px solid #5c2a2d; border-radius: 11px; padding: 13px 15px; color: #ffb3b6; font-size: 14px; margin-bottom: 14px; }
+    .done { text-align: center; }
+    .done .tick { font-size: 44px; }
+    footer { padding: 28px 24px; border-top: 1px solid #3E4453; text-align: center; }
+    footer a { color: #7C8697; text-decoration: none; margin: 0 10px; font-size: 14px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header><a href="/" class="logo">LoadQ</a></header>
+  <main>
+    <h1>Delete your account</h1>
+    <p class="meta">LoadQ — Thomas Derick N Shalo Inc.</p>
+
+    <p class="lead">You can permanently delete your LoadQ account and personal data right here. We verify it's you with a one-time code sent to your phone, then close the account.</p>
+    <p class="fr">Vous pouvez supprimer définitivement votre compte LoadQ et vos données personnelles ici même. Nous confirmons votre identité par un code envoyé à votre téléphone, puis le compte est fermé.</p>
+
+    <!-- ── the flow ───────────────────────────────── -->
+    <div class="card" id="flow">
+      <!-- step 1: phone -->
+      <div id="step1">
+        <label for="phone">Your mobile number / Votre numéro de mobile</label>
+        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(613) 555-0142" />
+        <button id="sendBtn">Send verification code / Envoyer le code</button>
+        <div class="msg" id="msg1"></div>
+      </div>
+      <!-- step 2: code + confirm -->
+      <div id="step2" hidden>
+        <div class="warn">⚠ This permanently closes your account. It cannot be undone. / Cette action ferme définitivement votre compte et est irréversible.</div>
+        <label for="code">6-digit code texted to <span id="phoneEcho"></span></label>
+        <input id="code" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······" />
+        <button id="confirmBtn" class="danger">Permanently delete my account / Supprimer définitivement</button>
+        <button id="backBtn" class="ghost" style="margin-top:10px">← Use a different number</button>
+        <div class="msg" id="msg2"></div>
+      </div>
+      <!-- step 3: done -->
+      <div id="done" class="done" hidden>
+        <div class="tick">✅</div>
+        <h2 style="color:#58d68d;margin-top:8px">Account closed</h2>
+        <p>Your LoadQ account is now closed and your personal profile has been erased. Any records we must keep by law are anonymized and permanently deleted within 30 days.</p>
+        <p class="fr">Votre compte LoadQ est fermé et votre profil personnel a été effacé. Les documents que la loi nous oblige à conserver sont anonymisés puis supprimés définitivement sous 30 jours.</p>
+      </div>
+    </div>
+
+    <h2>What gets deleted</h2>
+    <p>Immediately: your name, phone number, email, profile photo, date of birth, and payout (Interac) details. Your login is disabled so the account can't be used again.</p>
+    <ul>
+      <li>Driver and/or passenger profile</li>
+      <li>Contact details and profile photo</li>
+      <li>Identity documents (removed within 30 days)</li>
+      <li>Saved notification tokens</li>
+    </ul>
+
+    <h2>What we keep, and for how long</h2>
+    <p>Trip and payment records are kept <strong>with your personal identifiers removed</strong>, only as long as Canadian tax and consumer-protection law requires (up to 7 years), after which they are permanently deleted. We keep them to meet legal, accounting, and fraud-prevention obligations.</p>
+    <p class="fr">Les dossiers de trajets et de paiements sont conservés <strong>sans vos identifiants personnels</strong>, uniquement le temps exigé par les lois fiscales et de protection du consommateur (jusqu'à 7 ans), puis supprimés définitivement.</p>
+
+    <h2>Prefer help?</h2>
+    <p>You can also request deletion by emailing <a href="mailto:support@loadq.ca" style="color:#FF8A1A">support@loadq.ca</a> from your account's email. We'll action it within 30 days.</p>
+  </main>
+  <footer>
+    <a href="/">Home</a><a href="/privacy">Privacy Policy</a><a href="/help">Help</a>
+  </footer>
+
+<script>
+const EP = "https://kzjptcpjpwlxfofzhyku.supabase.co/functions/v1/loadq-account-delete";
+const $ = (id) => document.getElementById(id);
+let phoneVal = "";
+async function post(action, extra){
+  const r = await fetch(EP, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action, ...extra}) });
+  return { status: r.status, body: await r.json().catch(()=>({})) };
+}
+$("sendBtn").onclick = async () => {
+  const phone = $("phone").value.trim();
+  if (phone.replace(/\D/g,"").length < 10){ $("msg1").className="msg err"; $("msg1").textContent="Enter a valid mobile number. / Entrez un numéro valide."; return; }
+  $("sendBtn").disabled = true; $("msg1").className="msg"; $("msg1").textContent="Sending… / Envoi…";
+  try {
+    await post("request", { phone });
+    phoneVal = phone; $("phoneEcho").textContent = phone;
+    $("step1").hidden = true; $("step2").hidden = false; $("code").focus();
+  } catch(e){ $("msg1").className="msg err"; $("msg1").textContent="Something went wrong — try again."; }
+  $("sendBtn").disabled = false;
+};
+$("backBtn").onclick = () => { $("step2").hidden = true; $("step1").hidden = false; $("msg1").textContent=""; };
+$("confirmBtn").onclick = async () => {
+  const code = $("code").value.trim();
+  if (!/^\d{6}$/.test(code)){ $("msg2").className="msg err"; $("msg2").textContent="Enter the 6-digit code."; return; }
+  $("confirmBtn").disabled = true; $("msg2").className="msg"; $("msg2").textContent="Deleting… / Suppression…";
+  const { status, body } = await post("confirm", { phone: phoneVal, code });
+  if (status === 200 && body.ok){ $("step2").hidden = true; $("done").hidden = false; }
+  else { $("msg2").className="msg err"; $("msg2").textContent = status === 401 ? "Wrong or expired code. / Code erroné ou expiré." : "Could not complete — try again."; $("confirmBtn").disabled = false; }
+};
+$("phone").addEventListener("keydown", e => { if (e.key==="Enter") $("sendBtn").click(); });
+$("code").addEventListener("keydown", e => { if (e.key==="Enter") $("confirmBtn").click(); });
+</script>
+</body>
+</html>
