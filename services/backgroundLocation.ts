@@ -52,9 +52,9 @@ export async function startBackgroundTracking(): Promise<boolean> {
     if (await Location.hasStartedLocationUpdatesAsync(BG_LOCATION_TASK)) return true;
     await Location.startLocationUpdatesAsync(BG_LOCATION_TASK, {
       accuracy: Location.Accuracy.Balanced,
-      distanceInterval: 120,        // meters between updates
-      timeInterval: 60_000,         // Android: ~1 fix/min
-      deferredUpdatesInterval: 60_000,
+      distanceInterval: 120,        // meters moved before a fix — catches a departure before the 5-min tick
+      timeInterval: 300_000,        // Android: ~1 fix / 5 min when stationary
+      deferredUpdatesInterval: 300_000,  // iOS: batch/defer background fixes to ~5 min — easy on the battery
       pausesUpdatesAutomatically: false,
       showsBackgroundLocationIndicator: false,
       foregroundService: {
