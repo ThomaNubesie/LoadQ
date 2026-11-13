@@ -46,11 +46,9 @@ const OTHER_LOADER_MIN = 180;                  // everyone else: 3h
 
 // Presence + grace.
 const PRESENCE_FRESH_MS = 10 * MIN_MS;         // GPS fix must be this fresh
-const GRACE_MS          = 10 * MIN_MS;         // mid-load away grace before standby
-// Distance/time escalation for a loader who leaves the zone (GPS zones only).
-const PAUSE_KM          = 10;                  // ≥10 km away → pause (standby) now, don't wait the grace
-const DEPART_MS         = 15 * MIN_MS;         // away ≥15 min → mark departed (+50% of the 10-min grace)
-const DEPART_KM         = 15;                  // ≥15 km away → mark departed (+50% of the 10-km pause)
+// Leave-the-zone rules (GPS zones only; inert while a zone is manual_queue = true).
+const LOADER_GRACE_MS   = 3 * MIN_MS;          // the LOADER who leaves gets ~3 min (GPS jitter), then is REMOVED — they forfeit their turn
+const DEPART_KM         = 100;                 // anyone ≥100 km from the zone is removed from the line entirely
 
 // Time-up escalation: nudge cadence and how many nudges before release.
 const NUDGE_GAP_MS = 10 * MIN_MS;
@@ -286,9 +284,10 @@ Deno.serve(async () => {
         const auto   = !!zone?.auto_pause_depart;  // GPS pause/depart enabled for this zone? (off by default)
         const distKm = auto ? distanceKm(e.drivers, zone, now) : null;
 
-        // DEPART (+50% escalation): away ≥15 min OR ≥15 km → end the spot. Only
-        // when GPS pause/depart is enabled for the zone.
-        if (auto && (awayMs >= DEPART_MS || (distKm != null && distKm >= DEPART_KM))) {
+        // The LOADER who leaves forfeits their turn: after ~3 min away (a GPS-jitter
+        // grace) OR ≥100 km, remove them from the line and promote the next driver —
+        // there is NO standby step for the loader. Only when GPS enforcement is on.
+        if (auto && (awayMs >= LOADER_GRACE_MS || (distKm != null && distKm >= DEPART_KM))) {
           affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
           await supabase.from("loading_history").insert({
             driver_id: e.driver_id, zone_id: e.zone_id, destination_region: e.destination_region,
@@ -301,41 +300,13 @@ Deno.serve(async () => {
             removed.push(e.id);
             await recordAndQueue(supabase, e.driver_id, "departed_absent",
               `departed:${e.id}:${day}`,
-              "Marked as departed",
-              bi(`You moved too far from ${zone?.name ?? "the zone"} (or were away too long) while loading, so we marked you as departed and gave your spot to the next driver. Rejoin from the Queue tab when you're back.`,
-                 `Vous vous êtes trop éloigné de ${zone?.name ?? "la zone"} (ou absent trop longtemps) pendant le chargement; nous vous avons marqué comme parti et donné votre place au prochain chauffeur. Réinscrivez-vous depuis l'onglet File.`),
+              "You left while loading",
+              bi(`You left ${zone?.name ?? "the zone"} while it was your turn to load, so we gave your spot to the next driver. Rejoin from the Queue tab when you're back — you'll start at the back of the line.`,
+                 `Vous avez quitté ${zone?.name ?? "la zone"} pendant votre tour de chargement; nous avons donné votre place au prochain chauffeur. Réinscrivez-vous depuis l'onglet File à votre retour — vous repartez à la fin de la file.`),
               pushQueue);
             await notifyEntryPassengers(supabase, e.id, "Your driver changed",
               bi("Your driver left the pickup, so the next driver in line is now loading.",
                  "Votre chauffeur a quitté le point de ramassage; le prochain chauffeur de la file charge maintenant."),
-              pushQueue);
-          }
-          continue;
-        }
-
-        // PAUSE: away ≥10 min OR ≥10 km → standby + free the slot. Keep left_zone_at
-        // so the depart clock keeps running while they sit on standby.
-        if (awayMs >= GRACE_MS || (distKm != null && distKm >= PAUSE_KM)) {
-          affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
-          const { error: sbErr } = await supabase.from("queue_entries")
-            .update({ status: "standby",
-                      left_zone_at: auto ? (e.left_zone_at ?? now.toISOString()) : null,
-                      expiry_stage: 0, expiry_msg_at: null })
-            .eq("id", e.id);
-          if (!sbErr) {
-            standbyed.push(e.id);
-            await recordAndQueue(supabase, e.driver_id, "standby",
-              `standby:${e.id}:${day}`,
-              "You're on standby",
-              auto
-                ? bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return within 15 minutes and stay within 15 km, or you'll be marked departed. Come back to the zone and you'll be reinserted at the front automatically.",
-                     "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez dans 15 minutes et restez à moins de 15 km, sinon vous serez marqué parti. Revenez à la zone et vous serez réinséré à l'avant automatiquement.")
-                : bi("You left the zone while loading, so we moved you to standby and let the next driver load. Return to the zone and you'll be reinserted at the front automatically.",
-                     "Vous avez quitté la zone pendant le chargement; nous vous avons mis en attente et laissé charger le prochain chauffeur. Revenez à la zone et vous serez réinséré à l'avant automatiquement."),
-              pushQueue);
-            if (auto) await notifyEntryPassengers(supabase, e.id, "Your driver is on standby",
-              bi("Your driver stepped away, so they're on standby and the next driver in line is now loading.",
-                 "Votre chauffeur s'est absenté; il est en attente et le prochain chauffeur de la file charge maintenant."),
               pushQueue);
           }
           continue;
@@ -347,8 +318,8 @@ Deno.serve(async () => {
           await recordAndQueue(supabase, e.driver_id, "left_zone",
             `leftzone:${e.id}:${e.load_start_at ?? day}`,
             "Return to the zone",
-            bi(`You've left ${zone?.name ?? "the loading zone"} while loading. Come back within 10 minutes (and within 10 km) or you'll be put on standby and the next driver will load.`,
-               `Vous avez quitté ${zone?.name ?? "la zone"} pendant le chargement. Revenez dans 10 minutes (et à moins de 10 km) ou vous serez mis en attente et le prochain chauffeur chargera.`),
+            bi(`You've left ${zone?.name ?? "the loading zone"} while it's your turn to load. Come back within 3 minutes or you'll lose your loading turn and the next driver will load.`,
+               `Vous avez quitté ${zone?.name ?? "la zone"} pendant votre tour de chargement. Revenez dans 3 minutes ou vous perdrez votre tour et le prochain chauffeur chargera.`),
             pushQueue);
           continue;
         }
@@ -499,32 +470,62 @@ Deno.serve(async () => {
     }
   }
 
-  // ── Standby reinsertion: a standby driver who is present again returns to
-  //    'waiting'. They keep their (earlier) position, so they naturally sit at
-  //    the front of the line behind the current loader. ─────────────────────────
+  // ── Standby return: a driver who stepped out and is present again comes back to
+  //    'waiting'. WHERE they land depends on whether the line passed them:
+  //      • NOT jumped (the loader hasn't reached their old spot) → keep their
+  //        position, so they sit right behind the current loader.
+  //      • JUMPED (the loader's position is already beyond theirs) → go to the BACK,
+  //        so they don't cut ahead of drivers who stayed and waited.
+  //    They are only REMOVED once ≥100 km away — stepping out but staying nearby
+  //    keeps the standby spot (no time-based removal). ───────────────────────────
   const { data: standbyRows } = await supabase
     .from("queue_entries")
-    .select("id, zone_id, driver_id, destination_region, left_zone_at, vehicle_id, seats_boarded, load_start_at, drivers(current_lat, current_lng, location_at)")
+    .select("id, zone_id, driver_id, destination_region, position, left_zone_at, vehicle_id, seats_boarded, load_start_at, drivers(current_lat, current_lng, location_at)")
     .eq("status", "standby");
   for (const s of (standbyRows ?? []) as unknown as
-       { id: string; zone_id: string; driver_id: string; destination_region: string | null;
+       { id: string; zone_id: string; driver_id: string; destination_region: string | null; position: number;
          left_zone_at: string | null; vehicle_id: string | null; seats_boarded: number | null;
          load_start_at: string | null; drivers: DriverLoc | null }[]) {
     if (isWindowClosedInTz(now, tzFor(s.zone_id))) continue;
     const zone = zoneById.get(s.zone_id);
     if (presentInZone(s.drivers, zone, now)) {
-      // Present again → back to waiting, clear the away clock.
-      const { error: reErr } = await supabase.from("queue_entries")
-        .update({ status: "waiting", left_zone_at: null }).eq("id", s.id);
-      if (!reErr) affectedRoutes.add(routeKey(s.zone_id, s.destination_region));
+      // Did the line move past them while away? Compare the current loader's position.
+      let ldrQ = supabase.from("queue_entries").select("position").eq("zone_id", s.zone_id).eq("status", "loading");
+      ldrQ = s.destination_region ? ldrQ.eq("destination_region", s.destination_region) : ldrQ.is("destination_region", null);
+      const { data: ld } = await ldrQ.limit(1);
+      const loaderPos = (ld && ld[0]) ? (ld[0] as { position: number }).position : null;
+      const jumped = loaderPos != null && loaderPos > s.position;
+
+      if (jumped) {
+        // Back of the line: one past the current max active position.
+        let mxQ = supabase.from("queue_entries").select("position")
+          .eq("zone_id", s.zone_id).in("status", ["waiting", "loading", "standby", "paused"])
+          .order("position", { ascending: false }).limit(1);
+        mxQ = s.destination_region ? mxQ.eq("destination_region", s.destination_region) : mxQ.is("destination_region", null);
+        const { data: mx } = await mxQ;
+        const newPos = ((mx && mx[0]) ? (mx[0] as { position: number }).position : s.position) + 1;
+        const { error: jErr } = await supabase.from("queue_entries")
+          .update({ status: "waiting", position: newPos, left_zone_at: null }).eq("id", s.id);
+        if (!jErr) {
+          affectedRoutes.add(routeKey(s.zone_id, s.destination_region));
+          await recordAndQueue(supabase, s.driver_id, "reinserted_back",
+            `backinline:${s.id}:${day}`, "You're back in line",
+            bi("Welcome back. The line moved on while you were away, so you rejoin at the back.",
+               "Content de vous revoir. La file a avancé pendant votre absence, alors vous reprenez à la fin."),
+            pushQueue);
+        }
+      } else {
+        // Keep their position → right behind the current loader.
+        const { error: reErr } = await supabase.from("queue_entries")
+          .update({ status: "waiting", left_zone_at: null }).eq("id", s.id);
+        if (!reErr) affectedRoutes.add(routeKey(s.zone_id, s.destination_region));
+      }
       continue;
     }
-    // Still away → escalate to departed once ≥15 min OR ≥15 km from when they
-    // left — only when GPS pause/depart is enabled for the zone (off by default).
+    // Still away → remove ONLY once ≥100 km from the zone. Enabled zones only.
     if (!zone?.auto_pause_depart) continue;
-    const awayMs = s.left_zone_at ? now.getTime() - new Date(s.left_zone_at).getTime() : 0;
     const distKm = distanceKm(s.drivers, zone, now);
-    if (awayMs >= DEPART_MS || (distKm != null && distKm >= DEPART_KM)) {
+    if (distKm != null && distKm >= DEPART_KM) {
       await supabase.from("loading_history").insert({
         driver_id: s.driver_id, zone_id: s.zone_id, destination_region: s.destination_region,
         vehicle_id: s.vehicle_id, load_start_at: s.load_start_at,
@@ -535,9 +536,9 @@ Deno.serve(async () => {
       if (!depErr) {
         removed.push(s.id);
         await recordAndQueue(supabase, s.driver_id, "departed_absent",
-          `departed:${s.id}:${day}`, "Marked as departed",
-          bi("You were away from the zone too long (or too far), so we marked you as departed. Rejoin from the Queue tab when you're back.",
-             "Vous étiez absent trop longtemps (ou trop loin); nous vous avons marqué comme parti. Réinscrivez-vous depuis l'onglet File."),
+          `departed:${s.id}:${day}`, "Removed from the line",
+          bi("You went more than 100 km from the zone, so we took you out of the line. Rejoin from the Queue tab when you're back.",
+             "Vous vous êtes éloigné de plus de 100 km de la zone; nous vous avons retiré de la file. Réinscrivez-vous depuis l'onglet File à votre retour."),
           pushQueue);
       }
     }
