@@ -1,6 +1,10 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import { Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
+import { getCurrentLang } from "../hooks/useStrings";
+import { getStrings } from "../constants/i18n";
 
 // Background location task — keeps the driver's position fresh in the DB even
 // when the app is backgrounded or the screen is off. 1.2.5 only reported GPS in
@@ -35,6 +39,40 @@ try {
   /* TaskManager unavailable — background tracking will simply not run */
 }
 
+// Google Play REQUIRES a prominent in-app disclosure of background-location use,
+// shown BEFORE the OS runtime permission prompt — explaining the feature and that
+// collection continues when the app is closed/backgrounded. We only go on to
+// request permission on affirmative consent. Resolved once per launch (cached
+// promise, so concurrent callers share one dialog); a "Continue" is persisted so
+// returning users never see it again.
+const BG_DISCLOSURE_KEY = "loadq_bg_loc_disclosed_v1";
+let bgDisclosure: Promise<boolean> | null = null;
+function ensureBackgroundDisclosure(): Promise<boolean> {
+  if (bgDisclosure) return bgDisclosure;
+  bgDisclosure = (async () => {
+    try {
+      if ((await AsyncStorage.getItem(BG_DISCLOSURE_KEY)) === "1") return true;
+    } catch { /* storage unavailable — show the disclosure anyway */ }
+    const s = getStrings(getCurrentLang());
+    const accepted = await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        s.bgLocTitle,
+        s.bgLocBody,
+        [
+          { text: s.bgLocNotNow, style: "cancel", onPress: () => resolve(false) },
+          { text: s.bgLocContinue, onPress: () => resolve(true) },
+        ],
+        { cancelable: false },
+      );
+    });
+    if (accepted) {
+      try { await AsyncStorage.setItem(BG_DISCLOSURE_KEY, "1"); } catch { /* ignore */ }
+    }
+    return accepted;
+  })();
+  return bgDisclosure;
+}
+
 // Ask for Always/background permission and start streaming. Idempotent — safe to
 // call on every loading/carrying transition. Returns true if tracking is running.
 export async function startBackgroundTracking(): Promise<boolean> {
@@ -45,6 +83,8 @@ export async function startBackgroundTracking(): Promise<boolean> {
   // "Always" + UIBackgroundModes:location (iOS), declared in app.json — so this
   // takes effect only in a new native build, not an OTA.
   try {
+    // Prominent disclosure before any location permission request (Play policy).
+    if (!(await ensureBackgroundDisclosure())) return false;
     const fg = await Location.requestForegroundPermissionsAsync();
     if (fg.status !== "granted") return false;
     const bg = await Location.requestBackgroundPermissionsAsync();

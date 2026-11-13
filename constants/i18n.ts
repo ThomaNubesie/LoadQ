@@ -912,6 +912,10 @@ export const STRINGS = {
     consentGivenOn:      "You consented on {date}",
     consentRequired:     "Please accept the verification consent first.",
     consentSaving:       "Saving…",
+    bgLocTitle:          "Location in the background",
+    bgLocBody:           "LoadQ collects your location in the background — even when the app is closed or not in use — to keep your place in the loading queue and to detect when you leave the loading zone. This happens only while you hold a spot in a queue, and an ongoing notification is shown.",
+    bgLocContinue:       "Continue",
+    bgLocNotNow:         "Not now",
     // Morning raffle
     raffleTitle:              "Morning Raffle",
     raffleYourNumberShort:    "Your raffle number: {n}",
@@ -1903,6 +1907,10 @@ export const STRINGS = {
     consentGivenOn:      "Vous avez consenti le {date}",
     consentRequired:     "Veuillez d’abord accepter le consentement de vérification.",
     consentSaving:       "Enregistrement…",
+    bgLocTitle:          "Position en arrière-plan",
+    bgLocBody:           "LoadQ recueille votre position en arrière-plan — même lorsque l’application est fermée ou non utilisée — afin de conserver votre place dans la file de chargement et de détecter lorsque vous quittez la zone de chargement. Cela se produit uniquement lorsque vous occupez une place dans une file, et une notification persistante est affichée.",
+    bgLocContinue:       "Continuer",
+    bgLocNotNow:         "Plus tard",
     // Tirage du matin
     raffleTitle:              "Tirage du matin",
     raffleYourNumberShort:    "Votre numéro de tirage : {n}",
