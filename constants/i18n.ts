@@ -986,6 +986,10 @@ export const STRINGS = {
     raffleAdminForbidden:     "You don't have raffle admin access.",
     raffleAdminGeoOk:         "at lot",
     raffleAdminGeoNo:         "not at lot",
+    // Join-zone confirmation
+    joinZoneConfirmTitle:     "Join this zone?",
+    joinZoneConfirmBody:      "Join {zone}? You'll be added to the loading line here.",
+    joinZoneConfirmYes:       "Yes, join",
   },
 
   fr: {
@@ -1973,6 +1977,10 @@ export const STRINGS = {
     raffleAdminForbidden:     "Vous n’avez pas l’accès admin du tirage.",
     raffleAdminGeoOk:         "au point",
     raffleAdminGeoNo:         "hors point",
+    // Confirmation de la zone
+    joinZoneConfirmTitle:     "Rejoindre cette zone?",
+    joinZoneConfirmBody:      "Rejoindre {zone}? Vous serez ajouté à la file de chargement ici.",
+    joinZoneConfirmYes:       "Oui, rejoindre",
   },
 };
 

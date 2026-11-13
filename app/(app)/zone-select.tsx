@@ -13,6 +13,12 @@ import { useZones } from "../../hooks/useZones";
 import { ArrowLeft, MapPin, Lock, ArrowRight } from "lucide-react-native";
 import Wordmark from "../../components/Wordmark";
 
+// Fires once per app session: on open we take the driver straight to the zone
+// they're standing in, but after that (e.g. tapping "change zone" from the
+// queue to watch another board) we leave them on the list to choose. A cold
+// relaunch reloads this module and arms it again.
+let autoOpenedZone = false;
+
 export default function ZoneSelectScreen() {
   const router     = useRouter();
   const { t }  = useStrings();
@@ -46,6 +52,21 @@ export default function ZoneSelectScreen() {
     };
     getLocation();
   }, []);
+
+  // Open straight to your zone: once GPS and the zone list are in, if the driver
+  // is physically inside exactly one zone, go to that zone's queue (watching —
+  // they still tap Join to enter the line). Inside none/several → stay on the
+  // list. Only on the session's first zone-select, so "change zone" still works.
+  useEffect(() => {
+    if (autoOpenedZone || loading) return;
+    if (userLat === null || userLon === null || zones.length === 0) return;
+    const inside = zones.filter(z =>
+      getDistanceKm(userLat, userLon, z.latitude, z.longitude) * 1000 <= z.radius_meters);
+    if (inside.length === 1) {
+      autoOpenedZone = true;
+      router.replace({ pathname: "/(app)/queue", params: { zoneId: inside[0].id, zoneName: inside[0].name } });
+    }
+  }, [loading, userLat, userLon, zones]);
 
   const zonesInTab  = getZonesByRegion(zones, activeTab);
 

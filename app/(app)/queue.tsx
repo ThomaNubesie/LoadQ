@@ -359,7 +359,16 @@ export default function QueueScreen() {
     }
     const err = validateJoin();
     if (err) { setJoinError(err); return; }
-    setShowDestPicker(true);
+    // Confirm the zone first — tapping Join shouldn't silently commit the driver
+    // to this loading zone. On "Yes", go on to pick the destination.
+    Alert.alert(
+      t.joinZoneConfirmTitle,
+      t("joinZoneConfirmBody", { zone: activeZone?.name ?? "" }),
+      [
+        { text: t.cancel, style: "cancel" },
+        { text: t.joinZoneConfirmYes, onPress: () => setShowDestPicker(true) },
+      ],
+    );
   };
 
   const handleLeaveQueue = () => {
