@@ -51,7 +51,15 @@ nav.site .row{
 }
 .logo{
   font-family:'Inter',sans-serif;font-weight:800;font-size:24px;
-  color:var(--orange);letter-spacing:-.5px;
+  color:var(--paper);letter-spacing:.5px;text-transform:uppercase;
+  display:inline-flex;align-items:center;line-height:1;
+}
+.logo .q{color:var(--orange)}
+.logo::after{
+  content:"";display:inline-block;flex:none;
+  width:.52em;height:.82em;margin-left:.3em;
+  background:var(--orange);
+  border-radius:.11em 0 0 .11em;
 }
 nav.site ul{list-style:none;display:flex;gap:28px;align-items:center}
 nav.site ul a{font-size:14px;font-weight:500;color:var(--paper-dim);transition:color .2s}
