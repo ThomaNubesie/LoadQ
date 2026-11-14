@@ -42,19 +42,25 @@
     <h1 style="color:#FF8A1A;">LoadQ</h1>
     <p class="lead">Inter-city shared rides for Canada.</p>
 
+    <div class="app-badges" style="margin-bottom:24px">
+      <a href="https://apps.apple.com/ca/app/id6770652996" target="_blank" rel="noopener" aria-label="Download on the App Store">
+        <img src="/assets/badge-app-store.png" alt="Download on the App Store" width="148" height="52" />
+      </a>
+      <a href="https://play.google.com/store/apps/details?id=ca.loadq.app" target="_blank" rel="noopener" aria-label="Get it on Google Play">
+        <img src="/assets/badge-google-play.png" alt="Get it on Google Play" width="169" height="52" />
+      </a>
+    </div>
+
     <div id="primary-cta" class="store-row" style="margin-bottom: 24px;"></div>
 
     <details style="text-align:left; margin-top: 28px;">
-      <summary style="cursor:pointer; color:#888; font-size:14px;">Other download options</summary>
+      <summary style="cursor:pointer; color:#888; font-size:14px;">All download options</summary>
       <div class="store-row" style="margin-top: 16px;">
         <a class="store-btn" href="https://apps.apple.com/ca/app/id6770652996">
-          iOS — App Store <span class="sub">(public)</span>
-        </a>
-        <a class="store-btn" href="https://testflight.apple.com/join/dvFFngSP">
-          iOS — TestFlight <span class="sub">(beta testers)</span>
+          iOS — App Store <span class="sub">(iPhone / iPad)</span>
         </a>
         <a class="store-btn" href="https://play.google.com/store/apps/details?id=ca.loadq.app">
-          Android — Internal Test <span class="sub">(invited testers)</span>
+          Android — Google Play <span class="sub">(free)</span>
         </a>
       </div>
     </details>
@@ -80,13 +86,12 @@
         detected.textContent = "Detected: iPhone / iPad";
       } else if (isAndroid) {
         cta.innerHTML =
-          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Join Android Beta", "Play Internal Test", true) +
-          '<div style="font-size:13px;color:#888;margin-top:4px;">Public Play Store release coming soon.</div>';
+          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Get it on Google Play", "Free download", true);
         detected.textContent = "Detected: Android";
       } else {
         cta.innerHTML =
           btn("https://apps.apple.com/ca/app/id6770652996", "iOS App Store", "iPhone / iPad", true) +
-          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Android Beta", "Play Internal Test", false);
+          btn("https://play.google.com/store/apps/details?id=ca.loadq.app", "Google Play", "Android", false);
         detected.textContent = "Open this page on your phone for one-tap install.";
       }
     })();

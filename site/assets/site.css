@@ -636,6 +636,14 @@ article.prose .meta{
 }
 .store .big{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.02em}
 
+/* =================== OFFICIAL STORE BADGES =================== */
+.app-badges{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;align-items:center}
+.app-badges.left{justify-content:flex-start}
+.app-badges a{display:inline-flex;line-height:0;transition:transform .18s,filter .18s}
+.app-badges a:hover{transform:translateY(-2px);filter:brightness(1.12)}
+.app-badges img{height:52px;width:auto;display:block;border-radius:12px}
+@media (max-width:520px){.app-badges img{height:46px}}
+
 /* =================== REFERRAL BANNER =================== */
 .ref-banner{
   background:var(--bg-2);border:1px solid var(--orange);border-radius:8px;
