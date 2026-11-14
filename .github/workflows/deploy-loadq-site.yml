@@ -1,0 +1,30 @@
+name: Deploy loadq.ca
+
+# Auto-deploys the loadq.ca marketing site (Netlify site
+# comfy-melomakarona-e176a0) whenever the site/ folder changes on the active
+# ship branch. The Netlify site is NOT git-connected on Netlify's side, so this
+# workflow is what makes a push actually publish.
+#
+# One-time setup: add a repo secret NETLIFY_AUTH_TOKEN
+#   (GitHub → Settings → Secrets and variables → Actions → New repository secret)
+#   Value = a Netlify personal access token
+#   (Netlify → User settings → Applications → Personal access tokens → New).
+
+on:
+  push:
+    branches: [ship-loadq-1.2.6]
+    paths: ['site/**']
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Deploy site/ to Netlify (loadq.ca)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: npx --yes netlify-cli@17 deploy --prod --dir=site --site f54300ce-683f-4110-9d05-adc9db177189
