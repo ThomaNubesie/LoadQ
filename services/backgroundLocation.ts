@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
 import { getCurrentLang } from "../hooks/useStrings";
@@ -73,38 +73,56 @@ function ensureBackgroundDisclosure(): Promise<boolean> {
   return bgDisclosure;
 }
 
-// Ask for Always/background permission and start streaming. Idempotent — safe to
-// call on every loading/carrying transition. Returns true if tracking is running.
+// Last reason tracking failed to start (it used to fail silently — on 2026-11-18
+// none of 18 queued drivers had reported for over an hour).
+let lastError: string | null = null;
+export function getLastTrackingError(): string | null { return lastError; }
+
+// Ask for location permission and start streaming. Idempotent — safe to call on
+// every loading/carrying transition. Returns true if tracking is running.
+//
+// What's actually required (learned on Kolis, Nov 2026):
+//   iOS: "While Using" is enough. With UIBackgroundModes:location, updates started
+//        while the app is open keep running in the background (iOS shows the
+//        location indicator). "Always" is offered but not required — requiring it
+//        meant drivers who tapped "Allow While Using App" were never tracked.
+//   Android: "Allow all the time" is requested (Play approved it), but tracking runs
+//        as a visible foreground service, which Android allows with "While using
+//        the app" — so a driver who declines the background upgrade is still tracked.
 export async function startBackgroundTracking(): Promise<boolean> {
   // Background location for queued drivers: a driver waiting in line with the app
   // pocketed/backgrounded must keep reporting GPS so the queue watchdog can tell
-  // when they leave the loading zone (and pull / re-insert / remove them). Needs
-  // ACCESS_BACKGROUND_LOCATION + a location foreground service (Android) and
-  // "Always" + UIBackgroundModes:location (iOS), declared in app.json — so this
-  // takes effect only in a new native build, not an OTA.
+  // when they leave the loading zone (and pull / re-insert / remove them). The
+  // native setup (location foreground service on Android, UIBackgroundModes on
+  // iOS) is in the 1.2.26 builds; this JS ships OTA.
   try {
     // Prominent disclosure before any location permission request (Play policy).
-    if (!(await ensureBackgroundDisclosure())) return false;
+    if (!(await ensureBackgroundDisclosure())) { lastError = "disclosure_declined"; return false; }
     const fg = await Location.requestForegroundPermissionsAsync();
-    if (fg.status !== "granted") return false;
-    const bg = await Location.requestBackgroundPermissionsAsync();
-    if (bg.status !== "granted") return false;
-    if (await Location.hasStartedLocationUpdatesAsync(BG_LOCATION_TASK)) return true;
+    if (fg.status !== "granted") { lastError = "permission_denied"; return false; }
+    // Offer the background upgrade; never fail on it (see above).
+    await Location.requestBackgroundPermissionsAsync().catch(() => null);
+    // Always (re)register rather than returning early when a task exists: this
+    // applies the current options to a task left over from an older version.
     await Location.startLocationUpdatesAsync(BG_LOCATION_TASK, {
       accuracy: Location.Accuracy.Balanced,
       distanceInterval: 120,        // meters moved before a fix — catches a departure before the 5-min tick
       timeInterval: 300_000,        // Android: ~1 fix / 5 min when stationary
       deferredUpdatesInterval: 300_000,  // iOS: batch/defer background fixes to ~5 min — easy on the battery
       pausesUpdatesAutomatically: false,
-      showsBackgroundLocationIndicator: false,
+      // iOS: show the location indicator while tracking in the background — keeps
+      // "While Using" tracking alive and is honest with the driver.
+      showsBackgroundLocationIndicator: Platform.OS === "ios",
       foregroundService: {
         notificationTitle: "LoadQ is sharing your location",
         notificationBody: "Passengers and dispatch can see your position while you load or deliver.",
         notificationColor: "#FF6B00",
       },
     });
+    lastError = null;
     return true;
-  } catch {
+  } catch (e) {
+    lastError = String((e as Error)?.message ?? e);
     return false;
   }
 }
