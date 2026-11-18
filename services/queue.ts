@@ -175,6 +175,8 @@ export const QueueAPI = {
         .select().single();
       if (!error) return { data };
       // Someone took this slot between our read and write — recompute & retry.
+      // The morning raffle owns this line 05:00–07:00 (DB trigger loadq_raffle_block_selfjoin).
+      if (error.message?.startsWith("raffle_in_progress")) return { error: "raffle_in_progress" };
       if (!isUniqueViolation(error) || attempt === 4) return { error: error.message };
     }
     return { error: "Couldn't reserve a queue spot — please try again." };
@@ -273,6 +275,8 @@ export const QueueAPI = {
         position:           newPos,
       }).eq("id", entry.id);
       if (!error) return {};
+      // The morning raffle owns this line 05:00–07:00 (DB trigger loadq_raffle_block_selfjoin).
+      if (error.message?.startsWith("raffle_in_progress")) return { error: "raffle_in_progress" };
       if (!isUniqueViolation(error) || attempt === 4) return { error: error.message };
     }
     return { error: "Couldn't change destination — please try again." };

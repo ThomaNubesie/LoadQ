@@ -399,6 +399,7 @@ export default function QueueScreen() {
     setJoining(true);
     const { error } = await QueueAPI.joinQueue(activeZone.id, vehicleId, destinationRegion);
     setJoining(false);
+    if (error === "raffle_in_progress") { setJoinError(t("raffleSelfJoinBlocked", { time: "7:00" })); return; }
     if (error) { setJoinError(error); return; }
     QueueAPI.getZoneQueue(activeZone.id).then(q => {
       setEntries(q);

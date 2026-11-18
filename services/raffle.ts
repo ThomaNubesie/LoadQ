@@ -10,10 +10,20 @@ export type RaffleStatus = {
   zone: string;
   round_id: string | null;
   status: "none" | "open" | "locked" | "drawn" | "cancelled";
+  // Two steps: check in at the lot (05:00–06:01, no code) → hat sealed at 1…N →
+  // draw with the code (06:02–07:00), each number goes straight onto the line.
+  phase?: "none" | "before" | "checkin" | "sealing" | "draw" | "closed";
   test_mode?: boolean;
   is_admin?: boolean;
   window_open: boolean;
+  checkin_opens_at?: string | null;
+  checkin_closes_at?: string | null;
+  draw_opens_at?: string | null;
   draw_at: string | null;
+  hat_size?: number | null;
+  drawn_count?: number;
+  checked_in?: boolean;
+  excluded?: boolean;
   seed_commit: string | null;
   entrant_count: number;
   eligible: boolean;
@@ -24,7 +34,8 @@ export type RaffleStatus = {
 };
 
 export type RaffleEnterResult =
-  | { ok: true; registered?: boolean; test?: boolean; entry_id?: string; provisional_position: number; entrant_count?: number; note: string }
+  | { ok: true; registered?: boolean; test?: boolean; checked_in?: boolean; entry_id?: string; provisional_position: number | null;
+      assigned_number?: number; entrant_count?: number; note: string }
   | { ok?: false; error: string; distance_m?: number };
 
 export type RaffleOrderRow = { pos: number; driver_id: string; name: string; seats: number };

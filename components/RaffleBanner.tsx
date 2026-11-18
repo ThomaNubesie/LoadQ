@@ -23,13 +23,16 @@ export default function RaffleBanner() {
   }, []);
 
   if (!status) return null;
-  const show = status.can_raffle || status.already_raffled || !!status.is_admin;
+  const show = status.can_raffle || status.already_raffled || !!status.checked_in || !!status.is_admin;
   if (!show) return null;
 
+  const hm = (iso?: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
   const label =
-    status.already_raffled ? t("raffleYourNumberShort", { n: status.my_number ?? "—" })
-    : status.window_open   ? t.raffleOpenTap
-    :                        t.raffleTest;
+    status.already_raffled              ? t("raffleYourNumberShort", { n: status.my_number ?? "—" })
+    : status.phase === "draw"           ? t.raffleDrawTap
+    : status.checked_in                 ? t("raffleCheckedInShort", { time: hm(status.draw_opens_at) })
+    : status.phase === "checkin"        ? t.raffleCheckinTap
+    :                                     t.raffleTest;
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/(app)/raffle" as any)}
