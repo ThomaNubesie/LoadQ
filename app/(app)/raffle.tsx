@@ -85,10 +85,12 @@ export default function Raffle() {
 
   const raffle = async () => {
     setErr(null); setBusy(true);
-    // Only the check-in proves presence, so only it needs a GPS fix. The draw is
-    // code-only, and the admin test tap (outside the window) is a non-registered
-    // dry run.
-    const needsLocation = st?.phase === "checkin";
+    // BOTH steps need a fix. Check-in proves you arrived; the draw proves you are
+    // still there when you type the code. Without the second check a driver could
+    // check in, leave, and draw from the road on a code someone texted him — which
+    // a simulation on 2026-11-19 confirmed was possible from 55 km away. The admin
+    // test tap (outside the window) is a non-registered dry run and needs nothing.
+    const needsLocation = st?.phase === "checkin" || st?.phase === "draw";
     let lat: number | null = null, lng: number | null = null, accuracy: number | null = null;
     if (needsLocation) {
       const loc = await tryGetUserLocation(8000, Location.Accuracy.High);
@@ -96,7 +98,8 @@ export default function Raffle() {
       lat = loc.coords.latitude; lng = loc.coords.longitude; accuracy = loc.coords.accuracy ?? null;
     }
     const res = await RaffleAPI.enter({
-      lat, lng, accuracy, code: needsLocation ? "" : code.trim(), deviceId: await deviceId() });
+      // the code belongs to the draw only — check-in never carries one
+      lat, lng, accuracy, code: st?.phase === "checkin" ? "" : code.trim(), deviceId: await deviceId() });
     setBusy(false);
     if ("ok" in res && res.ok) {
       if (!res.checked_in) doSpin();
