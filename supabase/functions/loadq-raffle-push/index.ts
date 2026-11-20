@@ -83,6 +83,12 @@ Deno.serve(async (req) => {
     : { title: "LoadQ — plus que 15 minutes",
         body: `L'inscription ferme à ${close}. Touchez « Je suis au point de départ » pour participer au tirage. / Check-in closes at ${close} — tap "I'm at the lot" to be in the draw.` };
 
+  // Test mode: say so up front — the posted list still decides the real line.
+  if (cfg.test_mode) {
+    copy.title += " (TEST)";
+    copy.body = `TEST — la vraie file reste la liste affichée. ${copy.body} / TEST — the real line is still the posted list.`;
+  }
+
   const sent = await expoSend(targets.map((d: any) => ({
     to: d.push_token, sound: "default", title: copy.title, body: copy.body,
     data: { screen: "raffle", phase },
