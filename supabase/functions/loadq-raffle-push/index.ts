@@ -7,8 +7,8 @@
 // takes one recipient and a user JWT, and only lets a user push to themselves or a
 // thread peer. This reads the eligible drivers itself and hands Expo one batch.
 //
-// It nudges — it proves nothing. Presence is still the geofence plus the code typed
-// at the lot. A driver with notifications off simply gets no reminder.
+// It nudges — it proves nothing. Presence is still the geofence at check-in and again
+// at the draw (with the code). A driver with notifications off simply gets no reminder.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const URL = Deno.env.get("SUPABASE_URL")!;
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
   // Nothing to announce if the raffle is off, or if today's round does not exist.
   const { data: cfg } = await admin.from("loadq_raffle_config")
-    .select("enabled, checkin_opens_local, checkin_closes_local, draw_opens_local, draw_at_local, timezone")
+    .select("enabled, test_mode, allowed_driver_ids, checkin_opens_local, checkin_closes_local, draw_opens_local, draw_at_local, timezone")
     .eq("zone_id", ZONE).maybeSingle();
   if (!cfg?.enabled) return json({ ok: true, skipped: "raffle_disabled" });
 
@@ -55,6 +55,12 @@ Deno.serve(async (req) => {
   const { data: drivers } = await admin.from("drivers")
     .select("id, push_token, locale").not("push_token", "is", null).eq("verified", true).eq("blocked", false);
   let targets = drivers ?? [];
+  // Test mode: only the allow-listed drivers can check in, so only they are nudged —
+  // otherwise ~100 drivers would tap through to "not eligible".
+  if (cfg.test_mode) {
+    const allowed = new Set<string>(cfg.allowed_driver_ids ?? []);
+    targets = targets.filter((d: any) => allowed.has(d.id));
+  }
 
   if (phase === "reminder") {
     const { data: already } = await admin.from("loadq_raffle_entry").select("driver_id").eq("round_id", round.id);
@@ -64,11 +70,18 @@ Deno.serve(async (req) => {
   if (!targets.length) return json({ ok: true, sent: 0, phase });
 
   const hhmm = (t: string | null) => (t ?? "").slice(0, 5);
+  // Check-in closes at 06:02:00, so the last minute a driver can tap is 06:01.
+  const lastMinute = (t: string | null) => {
+    const [h, m] = hhmm(t).split(":").map(Number); const x = h * 60 + m - 1;
+    return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+  };
+  const close = lastMinute(cfg.checkin_closes_local), dOpen = hhmm(cfg.draw_opens_local), dEnd = hhmm(cfg.draw_at_local);
+  // Check-in takes no code — only the draw does.
   const copy = phase === "open"
     ? { title: "LoadQ — tirage du matin",
-        body: `Enregistrement ouvert jusqu'à ${hhmm(cfg.checkin_closes_local)} : soyez au stationnement et entrez le code. Tirage ${hhmm(cfg.draw_opens_local)}–${hhmm(cfg.draw_at_local)}. / Check-in is open — be at the lot and enter the code.` }
-    : { title: "LoadQ — il reste quelques minutes",
-        body: `L'enregistrement ferme à ${hhmm(cfg.checkin_closes_local)}. Entrez le code au stationnement pour participer au tirage. / Check-in closes soon — enter the code at the lot to be in the draw.` };
+        body: `Inscription ouverte jusqu'à ${close} : touchez « Je suis au point de départ » au stationnement. Tirage avec le code ${dOpen}–${dEnd}. / Check-in is open until ${close} — tap "I'm at the lot" when you're there. Draw with the code ${dOpen}–${dEnd}.` }
+    : { title: "LoadQ — plus que 15 minutes",
+        body: `L'inscription ferme à ${close}. Touchez « Je suis au point de départ » pour participer au tirage. / Check-in closes at ${close} — tap "I'm at the lot" to be in the draw.` };
 
   const sent = await expoSend(targets.map((d: any) => ({
     to: d.push_token, sound: "default", title: copy.title, body: copy.body,
