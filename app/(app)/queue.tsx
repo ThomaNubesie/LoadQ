@@ -767,8 +767,8 @@ export default function QueueScreen() {
         <View style={{ flex:1 }}>
           {/* Zone picker */}
           <TouchableOpacity style={s.zonePicker} onPress={() => setShowDropdown(true)} activeOpacity={0.8}>
-            <Text style={s.zonePickerName}>{activeZone?.name || t.selectZone}</Text>
-            <Text style={s.zonePickerRegion}>{activeZone ? REGIONS.find(r => r.code === activeZone.region)?.name : ""} ▾</Text>
+            <Text style={s.zonePickerName} numberOfLines={1}>{activeZone?.name || t.selectZone}</Text>
+            <Text style={s.zonePickerRegion} numberOfLines={1}>{activeZone ? REGIONS.find(r => r.code === activeZone.region)?.name : ""} ▾</Text>
           </TouchableOpacity>
           {activeZone && (
             <View style={s.liveRow}>
@@ -916,8 +916,8 @@ export default function QueueScreen() {
         {/* Kolis: parcel offers for queued drivers (self-hides if none) */}
         <KolisParcels />
         {/* A6: pay for on-street parking while waiting (self-hides if no providers) */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 12, flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}><ParkingButton /></View>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+          <View style={{ flexShrink: 1 }}><ParkingButton /></View>
           <TouchableOpacity
             style={s.loadingTimesBtn}
             activeOpacity={0.85}
@@ -1378,8 +1378,8 @@ const s = StyleSheet.create({
   msgBadge:           { position:"absolute", top:-2, right:-4, minWidth:18, height:18, borderRadius:9, backgroundColor:Colors.red, paddingHorizontal:4, alignItems:"center", justifyContent:"center" },
   msgBadgeText:       { color:"#fff", fontSize:10, fontWeight:"800" },
   zonePicker:         { flexDirection:"row", alignItems:"center", gap:8 },
-  zonePickerName:     { fontSize:16, fontWeight:"700", color:Colors.t1 },
-  zonePickerRegion:   { fontSize:13, color:Colors.accent, fontWeight:"600" },
+  zonePickerName:     { fontSize:16, fontWeight:"700", color:Colors.t1, flexShrink:1 },
+  zonePickerRegion:   { fontSize:13, color:Colors.accent, fontWeight:"600", flexShrink:0 },
   liveRow:            { flexDirection:"row", alignItems:"center", gap:5, marginTop:3 },
   liveDot:            { width:7, height:7, borderRadius:4, backgroundColor:Colors.accent },
   liveText:           { fontSize:11, color:Colors.t2 },
@@ -1435,7 +1435,7 @@ const s = StyleSheet.create({
   leaveChipText:      { color:Colors.red, fontSize:12, fontWeight:"800" },
   loadingText:        { color:Colors.t2, textAlign:"center" },
   loadingBlock:       { alignItems:"center", marginTop:60, gap:12 },
-  loadingTimesBtn:    { flexDirection:"row", alignItems:"center", justifyContent:"center", gap:7, borderWidth:1.5, borderColor:Colors.border, borderRadius:12, paddingVertical:12, paddingHorizontal:14 },
+  loadingTimesBtn:    { flexDirection:"row", alignItems:"center", justifyContent:"center", gap:7, borderWidth:1.5, borderColor:Colors.border, borderRadius:12, paddingVertical:12, paddingHorizontal:14, flexShrink:1, marginLeft:"auto" },
   loadingTimesBtnTxt: { color:Colors.accent, fontWeight:"800", fontSize:13.5 },
   empty:              { alignItems:"center", marginTop:80 },
   emptyEmoji:         { fontSize:48, marginBottom:12 },
