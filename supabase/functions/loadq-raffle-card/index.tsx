@@ -68,7 +68,11 @@ const Arrow = () => (
     <path d="M1 7h18M13 1l6 6-6 6" stroke={INK} strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
-const ZONE = <div style={{ display: "flex", alignItems: "center" }}>Universal Grocery<Arrow />Montréal</div>;
+// Lot → destination, per round (every active lot has its own raffle).
+const DEST: Record<string, string> = { montreal: "Montréal", ottawa: "Ottawa", quebec: "Québec", toronto: "Toronto", gatineau: "Gatineau" };
+const shortLot = (name: string) => name.split(" - ")[0].trim();
+const Route = ({ lot, dest }: { lot: string; dest: string }) =>
+  <div style={{ display: "flex", alignItems: "center" }}>{lot}<Arrow />{dest}</div>;
 
 function Row({ k, v, sub }: { k: string; v: React.ReactNode; sub?: string }) {
   return (
@@ -84,7 +88,7 @@ function Row({ k, v, sub }: { k: string; v: React.ReactNode; sub?: string }) {
   );
 }
 
-function Card({ code, iso, t }: { code: string; iso: string; t: { open: string; closeLast: string; draw: string; end: string } }) {
+function Card({ code, iso, t, lot, dest }: { code: string; iso: string; t: { open: string; closeLast: string; draw: string; end: string }; lot: string; dest: string }) {
   const d = dates(iso);
   return (
     <div style={{ display: "flex", flexDirection: "column", width: 900, height: 1120, backgroundColor: NAVY, fontFamily: "Inter" }}>
@@ -107,7 +111,7 @@ function Card({ code, iso, t }: { code: string; iso: string; t: { open: string; 
         <div style={{ display: "flex", fontSize: 17, color: MUT, marginTop: 10 }}>{`Code for the draw, ${t.draw} to ${t.end}`}</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", padding: "0 56px", marginTop: 46 }}>
-        <Row k="File  ·  Line" v={ZONE} />
+        <Row k="File  ·  Line" v={<Route lot={lot} dest={dest} />} />
         <Row k="Inscription  ·  Check-in" v={`${t.open} – ${t.closeLast}`} sub="sur place, sans code / at the lot, no code" />
         <Row k="Tirage  ·  Draw" v={`${t.draw} – ${t.end}`} sub="avec ce code / with this code" />
         <Row k="Résultat  ·  Result" v={t.end} sub="ordre de départ / departure order" />
@@ -117,8 +121,8 @@ function Card({ code, iso, t }: { code: string; iso: string; t: { open: string; 
   );
 }
 
-async function render(code: string, iso: string, t: { open: string; closeLast: string; draw: string; end: string }) {
-  const img = new ImageResponse(<Card code={code} iso={iso} t={t} />, { width: 900, height: 1120, fonts: await loadFonts() });
+async function render(code: string, iso: string, t: { open: string; closeLast: string; draw: string; end: string }, lot = "Universal Grocery", dest = "Montréal") {
+  const img = new ImageResponse(<Card code={code} iso={iso} t={t} lot={lot} dest={dest} />, { width: 900, height: 1120, fonts: await loadFonts() });
   return new Uint8Array(await img.arrayBuffer());
 }
 
@@ -141,14 +145,17 @@ Deno.serve(async (req) => {
     }
     if (!b.round_id) return json({ error: "round_id required" }, 400);
     const { data: r } = await admin.from("loadq_raffle_round")
-      .select("id, zone_id, service_date, code, checkin_opens_at, checkin_closes_at, draw_opens_at, draw_at").eq("id", b.round_id).maybeSingle();
+      .select("id, zone_id, service_date, code, destination_region, checkin_opens_at, checkin_closes_at, draw_opens_at, draw_at").eq("id", b.round_id).maybeSingle();
     if (!r || !r.code) return json({ error: "round not found or no code" }, 404);
     const { data: c } = await admin.from("loadq_raffle_config").select("timezone").eq("zone_id", r.zone_id).maybeSingle();
     const tz = c?.timezone ?? "America/Toronto";
+    const { data: z } = await admin.from("zones").select("name").eq("id", r.zone_id).maybeSingle();
+    const lot = shortLot(z?.name ?? r.zone_id);
+    const dest = DEST[r.destination_region ?? ""] ?? (r.destination_region ?? "");
     const closes = hm(r.checkin_closes_at, tz);
     const png = await render(r.code, r.service_date, {
       open: hm(r.checkin_opens_at, tz), closeLast: closes ? minus1(closes) : "",
-      draw: hm(r.draw_opens_at, tz), end: hm(r.draw_at, tz) });
+      draw: hm(r.draw_opens_at, tz), end: hm(r.draw_at, tz) }, lot, dest);
     await upload(`raffle-${r.id}.png`, png);
     await admin.from("loadq_raffle_round").update({ card_at: new Date().toISOString() }).eq("id", r.id);
     return json({ ok: true, round_id: r.id });

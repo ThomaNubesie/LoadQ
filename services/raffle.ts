@@ -1,10 +1,61 @@
 import { supabase } from "./supabase";
+import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // LoadQ morning raffle — fair lottery that replaces the handwritten sign-up sheet.
 // Backend lives in the shared DB (migrations loadq_morning_raffle / loadq_raffle_launch):
 // RPCs loadq_raffle_status / _enter / _result. One zone configured for now; add
 // zones in loadq_raffle_config to expand.
-export const RAFFLE_ZONE = "ottawa-universal-grocery";
+export const RAFFLE_ZONE = "ottawa-universal-grocery";   // fallback when nothing else says which lot
+
+// Every active lot runs its own raffle (loadq_raffle_config rows). The app shows the
+// raffle of the lot the driver is at: the phone's last known fix (no prompt) within
+// 3 km of a lot, else the lot whose line they're in, else the lot they last opened.
+export type RaffleLot = { zone_id: string; name: string; destination: string | null; lat: number; lng: number; test_mode: boolean };
+const LOT_KEY = "raffleLot";
+const DEST: Record<string, string> = { montreal: "Montréal", ottawa: "Ottawa", quebec: "Québec", toronto: "Toronto", gatineau: "Gatineau" };
+export const lotShort = (l: RaffleLot) => l.name.split(" - ")[0].trim();
+export const lotRoute = (l: RaffleLot) => `${lotShort(l)} → ${DEST[l.destination ?? ""] ?? l.destination ?? ""}`;
+
+function metres(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const R = 6371000, r = Math.PI / 180, dLat = (bLat - aLat) * r, dLng = (bLng - aLng) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+export async function raffleLots(): Promise<RaffleLot[]> {
+  const { data, error } = await supabase.rpc("loadq_raffle_lots");
+  return !error && Array.isArray(data) ? (data as RaffleLot[]) : [];
+}
+
+export async function pickRaffleLot(lots?: RaffleLot[]): Promise<string> {
+  const all = lots ?? await raffleLots();
+  if (all.length === 0) return RAFFLE_ZONE;
+  if (all.length === 1) return all[0].zone_id;
+  const has = (z?: string | null) => !!z && all.some((l) => l.zone_id === z);
+  try {
+    const p = await Location.getLastKnownPositionAsync({ maxAge: 30 * 60_000 });
+    if (p) {
+      const near = all.map((l) => ({ l, d: metres(p.coords.latitude, p.coords.longitude, l.lat, l.lng) }))
+                      .sort((a, b) => a.d - b.d)[0];
+      if (near && near.d < 3000) return near.l.zone_id;
+    }
+  } catch { /* no permission / no fix — fall through */ }
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase.from("queue_entries").select("zone_id")
+        .eq("driver_id", user.id).neq("status", "ended").order("joined_at", { ascending: false }).limit(1);
+      if (has(data?.[0]?.zone_id)) return data![0].zone_id;
+    }
+  } catch { /* ignore */ }
+  try { const saved = await AsyncStorage.getItem(LOT_KEY); if (has(saved)) return saved!; } catch { /* ignore */ }
+  return has(RAFFLE_ZONE) ? RAFFLE_ZONE : all[0].zone_id;
+}
+
+export async function rememberRaffleLot(zone: string) {
+  try { await AsyncStorage.setItem(LOT_KEY, zone); } catch { /* ignore */ }
+}
 
 export type RaffleStatus = {
   zone: string;

@@ -15,7 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Dices, MapPin, Clock, ShieldCheck, Lock, Check } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { supabase } from "../../services/supabase";
-import { RaffleAPI, RaffleStatus, RaffleOrderRow } from "../../services/raffle";
+import { RaffleAPI, RaffleStatus, RaffleOrderRow, RaffleLot, RAFFLE_ZONE, raffleLots, pickRaffleLot, rememberRaffleLot, lotRoute, lotShort } from "../../services/raffle";
 import { tryGetUserLocation } from "../../utils/gpsTimeout";
 import { useStrings, TFn } from "../../hooks/useStrings";
 import BottomNav from "../../components/BottomNav";
@@ -59,18 +59,29 @@ export default function Raffle() {
   const [myUid, setMyUid] = useState<string | null>(null);
   const [demo, setDemo] = useState<{ num: number; note: string } | null>(null);
   const spin = useRef(new Animated.Value(0)).current;
+  // Each lot has its own raffle; start on the lot the driver is at.
+  const [lots, setLots] = useState<RaffleLot[]>([]);
+  const [zone, setZone] = useState<string | null>(null);
 
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setMyUid(data.user?.id ?? null)); }, []);
+  useEffect(() => {
+    raffleLots().then(async (ls) => { setLots(ls); setZone(await pickRaffleLot(ls)); }).catch(() => setZone(RAFFLE_ZONE));
+  }, []);
+  const chooseLot = (z: string) => {
+    if (z === zone) return;
+    rememberRaffleLot(z); setZone(z); setBoard([]); setDemo(null); setErr(null); setCode(""); setLoading(true);
+  };
 
   const refresh = useCallback(async () => {
-    const s = await RaffleAPI.status();
+    if (!zone) return;
+    const s = await RaffleAPI.status(zone);
     setSt(s);
     // Live board: numbers appear on the line as they're drawn.
     if (s.round_id && (s.phase === "draw" || s.status === "drawn" || s.already_raffled)) {
       RaffleAPI.result(s.round_id).then((r) => setBoard(r.order ?? [])).catch(() => {});
     }
     setLoading(false);
-  }, []);
+  }, [zone]);
 
   useFocusEffect(useCallback(() => {
     refresh();
@@ -97,7 +108,7 @@ export default function Raffle() {
       if (!loc) { setErr(errMessage(t, "location_required")); setBusy(false); return; }
       lat = loc.coords.latitude; lng = loc.coords.longitude; accuracy = loc.coords.accuracy ?? null;
     }
-    const res = await RaffleAPI.enter({
+    const res = await RaffleAPI.enter({ zone: zone ?? undefined,
       // the code belongs to the draw only — check-in never carries one
       lat, lng, accuracy, code: st?.phase === "checkin" ? "" : code.trim(), deviceId: await deviceId() });
     setBusy(false);
@@ -116,6 +127,7 @@ export default function Raffle() {
   const phase = s.phase ?? "none";
   const drawn = s.status === "drawn";
   const lockAt = hhmm(s.draw_at) || "7:00";
+  const lot = lots.find((l) => l.zone_id === zone);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>
@@ -124,7 +136,21 @@ export default function Raffle() {
           <Dices size={26} color={Colors.accentWarm} strokeWidth={2} />
           <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.t1 }}>{t.raffleTitle}</Text>
         </View>
-        <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: s.test_mode ? 8 : 16 }}>{t("raffleRoute", { time: lockAt })}</Text>
+        {lots.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }} contentContainerStyle={{ gap: 8 }}>
+            {lots.map((l) => {
+              const on = l.zone_id === zone;
+              return (
+                <TouchableOpacity key={l.zone_id} onPress={() => chooseLot(l.zone_id)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5,
+                    borderColor: on ? Colors.accent : Colors.border, backgroundColor: on ? Colors.accent : Colors.card }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: "700", color: on ? Colors.accentText : Colors.t1 }}>{lotShort(l)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+        <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: s.test_mode ? 8 : 16 }}>{t("raffleRoute", { route: lot ? lotRoute(lot) : "", time: lockAt })}</Text>
         {s.test_mode && (
           <View style={{ alignSelf: "flex-start", backgroundColor: Colors.yellow, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 16 }}>
             <Text style={{ fontSize: 11, fontWeight: "800", color: "#20140A" }}>{t.raffleTestMode}</Text>

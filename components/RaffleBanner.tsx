@@ -3,7 +3,7 @@ import { TouchableOpacity, View, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { Dices, ChevronRight } from "lucide-react-native";
 import { Colors } from "../constants/colors";
-import { RaffleAPI, RaffleStatus } from "../services/raffle";
+import { RaffleAPI, RaffleStatus, pickRaffleLot } from "../services/raffle";
 import { useStrings } from "../hooks/useStrings";
 
 // Entry point to the Morning Raffle. Renders NOTHING for a regular driver unless
@@ -18,7 +18,8 @@ export default function RaffleBanner() {
 
   useEffect(() => {
     let alive = true;
-    RaffleAPI.status().then((s) => { if (alive) setStatus(s); }).catch(() => {});
+    // The raffle of the lot the driver is at (every active lot has one).
+    pickRaffleLot().then((z) => RaffleAPI.status(z)).then((s) => { if (alive) setStatus(s); }).catch(() => {});
     return () => { alive = false; };
   }, []);
 

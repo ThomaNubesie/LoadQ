@@ -3,14 +3,14 @@
 // account in loadq_raffle_config.lead_admin_id) also gets the enable/disable toggle,
 // test-mode toggle, and the force-draw button. Every action is enforced server-side
 // (loadq_raffle_* RPCs); the UI just hides the lead-only controls for sub-admins.
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { ArrowLeft, Lock, Dices, ShieldCheck, Shuffle, Clock } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { RaffleAPI, RaffleAdminCtx, RaffleMonitorRow } from "../../services/raffle";
+import { RaffleAPI, RaffleAdminCtx, RaffleMonitorRow, RaffleLot, RAFFLE_ZONE, raffleLots, pickRaffleLot, rememberRaffleLot, lotRoute, lotShort } from "../../services/raffle";
 
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : ""); // 'HH:MM:SS' -> 'HH:MM'
 
@@ -26,12 +26,21 @@ export default function AdminRaffle() {
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const c = await RaffleAPI.adminCtx();
-    setCtx(c);
-    if (c.is_admin && !c.error) setRows(await RaffleAPI.monitor());
-    setLoading(false);
+  // Each lot has its own raffle (own code, own check-ins).
+  const [lots, setLots] = useState<RaffleLot[]>([]);
+  const [zone, setZone] = useState<string | null>(null);
+  useEffect(() => {
+    raffleLots().then(async (ls) => { setLots(ls); setZone(await pickRaffleLot(ls)); }).catch(() => setZone(RAFFLE_ZONE));
   }, []);
+  const chooseLot = (z: string) => { if (z !== zone) { rememberRaffleLot(z); setRows([]); setNewCode(""); setLoading(true); setZone(z); } };
+
+  const load = useCallback(async () => {
+    if (!zone) return;
+    const c = await RaffleAPI.adminCtx(zone);
+    setCtx(c);
+    if (c.is_admin && !c.error) setRows(await RaffleAPI.monitor(zone));
+    setLoading(false);
+  }, [zone]);
 
   useFocusEffect(useCallback(() => {
     load();
@@ -56,7 +65,7 @@ export default function AdminRaffle() {
     const len = ctx?.code_len ?? 4;
     if (!new RegExp(`^[0-9]{${len}}$`).test(newCode.trim())) { Alert.alert(t("raffleAdminBadCode", { n: len })); return; }
     setBusy("code");
-    const r = await RaffleAPI.setCode(newCode.trim());
+    const r = await RaffleAPI.setCode(newCode.trim(), zone ?? undefined);
     setBusy(null);
     if (r.error) Alert.alert(mapErr(r.error)); else { setNewCode(""); showFlash(t.raffleAdminCodeSaved); load(); }
   };
@@ -67,13 +76,13 @@ export default function AdminRaffle() {
   };
   const onToggleEnabled = async (v: boolean) => {
     setBusy("enabled");
-    const r = await RaffleAPI.setEnabled(v);
+    const r = await RaffleAPI.setEnabled(v, zone ?? undefined);
     setBusy(null);
     if (r.error) Alert.alert(mapErr(r.error)); else load();
   };
   const onToggleTest = async (v: boolean) => {
     setBusy("test");
-    const r = await RaffleAPI.setTestMode(v);
+    const r = await RaffleAPI.setTestMode(v, zone ?? undefined);
     setBusy(null);
     if (r.error) Alert.alert(mapErr(r.error)); else load();
   };
@@ -82,7 +91,7 @@ export default function AdminRaffle() {
       { text: t.raffleAdminCancel, style: "cancel" },
       { text: t.raffleAdminDraw, style: "destructive", onPress: async () => {
           setBusy("draw");
-          const r = await RaffleAPI.forceDraw();
+          const r = await RaffleAPI.forceDraw(zone ?? undefined);
           setBusy(null);
           if (r.error) Alert.alert(mapErr(r.error)); else { showFlash(t.raffleAdminDrawDone); load(); }
       } },
@@ -127,8 +136,22 @@ export default function AdminRaffle() {
             <View style={{ backgroundColor: lead ? Colors.accentWarm : Colors.cardAlt, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ fontSize: 11, fontWeight: "800", color: lead ? "#fff" : Colors.t2 }}>{lead ? t.raffleAdminLeadChip : t.raffleAdminAdminChip}</Text>
             </View>
-            <Text style={{ fontSize: 13, color: Colors.t2 }}>Universal Grocery → Montréal</Text>
+            <Text style={{ fontSize: 13, color: Colors.t2 }}>{(() => { const l = lots.find((x) => x.zone_id === zone); return l ? lotRoute(l) : ""; })()}</Text>
           </View>
+          {lots.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }} contentContainerStyle={{ gap: 8 }}>
+              {lots.map((l) => {
+                const on = l.zone_id === zone;
+                return (
+                  <TouchableOpacity key={l.zone_id} onPress={() => chooseLot(l.zone_id)}
+                    style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5,
+                      borderColor: on ? Colors.accent : Colors.border, backgroundColor: on ? Colors.accent : Colors.card }}>
+                    <Text style={{ fontSize: 12.5, fontWeight: "700", color: on ? Colors.accentText : Colors.t1 }}>{lotShort(l)}{l.test_mode ? " · test" : ""}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
           {flash && (
             <View style={{ backgroundColor: "rgba(18,161,80,0.12)", borderRadius: 10, padding: 10, marginBottom: 12 }}>
