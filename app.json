@@ -50,7 +50,7 @@
           "apiKey": "AIzaSyA2x_gB7pqn5_YSjY6frY30GrNXPUEJORg"
         }
       },
-      "versionCode": 70,
+      "versionCode": 71,
       "googleServicesFile": "./google-services.json"
     },
     "plugins": [
