@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LOADQ · Tirage du matin</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/favicon-32.png" />
+  <!-- Landing for the 05:00 / 05:45 raffle texts: opens LoadQ on the raffle screen
+       (loadq://raffle). Texts can't carry a custom-scheme link (iPhone Messages won't
+       make it tappable), so the SMS points here and this page hands off to the app;
+       if LoadQ isn't installed or is out of date, the store buttons take over. -->
+  <style>
+    :root { --bg:#0E1117; --card:#171B24; --ink:#FFFFFF; --mut:#AEB6C4; --brand:#FF8A1A; --line:#2A3040; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+           min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; }
+    .wrap { width:100%; max-width:420px; text-align:center; }
+    .logo { display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:30px; letter-spacing:.5px; }
+    .logo .q { color:var(--brand); }
+    .logo .mark { width:16px; height:25px; background:var(--brand); border-radius:3px 0 0 3px; }
+    h1 { font-size:22px; font-weight:800; margin:26px 0 6px; }
+    .en { color:var(--mut); font-size:15px; }
+    p { color:var(--mut); font-size:15px; line-height:1.45; margin-top:14px; }
+    .btn { display:block; width:100%; margin-top:22px; padding:16px; border-radius:14px; background:var(--brand); color:#14100A;
+           font-weight:800; font-size:17px; text-decoration:none; }
+    .stores { display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+    .stores img { height:44px; width:auto; }
+    .note { font-size:13px; margin-top:22px; color:#7C8697; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">LOAD<span class="q">Q</span><span class="mark"></span></div>
+    <h1>Tirage du matin <span class="en">· Morning raffle</span></h1>
+    <p>Ouverture de LoadQ…<br /><span class="en">Opening LoadQ…</span></p>
+    <a id="open" class="btn" href="loadq://raffle">Ouvrir LoadQ · Open LoadQ</a>
+    <p>Pas d’ouverture ? Installez ou mettez à jour LoadQ, puis ouvrez-la deux fois.<br />
+       <span class="en">Didn’t open? Install or update LoadQ, then open it twice.</span></p>
+    <div class="stores">
+      <a href="https://apps.apple.com/ca/app/id6770652996"><img src="/assets/badge-app-store.png" alt="App Store" /></a>
+      <a href="https://play.google.com/store/apps/details?id=ca.loadq.app"><img src="/assets/badge-google-play.png" alt="Google Play" /></a>
+    </div>
+    <p class="note">Concord Express Co Inc.</p>
+  </div>
+  <script>
+    (function () {
+      var ua = navigator.userAgent || "";
+      var play = "https://play.google.com/store/apps/details?id=ca.loadq.app";
+      // Android: an intent URL opens LoadQ if installed, else Google Play — no dead end.
+      var target = /Android/i.test(ua)
+        ? "intent://raffle#Intent;scheme=loadq;package=ca.loadq.app;S.browser_fallback_url=" + encodeURIComponent(play) + ";end"
+        : "loadq://raffle";
+      document.getElementById("open").setAttribute("href", target);
+      setTimeout(function () { window.location.href = target; }, 150);
+    })();
+  </script>
+</body>
+</html>
