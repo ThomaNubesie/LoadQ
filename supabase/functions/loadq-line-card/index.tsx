@@ -24,7 +24,7 @@ const NAVY = "#0A101C", CARD2 = "#17223A", INK = "#ECF2FA", MUT = "#96A4BA", SUB
       BRAND = "#FF8A1A", BLUE = "#3B82F6", GREEN = "#26C878", WHITE = "#FFFFFF";
 const MF = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 const DEST: Record<string, string> = { montreal: "Montréal", ottawa: "Ottawa", quebec: "Québec", toronto: "Toronto", gatineau: "Gatineau" };
-const first = (n?: string | null) => (n ?? "").trim().split(/\s+/)[0] || "—";
+const first = (n?: string | null) => { const f = (n ?? "").trim().split(/\s+/)[0]; return f ? f[0].toUpperCase() + f.slice(1).toLowerCase() : "—"; };
 const cap = (s?: string | null) => (s ?? "").trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 
 let fonts: any[] | null = null;
@@ -59,15 +59,15 @@ function Card({ rows, me, dateFr, lot, dest, height }: { rows: Row[]; me: string
   return (
     <div style={{ display: "flex", flexDirection: "column", width: 750, height, backgroundColor: NAVY, fontFamily: "Inter", padding: "40px 34px 30px" }}>
       <Logo size={34} />
-      <div style={{ display: "flex", fontSize: 19, fontWeight: 700, color: WHITE, marginTop: 14 }}>{`File du ${dateFr}`}</div>
-      <div style={{ display: "flex", alignItems: "center", fontSize: 14, color: MUT, marginTop: 8 }}>{lot}<Arrow />{dest}</div>
-      <div style={{ display: "flex", fontSize: 12.5, color: MUT, marginTop: 8 }}>{`${rows.length} voiture${rows.length > 1 ? "s" : ""} · ${seats} places`}</div>
+      <div style={{ display: "flex", flexShrink: 0, fontSize: 19, fontWeight: 700, color: WHITE, marginTop: 14 }}>{`File du ${dateFr}`}</div>
+      <div style={{ display: "flex", flexShrink: 0, alignItems: "center", fontSize: 14, color: MUT, marginTop: 8 }}>{lot}<Arrow />{dest}</div>
+      <div style={{ display: "flex", flexShrink: 0, fontSize: 12.5, color: MUT, marginTop: 8 }}>{`${rows.length} voiture${rows.length > 1 ? "s" : ""} · ${seats} places`}</div>
       <div style={{ display: "flex", width: 124, height: 4, borderRadius: 2, backgroundColor: BRAND, marginTop: 14, marginBottom: 34 }} />
       {rows.map((r) => {
         const mine = r.driver_id === me;
         const boxBg = mine ? BLUE : r.loading ? BRAND : NAVY;
         return (
-          <div key={r.driver_id} style={{ display: "flex", alignItems: "center", backgroundColor: CARD2, borderRadius: 10, marginBottom: 10,
+          <div key={r.driver_id} style={{ display: "flex", flexShrink: 0, alignItems: "center", backgroundColor: CARD2, borderRadius: 10, marginBottom: 10,
             border: mine ? `2px solid ${BRAND}` : `1px solid ${LINE}`, padding: "13px 14px" }}>
             <div style={{ display: "flex", width: 40, height: 40, borderRadius: 7, backgroundColor: boxBg, border: `1px solid ${LINE}`,
               alignItems: "center", justifyContent: "center", fontSize: 19, fontWeight: 900, color: WHITE }}>{String(r.pos)}</div>
@@ -89,7 +89,7 @@ function Card({ rows, me, dateFr, lot, dest, height }: { rows: Row[]; me: string
 }
 
 async function render(rows: Row[], me: string, dateFr: string, lot: string, dest: string) {
-  const height = 290 + rows.length * 77;
+  const height = 320 + rows.length * 82;   // generous: a short canvas squashes the header
   const img = new ImageResponse(<Card rows={rows} me={me} dateFr={dateFr} lot={lot} dest={dest} height={height} />, { width: 750, height, fonts: await loadFonts() });
   return new Uint8Array(await img.arrayBuffer());
 }
@@ -137,8 +137,36 @@ Deno.serve(async (req) => {
       seats: e.vehicles?.seats ?? 0, loading: e.status === "loading" }));
 
     if (b.preview) {
-      const url = await upload("line-preview.png", await render(rows, b.driver_id ?? "", dateFr, lot, dest));
-      return json({ ok: true, preview: url, rows: rows.length });
+      // sample: a realistic line built from the last drivers who loaded at this lot, with
+      // b.driver_id placed at #3 — so a test card looks like a real morning.
+      let view = rows;
+      if (b.sample) {
+        const { data: hist } = await admin.from("loading_history").select("driver_id, vehicle_id")
+          .eq("zone_id", r.zone_id).not("vehicle_id", "is", null).order("ended_at", { ascending: false }).limit(80);
+        const seen = new Set<string>([b.driver_id]); const picks: any[] = [];
+        for (const h of (hist ?? []) as any[]) { if (!seen.has(h.driver_id)) { seen.add(h.driver_id); picks.push(h); } if (picks.length >= 7) break; }
+        const { data: ds } = await admin.from("drivers").select("id, full_name").in("id", picks.map((p) => p.driver_id));
+        const { data: vs } = await admin.from("vehicles").select("id, color, make, model, seats").in("id", picks.map((p) => p.vehicle_id));
+        const pool = picks.map((p) => ({ driver_id: p.driver_id,
+          drivers: (ds ?? []).find((d: any) => d.id === p.driver_id), vehicles: (vs ?? []).find((v: any) => v.id === p.vehicle_id) }));
+        const { data: me } = await admin.from("drivers").select("full_name").eq("id", b.driver_id).maybeSingle();
+        const { data: myv } = await admin.from("vehicles").select("color, make, model, seats, is_active").eq("driver_id", b.driver_id);
+        const mv = (myv ?? []).find((v: any) => v.is_active) ?? (myv ?? [])[0] ?? {};
+        const mk = (id: string, n: string, v: any) => ({ driver_id: id, name: first(n),
+          car: [cap(v?.color), cap(v?.make), v?.model].filter(Boolean).join(" "), seats: v?.seats ?? 0 });
+        const list = pool.map((h) => mk(h.driver_id, h.drivers?.full_name, h.vehicles));
+        list.splice(2, 0, mk(b.driver_id, (me as any)?.full_name, mv));
+        view = list.map((x, i) => ({ ...x, pos: i + 1, loading: i === 0 }));
+      }
+      const url = await upload("line-preview.png", await render(view, b.driver_id ?? "", dateFr, lot, dest));
+      let sid = null;
+      if (b.send_to) {
+        const fn = view.find((x) => x.driver_id === b.driver_id)?.name ?? "";
+        const body = `TEST - LoadQ - File du ${dateFr}. Bonjour ${fn}, voici votre position d'aujourd'hui ` +
+          `dans la file (${lot} -> ${dest}). Votre voiture est surlignee en orange. Bon voyage ! - Concord Express Co Inc.`;
+        sid = await mms(String(b.send_to), body, url + "?v=" + Date.now());
+      }
+      return json({ ok: true, preview: url, rows: view.length, sent: sid });
     }
     if (c?.test_mode) return json({ ok: true, skipped: "test_mode" });
     if (r.status !== "drawn") return json({ ok: true, skipped: "not_closed" });
@@ -149,10 +177,11 @@ Deno.serve(async (req) => {
     if (!claimed?.length) return json({ ok: true, skipped: "already_sent" });
 
     const { data: drawn } = await admin.from("loadq_raffle_entry")
-      .select("driver_id, assigned_number, drivers(phone)").eq("round_id", r.id).not("assigned_number", "is", null);
+      .select("driver_id, assigned_number").eq("round_id", r.id).not("assigned_number", "is", null);
+    const { data: phones } = await admin.from("drivers").select("id, phone").in("id", (drawn ?? []).map((e: any) => e.driver_id));
     let sent = 0;
     for (const e of (drawn ?? []) as any[]) {
-      const phone = e.drivers?.phone; if (!phone) continue;
+      const phone = (phones ?? []).find((p: any) => p.id === e.driver_id)?.phone; if (!phone) continue;
       const url = await upload(`line-${r.id}-${e.driver_id}.png`, await render(rows, e.driver_id, dateFr, lot, dest));
       // Same wording as the MacBook's loadq_send_line_mms.py (approved), legal name in the sign-off.
       const fn = rows.find((x) => x.driver_id === e.driver_id)?.name ?? "";
