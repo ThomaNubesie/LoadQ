@@ -48,7 +48,7 @@ const OTHER_LOADER_MIN = 180;                  // everyone else: 3h
 const PRESENCE_FRESH_MS = 10 * MIN_MS;         // GPS fix must be this fresh
 // Leave-the-zone rules (GPS zones only; inert while a zone is manual_queue = true).
 const LOADER_GRACE_MS   = 3 * MIN_MS;          // the LOADER who leaves gets ~3 min (GPS jitter), then is REMOVED — they forfeit their turn
-const DEPART_KM         = 10;                  // a FRESH fix ≥10 km from the zone means they have left
+const DEPART_KM         = 100;                 // a FRESH fix ≥100 km from the zone means they have left
 // Manual-order zones (manual_queue) keep the order the operator set on paper and
 // ignore GPS for promotion — but a driver who demonstrably drove away should still
 // free the slot. departedByGps() is the only removal path used there, and it acts on
