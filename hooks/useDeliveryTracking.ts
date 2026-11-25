@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { AppState } from "react-native";
 import { startBackgroundTracking, stopBackgroundTracking } from "../services/backgroundLocation";
+import { RaffleAPI } from "../services/raffle";
 import { KolisAPI } from "../services/kolis";
 import { QueueAPI } from "../services/queue";
 
@@ -16,14 +17,22 @@ import { QueueAPI } from "../services/queue";
 export function useDeliveryTracking() {
   const reconcile = useCallback(async () => {
     try {
-      const [carry, entry] = await Promise.all([
+      const [carry, entry, raffle] = await Promise.all([
         KolisAPI.carrying().catch(() => []),
         QueueAPI.getMyEntry().catch(() => null),
+        RaffleAPI.status().catch(() => null),
       ]);
       // LoadQ owns tracking for parcels accepted here (accepted_via 'loadq' or
       // legacy null); 'kolis'-accepted parcels are tracked by the Kolis app.
       const carryingHere = (carry ?? []).some((p) => p.accepted_via !== "kolis");
-      const shouldTrack = carryingHere || !!entry;
+      // A driver who has checked into the morning raffle is at the lot and intends to
+      // drive, but holds no queue entry until the draw (or until dispatch posts the
+      // line). Without this they open the app at 05:2x, we decide not to track, they
+      // pocket the phone — and nothing reports for the rest of the morning. That is
+      // why a driver could leave without tapping Depart and still show a months-old
+      // fix (Fabio, 2026-11-25). Bounded by the round phase, so it stops at close.
+      const inRaffleWindow = !!raffle?.checked_in && raffle?.phase !== "closed" && raffle?.phase !== "none";
+      const shouldTrack = carryingHere || !!entry || inRaffleWindow;
       if (shouldTrack) await startBackgroundTracking();
       else await stopBackgroundTracking();
     } catch {
