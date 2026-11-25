@@ -48,7 +48,13 @@ const OTHER_LOADER_MIN = 180;                  // everyone else: 3h
 const PRESENCE_FRESH_MS = 10 * MIN_MS;         // GPS fix must be this fresh
 // Leave-the-zone rules (GPS zones only; inert while a zone is manual_queue = true).
 const LOADER_GRACE_MS   = 3 * MIN_MS;          // the LOADER who leaves gets ~3 min (GPS jitter), then is REMOVED — they forfeit their turn
-const DEPART_KM         = 100;                 // anyone ≥100 km from the zone is removed from the line entirely
+const DEPART_KM         = 10;                  // a FRESH fix ≥10 km from the zone means they have left
+// Manual-order zones (manual_queue) keep the order the operator set on paper and
+// ignore GPS for promotion — but a driver who demonstrably drove away should still
+// free the slot. departedByGps() is the only removal path used there, and it acts on
+// POSITIVE evidence: a fresh fix, far away. A missing or stale fix never removes
+// anyone — on 2026-11-25 only 2 of 81 drivers had a fix under 10 minutes old, so
+// "no fix" must never be read as "absent".
 
 // Time-up escalation: nudge cadence and how many nudges before release.
 const NUDGE_GAP_MS = 10 * MIN_MS;
@@ -180,14 +186,21 @@ function presentInZone(loc: DriverLoc | null, zone: ZoneRow | undefined, now: Da
   return haversineM(loc.current_lat, loc.current_lng, zone.latitude, zone.longitude) <= radius;
 }
 
-// Distance (km) from the driver's fresh GPS to the zone centre, or null when the
-// fix is missing/stale or the zone is manual-order (no GPS gating there).
+// Distance (km) from the driver's fresh GPS to the zone centre, or null when the fix
+// is missing or stale. Computed for manual-order zones too: they ignore GPS for ORDER,
+// but still use it to notice a driver who has physically left.
 function distanceKm(loc: DriverLoc | null, zone: ZoneRow | undefined, now: Date): number | null {
-  if (zone && zone.manual_queue) return null;
   if (!loc || loc.current_lat == null || loc.current_lng == null || !loc.location_at) return null;
   if (!zone || zone.latitude == null || zone.longitude == null) return null;
   if (now.getTime() - new Date(loc.location_at).getTime() > PRESENCE_FRESH_MS) return null;
   return haversineM(loc.current_lat, loc.current_lng, zone.latitude, zone.longitude) / 1000;
+}
+
+// Has this driver demonstrably left? Only with a FRESH fix at/beyond DEPART_KM, so a
+// stale or missing fix never removes a driver who is standing at the lot.
+function departedByGps(loc: DriverLoc | null, zone: ZoneRow | undefined, now: Date): boolean {
+  const km = distanceKm(loc, zone, now);
+  return km != null && km >= DEPART_KM;
 }
 
 // Notify the passengers who claimed a seat on this loading driver (and haven't
@@ -272,6 +285,34 @@ Deno.serve(async () => {
         .eq("id", e.id);
       affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
       continue;
+    }
+
+    // ── Left the lot (manual-order zones) ────────────────────────────────────
+    // Sits OUTSIDE the presence gate below: presentInZone() always returns true on a
+    // manual zone, so a check inside it would never run. Requires the driver to have
+    // held the loading slot for LOADER_GRACE_MS first — otherwise a driver promoted
+    // while still driving in would be removed before they ever arrived.
+    if (!zoneClosed && zone?.manual_queue && !zone?.auto_pause_depart) {
+      const heldMs = e.load_start_at ? now.getTime() - new Date(e.load_start_at).getTime() : 0;
+      if (heldMs >= LOADER_GRACE_MS && departedByGps(e.drivers, zone, now)) {
+        affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
+        await supabase.from("loading_history").insert({
+          driver_id: e.driver_id, zone_id: e.zone_id, destination_region: e.destination_region,
+          vehicle_id: e.vehicle_id, load_start_at: e.load_start_at,
+          ended_at: now.toISOString(), end_reason: "departed_absent", seats_filled: e.seats_boarded ?? 0,
+        });
+        const { error: depErr } = await supabase.from("queue_entries")
+          .update({ status: "ended", end_reason: "departed_absent" }).eq("id", e.id);
+        if (!depErr) {
+          removed.push(e.id);
+          await recordAndQueue(supabase, e.driver_id, "departed_absent",
+            `departed:${e.id}:${day}`,
+            "Retiré de la file / Removed from the line",
+            "Vous avez quitté le stationnement — votre tour est terminé. / You left the lot — your turn has ended.",
+            pushQueue);
+        }
+        continue;
+      }
     }
 
     // ── Presence grace (Q2): a loader who leaves the zone gets a 10-min grace,
@@ -522,10 +563,10 @@ Deno.serve(async () => {
       }
       continue;
     }
-    // Still away → remove ONLY once ≥100 km from the zone. Enabled zones only.
-    if (!zone?.auto_pause_depart) continue;
-    const distKm = distanceKm(s.drivers, zone, now);
-    if (distKm != null && distKm >= DEPART_KM) {
+    // Still away → remove once a FRESH fix puts them ≥DEPART_KM out. Manual-order
+    // zones included: the order stays manual, but a driver who drove off frees the slot.
+    if (!zone?.auto_pause_depart && !zone?.manual_queue) continue;
+    if (departedByGps(s.drivers, zone, now)) {
       await supabase.from("loading_history").insert({
         driver_id: s.driver_id, zone_id: s.zone_id, destination_region: s.destination_region,
         vehicle_id: s.vehicle_id, load_start_at: s.load_start_at,
